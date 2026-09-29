@@ -7,7 +7,7 @@ Last updated: 2026-09-29
 
 **Phase 1 — MVP Skeleton / Parallel Build**
 
-Phase 0 is complete. The shared Phase 1 foundation has been implemented, verified in GitHub Actions, and merged to `main`.
+Phase 0 is complete. Xpen's shared foundation and mock Mission Control track are implemented, verified in GitHub Actions, and merged to `main`.
 
 ## Event target
 
@@ -47,26 +47,17 @@ Complete:
 - [x] Evaluation plan
 - [x] Hackathon positioning
 - [x] Active decisions
-- [x] Root AGENTS.md
-- [x] Root PROJECT_STATE.md
+- [x] root AGENTS.md
+- [x] root PROJECT_STATE.md
 - [x] teammate-specific Codex prompts
 
-## Phase 1 verified foundation
+## Phase 1A/1B — Shared foundation
 
-PR #1 — **Phase 1A/1B: shared SABI foundation** — merged.
-
-Verified by GitHub Actions:
-
-- [x] dependency install
-- [x] TypeScript typecheck
-- [x] Vitest tests
-- [x] Next.js production build
+PR #1 merged and verified.
 
 Implemented:
 
 - [x] Next.js + TypeScript application scaffold
-- [x] Home mission-input shell
-- [x] Mission Control route shell
 - [x] canonical Zod schemas
 - [x] Mission
 - [x] Provider
@@ -77,21 +68,63 @@ Implemented:
 - [x] deterministic mission state machine
 - [x] provider-neutral communication adapter contract
 - [x] mock communication adapter
-- [x] focused schema/state/communication tests
+- [x] schema/state/communication tests
 - [x] GitHub CI workflow
 
-## Parallel work is now authorized
+## Phase 1C/1D — Xpen orchestration + Mission Control
 
-The shared-contract gate has passed.
+PR #2 merged and verified.
+
+Implemented:
+
+- [x] deterministic Phase 1 mission parser for the canonical demo flow
+- [x] mock mission orchestration through AWAITING_APPROVAL
+- [x] explicitly labelled temporary provider/quote fixtures
+- [x] MissionSnapshot orchestration contract
+- [x] Home → Mission Control flow
+- [x] structured mission summary
+- [x] Mission Control timeline based on real stored step objects
+- [x] provider response cards
+- [x] temporary recommendation display
+- [x] human approval UI
+- [x] approval path explicitly performs no transaction
+- [x] POST /api/missions Phase 1 contract
+- [x] POST /api/missions/:id/approval Phase 1 contract
+- [x] parser/orchestration/approval tests
+- [x] responsive demo styling
+
+Important: current provider responses and recommendation logic are clearly marked as **Phase 1 mock fixtures**. They are integration scaffolding and must be replaced by Femi/Lara modules rather than presented as live provider results.
+
+## CI status
+
+Latest Xpen track verified:
+
+- [x] dependency install
+- [x] TypeScript typecheck
+- [x] Vitest tests
+- [x] Next.js production build
+- [x] push CI
+- [x] pull-request CI
+
+## Parallel work is active
 
 ### Xpen — Product & Integration
 
-Current work:
+Completed:
 
+- Phase 1A — scaffold
+- Phase 1B — shared contracts
 - Phase 1C — mock mission engine
-- Phase 1D — Mission Control UI
-- API/route glue
-- overall integration
+- Phase 1D — Mission Control / approval shell
+
+Current responsibility:
+
+- keep integration surfaces stable
+- review incoming Femi/Lara work
+- replace temporary fixtures with teammate modules
+- connect the first full integrated mock loop
+- preserve human-approval/truthfulness UX
+- prepare final demo integration
 
 ### Femi — Intelligence, Data & Knowledge
 
@@ -103,7 +136,7 @@ Use:
 
 `Knowledge/Technical/CODEX_FEMI_INTELLIGENCE_PROMPT.md`
 
-Current track:
+Track:
 
 - F1 demo data
 - F2 hard constraints
@@ -112,6 +145,8 @@ Current track:
 - F5 knowledge/retrieval
 - F6 recommendation output
 - F7 evaluation
+
+Femi's implementation should replace the temporary Xpen fixture/recommendation layer rather than create a second product architecture.
 
 ### Lara — Agent Tools & Communication
 
@@ -123,7 +158,7 @@ Use:
 
 `Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
 
-Current track:
+Track:
 
 - L1 tool layer
 - L2 communication adapter
@@ -133,6 +168,8 @@ Current track:
 - L6 verified partner integration
 - L7 language/speech
 - L8 observability
+
+Lara's implementation should replace/extend the existing mock communication boundary rather than bypass Mission state or shared schemas.
 
 ## Not yet activated
 
@@ -161,12 +198,14 @@ Current track:
 
 ## Next integration gate
 
-Before adding nonessential features, the three branches must combine into:
+The next meaningful checkpoint is **not another standalone Xpen feature**.
+
+Femi and Lara complete their first integration-ready slices, then Xpen integrates them into:
 
 ```text
 request
 → validated mission
-→ providers
+→ provider discovery
 → provider contact
 → structured quote
 → filtering/comparison
@@ -174,4 +213,6 @@ request
 → human approval
 ```
 
-The first complete mock end-to-end path must work before real partner adapters replace mock communication.
+The temporary Xpen provider/quote/recommendation fixtures are removed or bypassed as the real teammate-owned modules become available.
+
+Only after the complete mock loop is integrated and stable should the team replace the communication mock with verified partner APIs.
