@@ -7,9 +7,31 @@ on:
       - "xpen/**"
       - "femi/**"
       - "lara/**"
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "next.config.mjs"
+      - ".eslintrc.json"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches:
       - main
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "tests/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "next.config.mjs"
+      - ".eslintrc.json"
+      - ".github/workflows/ci.yml"
 
 jobs:
   verify:
