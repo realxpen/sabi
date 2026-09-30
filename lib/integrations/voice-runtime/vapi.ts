@@ -20,9 +20,9 @@ export type VapiRuntimeConfiguration = z.infer<
   typeof vapiRuntimeConfigurationSchema
 >;
 
-export type VapiRuntimeEnvironment = Partial<
-  Record<(typeof requiredVapiConfigurationKeys)[number], string>
->;
+export type VapiRuntimeEnvironment = {
+  [key: string]: string | undefined;
+};
 
 export type VapiRuntimeVerification = {
   assistantId: string;
