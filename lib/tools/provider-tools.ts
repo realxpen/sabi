@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { providerSchema, type Provider } from "../schemas";
+import { providerSchema, type Provider, type CommunicationResult } from "../schemas";
+import { MockCommunicationAdapter } from "../integrations/communication/mock";
+import type { ContactProviderInput, CommunicationAdapter } from "../integrations/communication/types";
 import { temporaryDemoProviders } from "../demo/temporary-scenario";
 
 export const searchProvidersInputSchema = z.object({
@@ -100,4 +102,45 @@ export function getProvider(providerId: string): Provider | undefined {
   );
 
   return provider ? providerSchema.parse(provider) : undefined;
+}
+
+
+export const callProviderInputSchema = z.object({
+  missionId: z.string().trim().min(1),
+  providerId: z.string().trim().min(1),
+  objective: z.string().trim().min(1)
+});
+
+export type CallProviderInput = z.infer<typeof callProviderInputSchema>;
+
+/**
+ * Bounded provider contact tool.
+ *
+ * Phase 1 uses the existing mock communication adapter, so this does not
+ * place a real call. The adapter boundary is kept explicit so a verified
+ * live communication adapter can be supplied later without changing the
+ * tool contract.
+ */
+export async function callProvider(
+  input: CallProviderInput,
+  adapter: CommunicationAdapter = new MockCommunicationAdapter()
+): Promise<CommunicationResult> {
+  const contact = callProviderInputSchema.parse(input);
+  const provider = getProvider(contact.providerId);
+
+  if (!provider) {
+    throw new Error(`Provider not found: ${contact.providerId}`);
+  }
+
+  if (!provider.active) {
+    throw new Error(`Provider is inactive: ${contact.providerId}`);
+  }
+
+  const contactInput: ContactProviderInput = {
+    missionId: contact.missionId,
+    providerId: contact.providerId,
+    objective: contact.objective
+  };
+
+  return adapter.initiateContact(contactInput);
 }
