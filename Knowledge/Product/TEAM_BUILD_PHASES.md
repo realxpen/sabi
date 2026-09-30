@@ -1,170 +1,166 @@
 # Three-Person Vibe-Coding Build Phases
 
 Status: ACTIVE PLAN
+Last updated: 2026-09-30
 Team: Xpen, Femi, Lara
 
-## Key rule
+## Current state
 
-The team should not wait for Xpen to finish the whole application.
+The shared contracts, mock mission engine, Mission Control, integration research, and partner-stack decisions are already on `main`.
 
-The synchronization point is:
+All three workstreams now run in parallel from the current main checkpoint.
 
-**Shared schemas + mission state machine + adapter contracts are merged.**
+## Branches
 
-Once that exists, all three people build in parallel.
+- `xpen/mvp-shell`
+- `femi/intelligence`
+- `lara/agent-tools`
 
-## Before the official build window
+Always pull/rebase latest `main` before coding.
 
-The exact event rule on pre-built implementation still needs confirmation, so separate preparation from competition coding.
+## Shared rule
 
-All three can start preparation immediately.
-
-### Xpen
-
-- maintain product source and architecture
-- prepare UI references/wireframes
-- prepare Codex prompts
-- verify repo/branch workflow
-- prepare demo script
-
-### Femi
-
-- read Product + Technical knowledge
-- prepare provider demo dataset design
-- prepare mission extraction examples
-- prepare matching rules
-- prepare evaluation cases
-- understand LLM knowledge/retrieval architecture
-- explore how BimpeAI knowledge/context may map to SABI once access is available
-
-### Lara
-
-- read architecture + integration contracts
-- research partner documentation/access when available
-- map call lifecycle
-- map webhook lifecycle
-- define communication failure cases
-- prepare tool input/output examples
-- test/understand KrosAI, Temlio, YarnGPT, and Spitch capabilities when access permits
-
-If organizers require product code to be written during the event, stop at documentation, research, prompts, wireframes, schemas-on-paper, and API understanding before the build window.
-
-## BUILD PHASE A — Shared foundation
-
-Primary owner: Xpen.
-
-Compressed target: first 15–25 minutes.
-
-Tasks:
-
-- scaffold app
-- implement shared schemas
-- implement mission states
-- create adapter interfaces
-- create demo data contract
-- ensure app runs
-
-Femi and Lara do not sit idle:
-
-- Femi finalizes test cases, sample data, ranking logic, and retrieval chunks.
-- Lara verifies credentials/docs, maps partner payloads, and prepares integration prompts.
-
-### Gate A
-
-When these contracts exist and compile:
+No teammate or coding agent may silently change:
 
 - Mission
 - Provider
 - Quote
-- MissionStep
-- Approval
 - CommunicationResult
-- communication adapter interface
+- Mission states
+- Approval semantics
+- shared tool/adapter contracts
 
-Xpen pushes/merges the foundation.
+If one must change, stop, explain why, agree as a team, update ACTIVE knowledge/decisions, then implement.
 
-**This is when Femi and Lara start coding.**
+# Xpen — Product & Integration
 
-## BUILD PHASE B — Three parallel workstreams
+## X1 — Integration shell (current)
 
-### Xpen — Experience + orchestration shell
+Own:
 
-Branch: xpen/mvp-shell
-
-Build:
-
-- Home / mission input
 - Mission Control
-- mission summary
-- real timeline rendering
-- result cards
-- approval UI
-- API/route glue
+- route/API glue
 - integration visibility
-- visual polish
+- human-approval UX
+- overall state coherence
+- temporary fixture removal as teammate modules land
 
-### Femi — Intelligence + data + LLM knowledge
+## X2 — First integrated mock loop
 
-Branch: femi/intelligence
+Integrate Femi + Lara modules into:
 
-#### F1 — Demo data
+```text
+request
+→ validated Mission
+→ provider discovery
+→ communication action
+→ structured observation/Quote
+→ filtering/ranking
+→ recommendation
+→ human approval
+```
 
-Create 5–8 fictional providers with capabilities, location, demo verification/reliability, and test scenarios.
+Do not move to live partner calls until this loop is stable.
 
-#### F2 — Hard constraints
+## X3 — BimpeAI orchestration integration
 
-Implement deterministic filtering:
+Coordinate the Bimpe layer with the backend:
 
-- item/service match
-- availability
-- quantity
-- deadline
-- hard budget
+- create/select workflow + agent
+- add curated Knowledge Base entries
+- configure SABI Custom API integration
+- register only bounded SABI tools
+- preserve SABI as system of record
+- use REST/native server `fetch` first under Node 20
 
-#### F3 — Soft ranking
+Xpen gate: Bimpe can reason with relevant knowledge and invoke at least one safe SABI tool without bypassing Mission/Approval contracts.
 
-Rank only qualifying providers/quotes using explainable factors such as price, verification, reliability, location, and rating.
+## X4 — Final integration/demo hardening
 
-Return explanation-ready reasons, not only a score.
+Own the final golden path, visual truthfulness, demo choreography, and freeze decision.
 
-#### F4 — Quote intelligence
+# Femi — Intelligence, Data & Knowledge
 
-Validate and normalize quote data.
+Branch: `femi/intelligence`
 
-Never invent missing values.
+Use `Knowledge/Technical/CODEX_FEMI_INTELLIGENCE_PROMPT.md`.
 
-#### F5 — Knowledge/retrieval
+## F1 — Demo/provider data
 
-Implement the minimal retrieval seam:
+Create/test fictional provider data and quote scenarios against shared schemas.
 
-- curated MVP knowledge chunks
-- relevant-chunk retrieval
+## F2 — Hard constraints
+
+Filter by item/service match, availability, quantity, deadline, hard budget, and any explicit user constraint.
+
+Return structured exclusion reasons.
+
+## F3 — Soft ranking
+
+Rank only qualifying candidates with transparent factors such as price, verification, reliability, location and rating.
+
+Return explanation-ready reasons, not only scores.
+
+## F4 — Quote intelligence
+
+Normalize factual provider observations to Quote. Unknown values remain unknown.
+
+Transcript/tool output is evidence, not automatically a valid Quote.
+
+## F5 — Knowledge/retrieval
+
+Implement the SABI runtime retrieval seam:
+
+- curated knowledge chunks
 - source IDs
-- context assembler interface
+- relevant retrieval
+- context assembler
 
-Keep knowledge separate from live provider data.
+Separate durable knowledge from operational facts.
 
-#### F6 — Evaluation
+## F6 — Bimpe Knowledge mapping
 
-Test:
+Prepare the curated material that belongs in the Bimpe Knowledge Base:
+
+- trust policy
+- approval policy
+- procurement rules
+- provider communication rules
+- category guidance
+
+Do **not** put today's price/availability/call outcome into Bimpe KB.
+
+## F7 — Evaluation
+
+Required cases:
 
 - happy path
 - deadline conflict
 - over-budget options
 - missing data
-- no-answer provider
+- no-answer
 - all providers invalid
 - irrelevant knowledge retrieval
+- transcript missing required quote fields
+- deterministic recommendation
 
-Femi gate: given structured quotes + a mission, his module returns valid candidates, recommendation factors, and relevant context.
+Femi gate: Mission + validated Quotes + relevant Knowledge returns correct qualifying options, explanation factors, and no invented data.
 
-### Lara — Tools + communications + agent workflow
+# Lara — Agent Tools & Communication
 
-Branch: lara/agent-tools
+Branch: `lara/agent-tools`
 
-#### L1 — Tool layer
+Use:
 
-Prepare/implement:
+- `Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
+- `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+- `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
+- `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
+- `Raw/PartnerDocs/SOURCE_LINKS.md`
+
+## L1 — Tool layer
+
+Implement/maintain bounded tools:
 
 - searchProviders
 - getProvider
@@ -173,130 +169,156 @@ Prepare/implement:
 - recordQuote
 - requestApproval
 
-Tools must use shared schemas.
+## L2 — Communication adapter
 
-#### L2 — Communication adapter
+Keep provider-neutral lifecycle and deterministic mocks.
 
-Implement mock adapter first if real credentials are unavailable.
+## L3 — Event normalization
+
+```text
+partner payload
+→ validation/auth
+→ correlation resolution
+→ CommunicationResult
+→ controlled Mission transition
+```
+
+## L4 — Kros webhook boundary
+
+Implement raw-body signature verification, event-ID idempotency, correlation, centralized event mapping, and truthful status transitions.
+
+Kros official docs currently contain multiple event-name/path variants; do not guess outside the adapter.
+
+## L5 — Failure/recovery
 
 Handle:
 
-- initiated
-- completed
 - no answer
-- unavailable
-- failed
-
-#### L3 — Mission event handling
-
-Map:
-
-external event → validation → normalized observation → mission/provider resolution → quote/update → state transition
-
-#### L4 — Partner integration
-
-Once verified access exists, implement the chosen real communication path behind the adapter.
-
-Do not spread partner-specific code through the domain layer.
-
-#### L5 — Webhooks/recovery
-
-Handle:
-
-- duplicate event
-- malformed event
-- missing provider/mission mapping
-- call failure
+- busy
 - delayed response
+- malformed event
+- duplicate event
+- unknown external ID
+- provider/network failure
+- incomplete transcript/result
 
-#### L6 — African-language/speech layer
+No failed call may create a fabricated Quote.
 
-Only add YarnGPT/Spitch after the base communication loop works.
+## L6 — Real KrosAI transport
 
-Lara gate: a provider contact action produces a truthful structured communication result the main app can consume.
+Order:
 
-## BUILD PHASE C — First integration
+1. account/KYC/key/number
+2. confirm live REST route in API Explorer/minimal request
+3. create/attach one endpoint
+4. one consented test call
+5. capture external call ID/lifecycle
+6. receive/verify webhook
+7. correlate mission/provider/communication
+8. obtain transcript/result
+9. normalize to CommunicationResult
 
-All three together.
+L6 gate: one real consented call flows through the same adapter contract used by mocks.
 
-Merge in this order:
+## L7 — Voice runtime
 
-1. stable foundation
-2. Femi intelligence/data
-3. Lara communication/tools
-4. Xpen Mission Control glue
+Try Vapi first using the documented Kros SIP/BYO path.
 
-Required result:
+If Vapi is not reliable quickly:
 
-request → mission → providers → contact → quote → compare → recommendation → approval
+1. Retell
+2. ElevenLabs
 
-No feature additions until this works.
+Use one runtime in the golden path.
 
-## BUILD PHASE D — Real partner swap
+## L8 — Multilingual enhancement
 
-Only after mock end-to-end works.
+Only after L6/L7 are stable.
 
-- Lara replaces the mock communication adapter with the best verified partner integration.
-- Femi ensures incoming responses normalize correctly.
-- Xpen ensures Mission Control displays real state.
+Preferred advanced path:
 
-The domain layer should not need a rewrite.
+```text
+KrosAI → LiveKit → Spitch STT/TTS → SABI/Bimpe tools
+```
 
-## BUILD PHASE E — Knowledge/LLM activation
+Add one useful language first (for example Nigerian Pidgin or Yoruba), not many.
 
-Femi leads.
+YarnGPT remains optional for TTS/translation/streaming synthesis/post-call STT.
 
-Connect the agent to:
+## L9 — Temlio fallback
 
-- current mission
-- relevant retrieved knowledge
-- current provider/quote facts
-- permission state
-- latest tool observations
+Only if detailed partner docs/access arrive.
 
-Do not dump the full Knowledge folder into every prompt.
+Preferred first use:
 
-## BUILD PHASE F — Demo hardening
+```text
+Kros no_answer / busy / failed
+→ Temlio SMS
+→ provider response/event
+→ CommunicationResult
+```
 
-All three.
+Do not invent Temlio API contracts.
 
-Test:
+# Integration order
 
-- primary demo
-- backup demo
-- no-answer
-- partner failure
-- over-budget result
-- missing data
-- approval rejection
+The team merges/integrates in this order:
 
-Then freeze features.
+1. stable shared contracts/main
+2. Femi intelligence/data/retrieval
+3. Lara tools/communication mocks
+4. Xpen integrated mock loop
+5. Bimpe workflow/KB/bounded tools
+6. Kros real transport
+7. Vapi (or one fallback runtime)
+8. optional Spitch/LiveKit multilingual enhancement
+9. optional Temlio SMS fallback
+10. demo hardening/freeze
 
-## Failure ownership
+Do not put optional partner work ahead of the golden path.
 
-- UI/state wrong → Xpen
-- matching/recommendation/context wrong → Femi
+# Golden-path freeze gate
+
+Freeze primary features once this is repeatable:
+
+```text
+Mission created
+→ candidate provider selected
+→ real consented phone receives call
+→ provider response/transcript captured
+→ Quote validated
+→ qualifying options compared
+→ Mission Control updated
+→ human approval requested
+```
+
+After this, optional integrations may not destabilize the demo.
+
+# Failure ownership
+
+- UI/Mission state visibility wrong → Xpen
+- matching/recommendation/retrieval wrong → Femi
 - call/message/webhook/action wrong → Lara
-- shared contract/integration wrong → all three stop and resolve it together
+- shared-contract conflict → all three stop and resolve together
 
-## Vibe-coding session rule
+# Vibe-coding session rule
 
-Every teammate starts their coding-agent session with:
+Every teammate begins with:
 
-“Read AGENTS.md, PROJECT_STATE.md, the relevant ACTIVE Knowledge files, and the shared schemas before editing. Do not change shared contracts or architecture without explaining the conflict first. Work only on the assigned phase and run the relevant tests before reporting completion.”
+> Read AGENTS.md, PROJECT_STATE.md, relevant ACTIVE Knowledge, shared schemas, and verified partner docs before editing. Do not change shared contracts or architecture without explaining the conflict first. Work only on the assigned phase and run relevant tests before reporting completion.
 
-Then append the specific phase instructions from this document.
-
-## Handoff rule
+# Handoff rule
 
 Each teammate reports:
 
-- what was implemented
+- completed phase/gate
 - files changed
-- tests run
-- assumptions made
+- tests/typecheck/build run
+- real vs mock behavior
+- assumptions
+- credentials/access still needed
 - blockers
-- whether a shared contract needs discussion
-- exact commit/branch
+- shared-contract questions
+- exact branch/commit
 
 Do not hand off with only “it should work.”
