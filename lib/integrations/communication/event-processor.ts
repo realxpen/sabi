@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { CommunicationResult } from "../../schemas";
 import type { CommunicationAdapter } from "./types";
+import {
+  buildCommunicationEventAuditRecord,
+  buildCommunicationResultAuditRecord,
+  type CommunicationAuditSink
+} from "./observability";
 
 const eventIdSchema = z.string().trim().min(1);
 
@@ -59,14 +64,33 @@ export type ProcessCommunicationEventInput = {
   adapter: CommunicationAdapter;
   correlation?: CommunicationCorrelation;
   deduplicator: CommunicationEventDeduplicator;
+  auditSink?: CommunicationAuditSink;
 };
+
+async function writeAuditBestEffort(
+  sink: CommunicationAuditSink | undefined,
+  record: Parameters<CommunicationAuditSink["write"]>[0]
+): Promise<void> {
+  if (!sink) {
+    return;
+  }
+
+  try {
+    await sink.write(record);
+  } catch {
+    // Telemetry failure must not turn a valid provider event into a retry or
+    // duplicate state transition. Production sinks should surface their own
+    // delivery health independently.
+  }
+}
 
 /**
  * Provider-neutral event processing seam.
  *
  * Provider-specific authentication/signature verification and correlation
  * lookup must happen before this function. This function then performs
- * idempotency, normalization, and a defensive correlation match.
+ * idempotency, normalization, defensive correlation matching and metadata-only
+ * observability. Raw partner payloads are never written to the audit sink.
  */
 export async function processCommunicationEvent(
   input: ProcessCommunicationEventInput
@@ -74,6 +98,11 @@ export async function processCommunicationEvent(
   const eventId = eventIdSchema.parse(input.eventId);
 
   if (!input.correlation) {
+    await writeAuditBestEffort(
+      input.auditSink,
+      buildCommunicationEventAuditRecord("UNKNOWN_CORRELATION", eventId)
+    );
+
     return {
       kind: "UNKNOWN_CORRELATION",
       eventId
@@ -83,6 +112,11 @@ export async function processCommunicationEvent(
   const claimed = await input.deduplicator.claim(eventId);
 
   if (!claimed) {
+    await writeAuditBestEffort(
+      input.auditSink,
+      buildCommunicationEventAuditRecord("DUPLICATE_EVENT", eventId)
+    );
+
     return {
       kind: "DUPLICATE",
       eventId
@@ -100,6 +134,11 @@ export async function processCommunicationEvent(
         `Communication correlation mismatch for event ${eventId}.`
       );
     }
+
+    await writeAuditBestEffort(
+      input.auditSink,
+      buildCommunicationResultAuditRecord(communication, eventId)
+    );
 
     return {
       kind: "PROCESSED",
