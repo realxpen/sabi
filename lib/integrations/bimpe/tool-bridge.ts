@@ -1,7 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { ZodError, z } from "zod";
 import type { CommunicationAdapter } from "../communication/types";
+import {
+  createSupabaseQuoteRepositoryFromEnvironment,
+  SupabaseQuoteRepositoryConfigurationError,
+  SupabaseQuoteRepositoryError
+} from "../supabase/quote-repository";
 import type { QuoteLookup } from "../../tools/approval-tools";
+import type { QuoteRepository } from "../../repositories/quote-repository";
 import {
   requestApproval,
   requestApprovalInputSchema
@@ -27,6 +33,7 @@ export type BimpeToolEnvironment = {
 export type BimpeToolBridgeDependencies = {
   communicationAdapter?: CommunicationAdapter;
   quoteLookup?: QuoteLookup;
+  quoteRepository?: QuoteRepository;
   environment?: BimpeToolEnvironment;
 };
 
@@ -134,6 +141,26 @@ function toolErrorResponse(error: unknown): Response {
     );
   }
 
+  if (error instanceof SupabaseQuoteRepositoryConfigurationError) {
+    return Response.json(
+      {
+        error: "QUOTE_REPOSITORY_CONFIGURATION_INVALID",
+        message: error.message
+      },
+      { status: 503 }
+    );
+  }
+
+  if (error instanceof SupabaseQuoteRepositoryError) {
+    return Response.json(
+      {
+        error: "QUOTE_REPOSITORY_UNAVAILABLE",
+        message: "Durable Quote storage is temporarily unavailable."
+      },
+      { status: 503 }
+    );
+  }
+
   const message = error instanceof Error ? error.message : "Agent tool failed.";
 
   if (message.startsWith("Provider not found:") || message.startsWith("Quote not found:")) {
@@ -156,6 +183,16 @@ function toolErrorResponse(error: unknown): Response {
   return Response.json(
     { error: "AGENT_TOOL_FAILED", message },
     { status: 500 }
+  );
+}
+
+function resolveQuoteRepository(
+  dependencies: BimpeToolBridgeDependencies,
+  environment: BimpeToolEnvironment
+): QuoteRepository | undefined {
+  return (
+    dependencies.quoteRepository ??
+    createSupabaseQuoteRepositoryFromEnvironment(environment)
   );
 }
 
@@ -237,42 +274,77 @@ export async function handleBimpeToolRequest(
       }
 
       case "recordQuote": {
-        const input = recordQuoteInputSchema.parse(body);
-        const quote = recordQuote(input);
+        const repository = resolveQuoteRepository(dependencies, environment);
 
-        return Response.json({
-          tool: toolName,
-          data: quote,
-          meta: {
-            persisted: false,
-            message:
-              "Quote was validated and constructed only; no Quote repository is configured."
-          }
-        });
-      }
-
-      case "requestApproval": {
-        if (!dependencies.quoteLookup) {
+        if (!repository) {
           return Response.json(
             {
-              error: "APPROVAL_QUOTE_LOOKUP_NOT_CONFIGURED",
+              error: "QUOTE_REPOSITORY_NOT_CONFIGURED",
               message:
-                "Request approval is unavailable until a Quote lookup/repository is configured."
+                "Durable Quote persistence requires SUPABASE_URL and SUPABASE_SECRET_KEY."
             },
             { status: 503 }
           );
         }
 
+        const input = recordQuoteInputSchema.parse(body);
+        const quote = recordQuote(input);
+        const storedQuote = await repository.save(quote);
+
+        return Response.json({
+          tool: toolName,
+          data: storedQuote,
+          meta: {
+            persisted: true,
+            storage: "quote-repository"
+          }
+        });
+      }
+
+      case "requestApproval": {
         const input = requestApprovalInputSchema.parse(body);
-        const approval = requestApproval(input, dependencies.quoteLookup);
+
+        if (dependencies.quoteLookup) {
+          const approval = requestApproval(input, dependencies.quoteLookup);
+          return Response.json({
+            tool: toolName,
+            data: approval,
+            meta: {
+              transactionCommitted: false,
+              approvalPersisted: false,
+              message:
+                "Pending human approval created; no purchase, booking, payment, or fund transfer occurred."
+            }
+          });
+        }
+
+        const repository = resolveQuoteRepository(dependencies, environment);
+
+        if (!repository) {
+          return Response.json(
+            {
+              error: "APPROVAL_QUOTE_LOOKUP_NOT_CONFIGURED",
+              message:
+                "Request approval requires durable Quote storage or an explicit Quote lookup."
+            },
+            { status: 503 }
+          );
+        }
+
+        const quote = await repository.getById(input.quoteId);
+        const approval = requestApproval(input, (quoteId) =>
+          quote?.id === quoteId ? quote : undefined
+        );
 
         return Response.json({
           tool: toolName,
           data: approval,
           meta: {
             transactionCommitted: false,
+            approvalPersisted: false,
+            quoteLoadedFromRepository: true,
             message:
-              "Pending human approval created; no purchase, booking, payment, or fund transfer occurred."
+              "Pending human approval created from a stored Quote; no purchase, booking, payment, or fund transfer occurred."
           }
         });
       }
