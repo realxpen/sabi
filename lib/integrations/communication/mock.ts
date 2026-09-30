@@ -15,6 +15,7 @@ export const mockCommunicationEventStatusSchema = z.enum([
   "in_progress",
   "completed",
   "no_answer",
+  "busy",
   "unavailable",
   "failed"
 ]);
@@ -53,6 +54,7 @@ const MOCK_STATUS_MAP: Record<
   in_progress: "IN_PROGRESS",
   completed: "COMPLETED",
   no_answer: "NO_ANSWER",
+  busy: "NO_ANSWER",
   unavailable: "UNAVAILABLE",
   failed: "FAILED"
 };
