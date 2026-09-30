@@ -7,7 +7,7 @@ Last updated: 2026-09-30
 
 **Phase 1 — Parallel Build / Verified Integration Handoff**
 
-Phase 0 is complete. The shared Phase 1 foundation, mock Mission Control path, teammate prompts, partner research, integration architecture, and verified build order are all normalized on `main`.
+Phase 0 is complete. The shared Phase 1 foundation, mock Mission Control path, teammate prompts, partner research, integration architecture, and verified build order are normalized on `main`.
 
 ## Event target
 
@@ -100,8 +100,8 @@ Temlio is optional SMS/communications fallback pending detailed API contract/acc
 - Use Bimpe REST/native server-side `fetch` first because current Bimpe TS SDK docs target Node 24+ while SABI CI is Node 20.
 - KrosAI is the primary telephony transport.
 - Vapi is the first voice-runtime candidate; Retell then ElevenLabs are fallbacks.
-- Kros official docs conflict on `/v1` vs `/api/v1` and outbound singular/plural paths; keep `KROSAI_BASE_URL` configurable and confirm the live route before freeze.
-- Kros webhook event naming differs across official pages; keep aliases/version mapping inside one adapter and confirm the live dashboard schema.
+- Kros official docs conflict on `/v1` vs `/api/v1` and outbound singular/plural paths; keep `KROSAI_BASE_URL` configurable and confirm live route before freeze.
+- Kros webhook event naming differs across official pages; keep aliases/version mapping inside one adapter and confirm live dashboard schema.
 - Webhook processing must verify signature, deduplicate event IDs and preserve correlation.
 - A transcript is evidence, not automatically a Quote.
 - Durable policies may live in Bimpe/SABI Knowledge; live price/availability/call outcomes stay operational/tool data.
@@ -123,9 +123,7 @@ Current gates:
 
 Branch: `femi/intelligence`
 
-Use:
-
-`Knowledge/Technical/CODEX_FEMI_INTELLIGENCE_PROMPT.md`
+Use `Knowledge/Technical/CODEX_FEMI_INTELLIGENCE_PROMPT.md`.
 
 Track:
 
