@@ -12,18 +12,21 @@ You are working on SABI as the Agent Tools & Communication contributor.
 
 Before editing code, read these files in this order:
 
-1. AGENTS.md
-2. PROJECT_STATE.md
-3. Knowledge/Product/SABI_PRODUCT_SOURCE.md
-4. Knowledge/Product/MVP_SCOPE.md
-5. Knowledge/Product/TRUST_MODEL.md
-6. Knowledge/Product/TEAM_BUILD_PHASES.md
-7. Knowledge/Technical/ARCHITECTURE.md
-8. Knowledge/Technical/MISSION_MODEL.md
-9. Knowledge/Technical/INTEGRATION_CONTRACTS.md
-10. Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md
-11. Knowledge/UX/DEMO_FLOW.md
-12. Knowledge/Decisions/ACTIVE_DECISIONS.md
+1. `AGENTS.md`
+2. `PROJECT_STATE.md`
+3. `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
+4. `Knowledge/Product/MVP_SCOPE.md`
+5. `Knowledge/Product/TRUST_MODEL.md`
+6. `Knowledge/Product/TEAM_BUILD_PHASES.md`
+7. `Knowledge/Technical/ARCHITECTURE.md`
+8. `Knowledge/Technical/MISSION_MODEL.md`
+9. `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
+10. `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+11. `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
+12. `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
+13. `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
+14. `Knowledge/UX/DEMO_FLOW.md`
+15. `Knowledge/Decisions/ACTIVE_DECISIONS.md`
 
 Then inspect the current shared schemas, mission state machine, adapter contracts, and tests.
 
@@ -41,8 +44,10 @@ You own:
 - external event handling
 - webhook normalization
 - retries/recovery
-- partner integration behind adapters
-- African-language/speech integration after the base loop works
+- KrosAI telephony integration
+- selected voice-runtime integration
+- optional African-language/speech integration after the base loop works
+- optional Temlio fallback only after its API contract is provided
 
 You do not own:
 
@@ -54,181 +59,200 @@ You do not own:
 
 ## L1 — Tool layer
 
-Implement or complete narrow tools using the existing shared contracts.
+Implement or complete narrow tools using the existing shared contracts:
 
-Target tool concepts:
-
-- searchProviders
-- getProvider
-- callProvider
-- sendMessage
-- recordQuote
-- requestApproval
+- `searchProviders`
+- `getProvider`
+- `callProvider`
+- `sendMessage`
+- `recordQuote`
+- `requestApproval`
 
 Rules:
 
 - validate tool input
 - return structured result objects
 - do not expose unrestricted database access
-- do not let callProvider pretend a call has completed synchronously
-- do not let requestApproval perform a purchase
-
-Keep tools small and composable.
+- do not let `callProvider` pretend a call completed synchronously
+- do not let `requestApproval` perform a purchase
 
 ### L1 gate
 
-Every tool has a clear validated input/output contract and can be invoked without knowing a specific partner's API payload.
+Every tool has a clear validated input/output contract and can be invoked without knowing a specific partner payload.
 
 ## L2 — Communication adapter
 
-Implement a provider-neutral communication adapter interface if not already present.
+Use the existing provider-neutral communication adapter boundary.
 
-It should support a lifecycle such as:
+Support lifecycle states equivalent to:
 
 - initiated
-- in_progress if useful
+- in progress
 - completed
-- no_answer
+- no answer
 - unavailable
 - failed
 
-Create or retain a mock adapter that supports deterministic demo/test scenarios.
-
-Mock scenarios should include:
-
-- successful provider response
-- no answer
-- provider unavailable
-- incomplete response
-- integration failure
-
-Do not fake completion with UI timers.
+Keep a deterministic mock adapter until the real path is proven.
 
 ### L2 gate
 
-The main application can contact a provider through the adapter without importing partner-specific code.
+The application can contact a provider through the adapter without importing KrosAI/Vapi/etc. throughout the Mission domain.
 
 ## L3 — Event → observation normalization
 
-Create the flow:
+Implement:
 
+```text
 external event/result
-→ validation
-→ authenticated/verified event when possible
-→ mission/provider resolution
-→ normalized CommunicationResult
-→ quote candidate/structured observation
-→ state transition
+→ schema validation
+→ signature/auth verification where available
+→ mission/provider/correlation resolution
+→ CommunicationResult
+→ quote candidate / structured observation
+→ controlled state transition
+```
 
-Do not let raw external payloads mutate Mission state directly.
+Raw external payloads must not mutate Mission state directly.
 
-Keep original external IDs/source references for traceability.
+Preserve partner external IDs/source references.
 
 ### L3 gate
 
-A completed mock communication can be transformed into a validated internal observation and consumed by the mission engine.
+A completed mock communication can become a validated internal observation consumed by the mission engine.
 
 ## L4 — Webhook architecture
 
-Prepare webhook handlers for external communication providers.
+Build the KrosAI webhook boundary before the full provider-call loop.
 
-Important behavior:
+Required behavior:
 
-- reject malformed inputs
-- verify provider signatures when documentation supports it
-- resolve externalCallId/messageId to mission/provider
-- make duplicate processing safe/idempotent where feasible
-- log errors without secrets
-- return appropriate HTTP responses
-- keep partner-specific parsing behind the adapter layer
+- preserve the raw request body for signature verification
+- verify `X-Webhook-Signature` according to the current KrosAI contract/live setup
+- validate payload shape
+- deduplicate by provider event ID
+- resolve mission/provider/communication correlation
+- respond 2xx quickly
+- keep heavier transcript/quote processing outside the raw handler when practical
+- log failures without secrets
+- keep Kros-specific event mapping in the adapter
 
-Do not invent real partner signature schemes or payload fields.
-
-If official docs/access are unavailable, create a clearly marked placeholder interface/test fixture, not fictional production code.
+Important: KrosAI public docs currently contain old and new webhook event names. Use the current API Explorer/dashboard schema and keep event-name mapping centralized.
 
 ### L4 gate
 
-Mock webhook fixtures prove the handler architecture and duplicate/malformed events are safe.
+Webhook test fixtures prove malformed, duplicate, unknown-correlation, and valid events are handled safely.
 
-## L5 — Failure and recovery behavior
+## L5 — Failure and recovery
 
 Implement/test:
 
 - no answer
+- busy
 - delayed response
 - provider unavailable
-- malformed external event
-- duplicate external event
-- unknown externalCallId
-- partner/network failure
-- partial/incomplete response
+- malformed event
+- duplicate event
+- unknown external call ID
+- network/provider failure
+- incomplete transcript/result
 
-Expected product behavior:
+Rules:
 
-- one provider failure should not automatically fail the entire mission
-- failure is recorded truthfully
-- fallback channel can be attempted only if implemented/allowed
-- mission continues when enough viable candidates remain
-- mission escalates/fails honestly when it cannot proceed
+- one provider failure does not automatically fail the whole Mission
+- no failed/no-answer call produces a fabricated Quote
+- a transcript is evidence, not automatically a Quote
+- fallback channel is attempted only when actually implemented and authorized
+- Mission escalates/fails honestly when it cannot continue
 
 ### L5 gate
 
-Failures do not produce fake quotes and the mission remains recoverable where appropriate.
+Failure paths preserve truthful Mission state and never manufacture provider facts.
 
-## L6 — Real partner integration
+## L6 — Real partner integration: KrosAI first
 
-Only start this after the mock communication loop works.
+Do not start by connecting every partner.
 
-Use verified official docs/access for the selected provider.
+Follow `PARTNER_INTEGRATIONS.md`, `INTEGRATION_STACK_DECISION.md`, and `INTEGRATION_ACCESS_CHECKLIST.md`.
 
-Likely categories based on current project knowledge:
+### L6A — prove Kros transport
 
-- KrosAI for telephony
-- Temlio for voice/SMS/USSD communication
-- YarnGPT for African-language voice
-- Spitch for STT/TTS
-- BimpeAI for agent orchestration/tools/workflows
+1. Confirm KrosAI account/KYC/API key/phone number.
+2. Confirm the live Kros REST base/path in API Explorer; docs currently contain `/v1` vs `/api/v1` inconsistencies.
+3. Configure one endpoint.
+4. Attach endpoint to Kros number.
+5. Place one consented test call.
+6. Capture call ID and lifecycle.
+7. Receive a signed webhook/test event.
+8. Correlate `missionId`, `providerId`, `communicationId` through metadata.
+9. Retrieve/use the transcript/result.
+10. Normalize to `CommunicationResult` and Quote only when factual fields exist.
 
-Do not assume all must be used.
+### L6B — primary voice-runtime candidate: Vapi
 
-Choose the minimum combination that makes the real demo reliable.
+Test the documented KrosAI ↔ Vapi SIP/BYO-number path first.
 
-Keep each partner behind an adapter.
+Required artifacts include:
 
-Never place secrets in client code or commit them.
+- Vapi Assistant ID
+- Vapi SIP Trunk Credential ID
+- KrosAI endpoint ID
 
-Document required environment variable names without values.
+Only keep Vapi as primary if repeat calls are reliable.
+
+### L6C — fallback runtime
+
+If Vapi is not reliable quickly, test one alternative:
+
+- Retell first
+- ElevenLabs second
+
+Do not integrate multiple fallbacks simultaneously.
 
 ### L6 gate
 
-At least one verified real communication path can be triggered through the same adapter contract used by the mock path, without rewriting the Mission domain.
+A real consented phone call can be triggered through the same SABI adapter contract as the mock path, and its result becomes truthful internal state without rewriting Mission.
 
-## L7 — African-language / speech layer
+## L7 — African-language / speech enhancement
 
-Only begin after L6 base communication works reliably.
+Only begin after L6 is reliable.
 
-If the verified APIs allow it, add one clear multilingual capability useful to the demo.
+Preferred advanced path:
 
-Examples:
+```text
+KrosAI → LiveKit SIP → LiveKit agent → Spitch STT/TTS → SABI tools
+```
 
-- English ↔ Naija Pidgin
-- Yoruba speech interaction
+Spitch has an official LiveKit plugin and KrosAI has a documented LiveKit endpoint integration.
 
-Do not add multiple languages just for breadth.
+Add only one useful language demonstration first.
 
-Favor one reliable, demonstrable flow.
+YarnGPT may be used as an optional TTS/translation/post-call STT enhancement, but its documented ASR is asynchronous, so do not make it the first critical real-time phone ASR path.
 
 ### L7 gate
 
-Language/speech capability does not break the core provider-contact loop.
+Language capability works without destabilizing the primary phone loop.
 
-## L8 — Tool/communication observability
+## L8 — Temlio fallback + observability
 
-Ensure we can inspect:
+Temlio's public site confirms Voice/SMS/USSD REST capabilities but does not currently provide enough public request/auth/webhook detail for safe implementation.
+
+Do not invent a Temlio adapter payload.
+
+If event docs/credentials arrive, SMS fallback is the preferred first Temlio use:
+
+```text
+Kros no_answer / busy / failed
+→ Temlio SMS
+→ response/event
+→ CommunicationResult
+```
+
+Ensure observability includes:
 
 - missionId
 - providerId
-- internal communication record ID
+- communicationId
 - partner external ID
 - current status
 - timestamps
@@ -236,40 +260,45 @@ Ensure we can inspect:
 - source channel
 - quote/source relationship
 
-Do not log credentials, auth headers, or sensitive raw data unnecessarily.
+Do not log credentials/auth headers or unnecessary sensitive content.
+
+## BimpeAI coordination boundary
+
+BimpeAI belongs primarily to agent workflow/knowledge/tool orchestration. Lara may expose/maintain communication tools that Bimpe calls, but should not let Bimpe bypass the SABI Mission/CommunicationResult contracts.
+
+Important runtime note: BimpeAI's TypeScript SDK currently documents Node 24+, while SABI CI is Node 20. The active integration plan is to use Bimpe REST/native `fetch` first unless the team deliberately upgrades and verifies the runtime.
+
+There is no verified public native BimpeAI ↔ KrosAI bridge; SABI-owned APIs/tools are the boundary.
 
 ## Coding rules
 
-- Work only on your branch: lara/agent-tools.
-- Pull/rebase from latest main before beginning.
+- Work only on `lara/agent-tools`.
+- Pull/rebase latest `main` before beginning.
 - Do not alter Femi's ranking/retrieval logic.
 - Do not alter UI except minimal integration glue if explicitly required.
 - Do not implement real payment or escrow.
-- Do not invent partner APIs.
-- Use adapter boundaries.
-- Prefer explicit input → validation → transformation → new-state functions.
-- Keep webhook/event handlers idempotent where practical.
-- Add focused tests for failure behavior.
+- Never invent partner endpoints/payloads.
+- Keep partner code behind adapters.
+- Prefer explicit input → validation → transformation → state functions.
+- Keep webhook/event processing idempotent.
+- Add focused success/failure tests.
+- Never commit secrets.
 
 ## Before completion
 
-Run the relevant:
+Run the relevant lint/typecheck/tests/build.
 
-- lint
-- typecheck
-- tests
-- build if your changes affect build output
-
-Then report:
+Report:
 
 1. files changed
 2. L1–L8 stages completed
 3. mock communication scenarios verified
-4. real partner integration status
-5. webhook/recovery tests run
-6. assumptions made
-7. blockers/credential needs
-8. whether any shared contract needs team review
-9. branch/commit hash
+4. KrosAI test status
+5. selected voice-runtime status
+6. webhook/recovery tests
+7. assumptions
+8. credentials/access still needed
+9. shared-contract questions
+10. branch/commit hash
 
-Stop when your track is integration-ready. Do not merge into main yourself unless the team workflow explicitly allows it.
+Stop when the track is integration-ready. Do not merge to `main` unless the team workflow explicitly allows it.
