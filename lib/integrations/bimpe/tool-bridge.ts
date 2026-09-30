@@ -2,12 +2,18 @@ import { timingSafeEqual } from "node:crypto";
 import { ZodError, z } from "zod";
 import type { CommunicationAdapter } from "../communication/types";
 import {
+  createNeonApprovalRepositoryFromEnvironment,
+  NeonApprovalRepositoryConfigurationError,
+  NeonApprovalRepositoryError
+} from "../neon/approval-repository";
+import {
   createNeonQuoteRepositoryFromEnvironment,
   NeonQuoteRepositoryConfigurationError,
   NeonQuoteRepositoryError
 } from "../neon/quote-repository";
-import type { QuoteLookup } from "../../tools/approval-tools";
+import type { ApprovalRepository } from "../../repositories/approval-repository";
 import type { QuoteRepository } from "../../repositories/quote-repository";
+import type { QuoteLookup } from "../../tools/approval-tools";
 import {
   requestApproval,
   requestApprovalInputSchema
@@ -34,6 +40,7 @@ export type BimpeToolBridgeDependencies = {
   communicationAdapter?: CommunicationAdapter;
   quoteLookup?: QuoteLookup;
   quoteRepository?: QuoteRepository;
+  approvalRepository?: ApprovalRepository;
   environment?: BimpeToolEnvironment;
 };
 
@@ -151,11 +158,31 @@ function toolErrorResponse(error: unknown): Response {
     );
   }
 
+  if (error instanceof NeonApprovalRepositoryConfigurationError) {
+    return Response.json(
+      {
+        error: "APPROVAL_REPOSITORY_CONFIGURATION_INVALID",
+        message: error.message
+      },
+      { status: 503 }
+    );
+  }
+
   if (error instanceof NeonQuoteRepositoryError) {
     return Response.json(
       {
         error: "QUOTE_REPOSITORY_UNAVAILABLE",
         message: "Durable Quote storage is temporarily unavailable."
+      },
+      { status: 503 }
+    );
+  }
+
+  if (error instanceof NeonApprovalRepositoryError) {
+    return Response.json(
+      {
+        error: "APPROVAL_REPOSITORY_UNAVAILABLE",
+        message: "Durable Approval storage is temporarily unavailable."
       },
       { status: 503 }
     );
@@ -193,6 +220,16 @@ function resolveQuoteRepository(
   return (
     dependencies.quoteRepository ??
     createNeonQuoteRepositoryFromEnvironment(environment)
+  );
+}
+
+function resolveApprovalRepository(
+  dependencies: BimpeToolBridgeDependencies,
+  environment: BimpeToolEnvironment
+): ApprovalRepository | undefined {
+  return (
+    dependencies.approvalRepository ??
+    createNeonApprovalRepositoryFromEnvironment(environment)
   );
 }
 
@@ -306,21 +343,27 @@ export async function handleBimpeToolRequest(
 
         if (dependencies.quoteLookup) {
           const approval = requestApproval(input, dependencies.quoteLookup);
+          const explicitApprovalRepository = dependencies.approvalRepository;
+          const storedApproval = explicitApprovalRepository
+            ? await explicitApprovalRepository.save(approval)
+            : approval;
+
           return Response.json({
             tool: toolName,
-            data: approval,
+            data: storedApproval,
             meta: {
               transactionCommitted: false,
-              approvalPersisted: false,
-              message:
-                "Pending human approval created; no purchase, booking, payment, or fund transfer occurred."
+              approvalPersisted: Boolean(explicitApprovalRepository),
+              message: explicitApprovalRepository
+                ? "Pending human approval persisted; no purchase, booking, payment, or fund transfer occurred."
+                : "Pending human approval created for an injected Quote lookup; no purchase, booking, payment, or fund transfer occurred."
             }
           });
         }
 
-        const repository = resolveQuoteRepository(dependencies, environment);
+        const quoteRepository = resolveQuoteRepository(dependencies, environment);
 
-        if (!repository) {
+        if (!quoteRepository) {
           return Response.json(
             {
               error: "APPROVAL_QUOTE_LOOKUP_NOT_CONFIGURED",
@@ -331,20 +374,38 @@ export async function handleBimpeToolRequest(
           );
         }
 
-        const quote = await repository.getById(input.quoteId);
+        const approvalRepository = resolveApprovalRepository(
+          dependencies,
+          environment
+        );
+
+        if (!approvalRepository) {
+          return Response.json(
+            {
+              error: "APPROVAL_REPOSITORY_NOT_CONFIGURED",
+              message:
+                "Durable Approval persistence requires a Neon/Postgres DATABASE_URL or an explicit Approval repository."
+            },
+            { status: 503 }
+          );
+        }
+
+        const quote = await quoteRepository.getById(input.quoteId);
         const approval = requestApproval(input, (quoteId) =>
           quote?.id === quoteId ? quote : undefined
         );
+        const storedApproval = await approvalRepository.save(approval);
 
         return Response.json({
           tool: toolName,
-          data: approval,
+          data: storedApproval,
           meta: {
             transactionCommitted: false,
-            approvalPersisted: false,
+            approvalPersisted: true,
+            approvalStorage: "neon-postgres",
             quoteLoadedFromRepository: true,
             message:
-              "Pending human approval created from a stored Quote; no purchase, booking, payment, or fund transfer occurred."
+              "Pending human approval persisted from a stored Quote; no purchase, booking, payment, or fund transfer occurred."
           }
         });
       }
