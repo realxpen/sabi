@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { quoteSchema } from "../lib/schemas";
+import { quoteSchema, type Quote } from "../lib/schemas";
+import type { QuoteRepository } from "../lib/repositories/quote-repository";
 import {
   bimpeCustomApiTools,
   handleBimpeToolRequest
@@ -8,6 +9,19 @@ import {
 const environment = {
   SABI_AGENT_TOOL_TOKEN: "bridge-test-secret"
 };
+
+class TestQuoteRepository implements QuoteRepository {
+  private readonly quotes = new Map<string, Quote>();
+
+  async save(quote: Quote): Promise<Quote> {
+    this.quotes.set(quote.id, quote);
+    return quote;
+  }
+
+  async getById(quoteId: string): Promise<Quote | undefined> {
+    return this.quotes.get(quoteId);
+  }
+}
 
 function toolRequest(body: unknown, token = "bridge-test-secret") {
   return new Request("https://sabi.example/api/agent-tools/test", {
@@ -96,7 +110,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(payload.data.summary).toContain("No real provider was contacted");
   });
 
-  it("marks HTTP recordQuote output as validated but not persisted", async () => {
+  it("fails recordQuote closed when durable storage is not configured", async () => {
     const response = await handleBimpeToolRequest(
       toolRequest({
         missionId: "mission-demo",
@@ -109,16 +123,38 @@ describe("Bimpe bounded agent tool bridge", () => {
       "recordQuote",
       { environment }
     );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: "QUOTE_REPOSITORY_NOT_CONFIGURED"
+    });
+  });
+
+  it("returns success only after a Quote repository stores the canonical Quote", async () => {
+    const quoteRepository = new TestQuoteRepository();
+    const response = await handleBimpeToolRequest(
+      toolRequest({
+        missionId: "mission-demo",
+        providerId: "provider-ade-textiles",
+        available: true,
+        price: 62000,
+        source: "CALL",
+        sourceReference: "communication-demo"
+      }),
+      "recordQuote",
+      { environment, quoteRepository }
+    );
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload.data.price).toBe(62000);
     expect(payload.data.deliveryFee).toBeUndefined();
     expect(payload.data.total).toBeUndefined();
-    expect(payload.meta.persisted).toBe(false);
+    expect(payload.meta.persisted).toBe(true);
+    expect(await quoteRepository.getById(payload.data.id)).toEqual(payload.data);
   });
 
-  it("fails requestApproval closed when no Quote lookup is configured", async () => {
+  it("fails requestApproval closed when no Quote repository or lookup is configured", async () => {
     const response = await handleBimpeToolRequest(
       toolRequest({
         missionId: "mission-demo",
@@ -135,7 +171,40 @@ describe("Bimpe bounded agent tool bridge", () => {
     });
   });
 
-  it("creates only a pending human approval when an explicit Quote lookup is injected", async () => {
+  it("loads a stored Quote before creating a pending human approval", async () => {
+    const quoteRepository = new TestQuoteRepository();
+    const quote = quoteSchema.parse({
+      id: "quote-demo",
+      missionId: "mission-demo",
+      providerId: "provider-ade-textiles",
+      available: true,
+      price: 62000,
+      source: "CALL",
+      sourceReference: "communication-demo",
+      createdAt: new Date().toISOString()
+    });
+    await quoteRepository.save(quote);
+
+    const response = await handleBimpeToolRequest(
+      toolRequest({
+        missionId: "mission-demo",
+        providerId: "provider-ade-textiles",
+        quoteId: "quote-demo"
+      }),
+      "requestApproval",
+      { environment, quoteRepository }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.status).toBe("PENDING");
+    expect(payload.data.action).toBe("SELECT_PROVIDER");
+    expect(payload.meta.quoteLoadedFromRepository).toBe(true);
+    expect(payload.meta.approvalPersisted).toBe(false);
+    expect(payload.meta.transactionCommitted).toBe(false);
+  });
+
+  it("still supports an explicit Quote lookup injection for non-production callers", async () => {
     const quote = quoteSchema.parse({
       id: "quote-demo",
       missionId: "mission-demo",
@@ -163,7 +232,6 @@ describe("Bimpe bounded agent tool bridge", () => {
 
     expect(response.status).toBe(200);
     expect(payload.data.status).toBe("PENDING");
-    expect(payload.data.action).toBe("SELECT_PROVIDER");
     expect(payload.meta.transactionCommitted).toBe(false);
   });
 
