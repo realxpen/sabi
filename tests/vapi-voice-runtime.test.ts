@@ -6,6 +6,7 @@ import {
 } from "../lib/integrations/voice-runtime/vapi";
 
 const completeEnvironment = {
+  VAPI_API_BASE_URL: "https://api.vapi.ai",
   VAPI_API_KEY: "test-secret-key",
   VAPI_ASSISTANT_ID: "assistant-test-123",
   VAPI_SIP_TRUNK_CREDENTIAL_ID: "sip-credential-test-456"
@@ -21,6 +22,7 @@ describe("VapiVoiceRuntime", () => {
       provider: "vapi",
       status: "UNCONFIGURED",
       missingConfiguration: [
+        "VAPI_API_BASE_URL",
         "VAPI_API_KEY",
         "VAPI_SIP_TRUNK_CREDENTIAL_ID"
       ]
@@ -51,6 +53,7 @@ describe("VapiVoiceRuntime", () => {
   it("becomes VERIFIED only after an injected driver confirms the same account artifacts", async () => {
     const runtime = new VapiVoiceRuntime(completeEnvironment, {
       async verifyConfiguration(configuration) {
+        expect(configuration.apiBaseUrl).toBe("https://api.vapi.ai");
         expect(configuration.apiKey).toBe("test-secret-key");
         return {
           assistantId: configuration.assistantId,
@@ -84,9 +87,19 @@ describe("VapiVoiceRuntime", () => {
 
   it("parses complete environment configuration without changing values", () => {
     expect(readVapiRuntimeConfiguration(completeEnvironment)).toEqual({
+      apiBaseUrl: "https://api.vapi.ai",
       apiKey: "test-secret-key",
       assistantId: "assistant-test-123",
       sipTrunkCredentialId: "sip-credential-test-456"
     });
+  });
+
+  it("rejects a non-Vapi API host so private keys cannot be redirected", () => {
+    expect(
+      readVapiRuntimeConfiguration({
+        ...completeEnvironment,
+        VAPI_API_BASE_URL: "https://example.com"
+      })
+    ).toBeUndefined();
   });
 });
