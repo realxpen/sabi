@@ -71,7 +71,7 @@ requestApproval
 - [ ] Verify `X-Webhook-Signature` from raw request body
 - [ ] Verify duplicate event handling
 - [ ] Verify `missionId`/`providerId`/`communicationId` correlation
-- [ ] Confirm the live webhook event naming/payload convention
+- [ ] Confirm live webhook event naming/payload convention
 - [ ] Confirm transcript retrieval/event behavior
 - [ ] Update `PARTNER_INTEGRATIONS.md` with confirmed live route/event names
 
@@ -92,21 +92,7 @@ requestApproval
 
 ## Retell / ElevenLabs — fallback only
 
-Do not configure these unless Vapi cannot be made reliable quickly.
-
-Retell:
-
-- [ ] API key
-- [ ] Agent ID
-- [ ] Kros endpoint
-- [ ] one repeatable test call
-
-ElevenLabs:
-
-- [ ] API key
-- [ ] Agent ID
-- [ ] Kros endpoint/SIP setup
-- [ ] one repeatable test call
+Do not configure unless Vapi cannot be made reliable quickly.
 
 ## Spitch + LiveKit — optional multilingual enhancement
 
