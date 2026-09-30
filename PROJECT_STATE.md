@@ -95,31 +95,69 @@ Implemented:
 
 Important: current provider responses and recommendation logic are clearly marked as **Phase 1 mock fixtures**. They are integration scaffolding and must be replaced by Femi/Lara modules rather than presented as live provider results.
 
-## Partner integration research — verified 2026-09-30
+## Partner integration research — completed 2026-09-30
 
-Official sources supplied by the team have now been recorded in:
+The supplied public sites and integration-relevant documentation have been audited and consolidated into:
 
 - `Raw/PartnerDocs/SOURCE_LINKS.md`
 - `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+- `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
+- `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
 
-Verified so far:
+Verified:
 
-- [x] KrosAI account/KYC/API-key model
-- [x] KrosAI phone-number + endpoint architecture
-- [x] KrosAI outbound-call request model
-- [x] KrosAI call lifecycle/failure outcomes
-- [x] KrosAI webhook event/signature model
-- [x] KrosAI Vapi/Retell/ElevenLabs/LiveKit/custom endpoint options
-- [x] YarnGPT Bearer auth, TTS, STT and real-time conversation audio
-- [x] Spitch STT, TTS, translation, Nigerian Pidgin support and LiveKit integration
-- [x] Temlio public capabilities: Voice/SMS/USSD/local numbers/RESTful integrations
+- [x] KrosAI KYC/API-key/scopes model
+- [x] KrosAI number + endpoint architecture
+- [x] KrosAI outbound-call fields and lifecycle
+- [x] KrosAI current webhook event/signature/retry model
+- [x] KrosAI transcript/recording/log capabilities
+- [x] KrosAI Vapi, Retell, ElevenLabs and LiveKit integration paths
+- [x] KrosAI docs path/version inconsistency documented
+- [x] Spitch TTS/STT/translation and official LiveKit plugin
+- [x] YarnGPT Bearer auth, TTS, streaming synthesis and async ASR
+- [x] Temlio public Voice/SMS/USSD/DID capabilities and API-doc gap
+- [x] BimpeAI REST/API auth model
+- [x] BimpeAI workflows/agents
+- [x] BimpeAI text/URL Knowledge Bases
+- [x] BimpeAI Custom API tools
+- [x] BimpeAI test/live telephony capability
+- [x] BimpeAI TypeScript SDK Node 24+ compatibility constraint
 
-Important open integration details:
+### Active integration plan
 
-- KrosAI official docs currently contain inconsistent outbound-call path examples; Lara must confirm the live API explorer/dashboard route before hard-coding it.
-- Temlio's public homepage does not provide enough detailed API-contract information for implementation; event/partner documentation or credentials are still needed.
-- Final KrosAI voice-provider selection remains open pending access, setup speed and live reliability testing.
-- BimpeAI live integration documentation/access is still outstanding.
+Primary path:
+
+```text
+SABI Next.js
+→ BimpeAI workflow / Knowledge / bounded tools
+→ SABI callProvider
+→ KrosAI
+→ Vapi first
+→ provider phone
+→ KrosAI event/transcript
+→ CommunicationResult / Quote
+→ Femi intelligence
+→ Xpen Mission Control
+→ human approval
+```
+
+Advanced language path only after primary flow works:
+
+```text
+KrosAI → LiveKit SIP → LiveKit agent → Spitch STT/TTS → SABI tools
+```
+
+YarnGPT remains optional voice enhancement. Temlio remains optional SMS fallback pending detailed API access.
+
+### Integration compatibility decisions
+
+- SABI remains the system of record for Mission, Quote, CommunicationResult and Approval.
+- KrosAI remains the primary telephony transport candidate.
+- Vapi is the first voice-runtime candidate; Retell/ElevenLabs are fallbacks, not simultaneous critical-path integrations.
+- BimpeAI is the agent brain/knowledge/tool layer, not a replacement for Mission state.
+- No verified native BimpeAI ↔ KrosAI bridge has been found; SABI-owned tools/APIs connect the layers.
+- Because BimpeAI's TS SDK currently documents Node 24+ while SABI CI is Node 20, use Bimpe REST/native fetch first unless runtime migration is deliberately tested.
+- Because KrosAI docs show `/v1` and `/api/v1` variants, the live route must be confirmed and kept configurable.
 
 ## CI status
 
@@ -172,7 +210,7 @@ Track:
 - F6 recommendation output
 - F7 evaluation
 
-Femi's implementation should replace the temporary Xpen fixture/recommendation layer rather than create a second product architecture.
+Femi's implementation should replace the temporary Xpen fixture/recommendation layer rather than create a second architecture.
 
 ### Lara — Agent Tools & Communication
 
@@ -180,68 +218,61 @@ Branch:
 
 `lara/agent-tools`
 
-Use:
+Must read:
 
 - `Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
 - `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-- `Raw/PartnerDocs/SOURCE_LINKS.md`
+- `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
+- `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
 
 Track:
 
 - L1 tool layer
 - L2 communication adapter
 - L3 event normalization
-- L4 webhook architecture
+- L4 KrosAI webhook architecture
 - L5 failure/recovery
-- L6 verified partner integration
-- L7 language/speech
-- L8 observability
+- L6 KrosAI + selected voice-runtime integration
+- L7 optional multilingual voice
+- L8 optional Temlio fallback + observability
 
-Lara's implementation should replace/extend the existing mock communication boundary rather than bypass Mission state or shared schemas.
+Lara's implementation must extend the existing adapter boundary rather than bypass Mission state/shared schemas.
 
 ## Not yet activated
 
 - Supabase persistence
-- runtime production-grade RAG
-- BimpeAI live integration
-- live telephony integration
-- live messaging fallback
-- real African-language voice flow
+- live BimpeAI agent configuration
+- live KrosAI phone integration
+- live Vapi/Retell/ElevenLabs runtime
+- real African-language phone flow
+- live Temlio fallback
 - end-to-end real provider demo
 - payments / escrow
 
-## Current team ownership
+## Current blockers / access gates
 
-- Xpen — Product & Integration
-- Femi — Intelligence, Data & Knowledge
-- Lara — Agent Tools & Communication
-
-## Current blockers / unknowns
-
-- Final partner API credentials and exact event allocations.
-- Confirmed live KrosAI outbound-call route/version.
-- Detailed Temlio API auth/payload/webhook documentation.
-- BimpeAI API/tool documentation and access.
-- Final decision on which voice/language combination gives the most reliable event demo.
+- KrosAI account/KYC/phone number/API key/event credits.
+- Confirmation of the actual live KrosAI REST base/path through API Explorer/minimal request.
+- Selected voice-runtime credentials (Vapi first).
+- BimpeAI API key/agent/workflow configuration.
+- Detailed Temlio API auth/payload/webhook documentation if SMS fallback is attempted.
+- LiveKit/Spitch credentials only if multilingual phone flow is attempted.
+- Consenting test phone/provider participants.
 - Official event restriction, if any, on pre-built implementation remains to be confirmed.
 
 ## Next integration gate
 
-The next meaningful checkpoint is **not another standalone Xpen feature**.
-
-Femi and Lara complete their first integration-ready slices, then Xpen integrates them into:
+The next meaningful checkpoint is:
 
 ```text
 request
 → validated mission
 → provider discovery
-→ provider contact
+→ real or verified communication adapter action
 → structured quote
 → filtering/comparison
 → recommendation
 → human approval
 ```
 
-The temporary Xpen provider/quote/recommendation fixtures are removed or bypassed as the real teammate-owned modules become available.
-
-Only after the complete mock loop is integrated and stable should the team replace the communication mock with verified partner APIs.
+First integrate Femi/Lara's mock-ready modules with Xpen's Mission Control. Then replace the communication mock with one verified KrosAI path. Do not add optional partner integrations until the primary path is stable.
