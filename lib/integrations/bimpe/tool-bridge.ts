@@ -2,10 +2,10 @@ import { timingSafeEqual } from "node:crypto";
 import { ZodError, z } from "zod";
 import type { CommunicationAdapter } from "../communication/types";
 import {
-  createSupabaseQuoteRepositoryFromEnvironment,
-  SupabaseQuoteRepositoryConfigurationError,
-  SupabaseQuoteRepositoryError
-} from "../supabase/quote-repository";
+  createNeonQuoteRepositoryFromEnvironment,
+  NeonQuoteRepositoryConfigurationError,
+  NeonQuoteRepositoryError
+} from "../neon/quote-repository";
 import type { QuoteLookup } from "../../tools/approval-tools";
 import type { QuoteRepository } from "../../repositories/quote-repository";
 import {
@@ -141,7 +141,7 @@ function toolErrorResponse(error: unknown): Response {
     );
   }
 
-  if (error instanceof SupabaseQuoteRepositoryConfigurationError) {
+  if (error instanceof NeonQuoteRepositoryConfigurationError) {
     return Response.json(
       {
         error: "QUOTE_REPOSITORY_CONFIGURATION_INVALID",
@@ -151,7 +151,7 @@ function toolErrorResponse(error: unknown): Response {
     );
   }
 
-  if (error instanceof SupabaseQuoteRepositoryError) {
+  if (error instanceof NeonQuoteRepositoryError) {
     return Response.json(
       {
         error: "QUOTE_REPOSITORY_UNAVAILABLE",
@@ -192,7 +192,7 @@ function resolveQuoteRepository(
 ): QuoteRepository | undefined {
   return (
     dependencies.quoteRepository ??
-    createSupabaseQuoteRepositoryFromEnvironment(environment)
+    createNeonQuoteRepositoryFromEnvironment(environment)
   );
 }
 
@@ -281,7 +281,7 @@ export async function handleBimpeToolRequest(
             {
               error: "QUOTE_REPOSITORY_NOT_CONFIGURED",
               message:
-                "Durable Quote persistence requires SUPABASE_URL and SUPABASE_SECRET_KEY."
+                "Durable Quote persistence requires a Neon/Postgres DATABASE_URL."
             },
             { status: 503 }
           );
@@ -296,7 +296,7 @@ export async function handleBimpeToolRequest(
           data: storedQuote,
           meta: {
             persisted: true,
-            storage: "quote-repository"
+            storage: "neon-postgres"
           }
         });
       }
