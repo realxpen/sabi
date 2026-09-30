@@ -42,8 +42,9 @@ Phase 1 currently includes:
 - human-approval UI
 - focused tests + GitHub CI
 - verified partner-integration research and build plan
+- current teammate-specific Codex prompts
 
-See `PROJECT_STATE.md` for the exact current checkpoint.
+See `PROJECT_STATE.md` for the exact checkpoint.
 
 ## Verified integration direction
 
@@ -78,8 +79,9 @@ YarnGPT is an optional African-voice enhancement. Temlio is an optional SMS/comm
 - **KrosAI** is the primary telephony transport.
 - **Vapi** is the first voice-runtime candidate; Retell/ElevenLabs are fallbacks.
 - Current official Kros docs show conflicting `/v1` vs `/api/v1`/outbound path examples, so the live route must be confirmed through API Explorer/minimal testing and remains configurable.
+- Kros webhook event names also differ across official pages; aliases/version mapping stays inside the Kros adapter until the live schema is confirmed.
 - The current Bimpe TypeScript SDK documents Node 24+ while SABI CI is Node 20, so the first Bimpe integration should use REST/native server-side `fetch` unless the runtime is deliberately upgraded and retested.
-- Live provider facts never belong in static Knowledge/RAG just because an LLM needs them; they come from operational data/tool results.
+- Live provider facts never belong in static Knowledge/RAG merely because an LLM needs them; they come from operational data/tool results.
 
 ## Project structure
 
