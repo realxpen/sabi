@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
-import {
-  POST as productionPost,
-  createKrosWebhookPostHandler
-} from "../app/api/webhooks/krosai/route";
+import { POST as productionPost } from "../app/api/webhooks/krosai/route";
 import { InMemoryCommunicationEventDeduplicator } from "../lib/integrations/communication/event-processor";
+import {
+  createKrosWebhookPostHandler,
+  type KrosWebhookDependencies
+} from "../lib/integrations/communication/kros-webhook-handler";
 import { MockCommunicationAdapter } from "../lib/integrations/communication/mock";
-import type { HandleCommunicationWebhookInput } from "../lib/integrations/communication/webhook";
-
-type KrosWebhookDependencies = Omit<
-  HandleCommunicationWebhookInput,
-  "rawBody" | "signature"
->;
 
 const decoder = new TextDecoder();
 
