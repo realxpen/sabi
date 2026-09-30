@@ -38,7 +38,7 @@ For partner-specific implementation, use this order:
 3. ACTIVE SABI integration knowledge derived from those sources
 4. older docs/examples only as historical context
 
-If official pages conflict, do not guess. Centralize the uncertainty, verify with a minimal live request/test, then update `PARTNER_INTEGRATIONS.md` and `ACTIVE_DECISIONS.md` if the result changes architecture.
+If official pages conflict, do not guess. Centralize the uncertainty, verify with a minimal live request/test, then update `PARTNER_INTEGRATIONS.md` and `ACTIVE_DECISIONS.md` if architecture changes.
 
 ## Core product loop
 
@@ -145,65 +145,21 @@ YarnGPT is optional voice enhancement. Temlio is optional communication fallback
 
 ## Knowledge architecture
 
-SABI separates:
-
-- **Knowledge** — durable product/policy/domain understanding
-- **Retrieval** — relevant knowledge selection
-- **Memory** — user/history-specific context
-- **Operational data** — missions/providers/communications/quotes/approvals
-- **LLM/agent reasoning** — decisions over bounded context
-- **Tools** — only mechanism for external/system actions
+SABI separates durable Knowledge, retrieval, memory, operational data, agent reasoning and tools.
 
 Live provider facts belong in operational/tool data, not durable Knowledge Base entries.
 
-## Knowledge lifecycle
-
-Knowledge can be:
-
-- ACTIVE
-- DEPRECATED
-- ARCHIVED
-
-When a consequential decision changes, preserve the old decision, mark lifecycle state, and add the superseding decision.
-
 ## MVP scope
 
-Build only what supports:
-
-- mission creation
-- intent/constraint extraction
-- provider search
-- provider contact
-- quote extraction/normalization
-- comparison
-- recommendation
-- human approval
-- Mission Control
-- minimal retrieval/Knowledge context
-- truthful observability/recovery
+Build only what supports Mission creation, provider discovery/contact, Quote extraction/normalization, comparison, recommendation, human approval, Mission Control, minimal Knowledge context and truthful observability/recovery.
 
 Do not add real payments, escrow, a full marketplace, broad autonomous purchasing, complex production KYC, or unrelated features.
 
 ## Agent guardrails
 
-SABI must:
+SABI must obey hard constraints, distinguish facts from unknowns, use tools for external facts/actions, preserve source/correlation references and request human approval before consequential action.
 
-- obey hard constraints
-- distinguish facts from unknowns
-- use tools for external facts/actions
-- report tool failures accurately
-- record provider responses faithfully
-- preserve source/correlation references
-- request human approval before consequential action
-
-SABI must never:
-
-- invent provider/quote facts
-- claim accepted initiation as completed action
-- exceed a hard budget silently
-- purchase/book/send/release money without permission
-- alter consequential user constraints without approval
-- create duplicate Quotes/state transitions from retried events
+SABI must never invent provider/Quote facts, claim initiation as completion, exceed a hard budget silently, purchase/book/send/release money without permission, alter consequential constraints without approval, or create duplicate Quotes/state transitions from retried events.
 
 ## Code conventions
 
@@ -216,20 +172,6 @@ SABI must never:
 - deterministic state transitions
 - success + failure + recovery tests
 - logs include correlation IDs but not secrets
-
-## Human decision authority
-
-Humans own:
-
-- product scope
-- architecture
-- trust/risk tolerance
-- partner selection
-- runtime migrations
-- production-critical decisions
-- consequential permission changes
-
-AI may propose, implement, test, and analyze, but may not silently redefine these.
 
 ## Team ownership
 
