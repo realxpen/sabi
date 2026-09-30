@@ -84,3 +84,20 @@ export function searchProviders(input: SearchProvidersInput = {}): Provider[] {
     })
     .map((provider) => providerSchema.parse(provider));
 }
+
+/**
+ * Retrieve one provider by its canonical provider ID.
+ *
+ * Phase 1 source: temporaryDemoProviders.
+ * This is an explicit demo source, not a live provider directory.
+ *
+ * The tool returns a validated provider record and does not rank,
+ * recommend, or mutate it.
+ */
+export function getProvider(providerId: string): Provider | undefined {
+  const provider = temporaryDemoProviders.find(
+    (provider) => provider.id === providerId
+  );
+
+  return provider ? providerSchema.parse(provider) : undefined;
+}
