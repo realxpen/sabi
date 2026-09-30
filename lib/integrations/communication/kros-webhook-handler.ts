@@ -1,4 +1,9 @@
 import {
+  createNeonCommunicationEventDeduplicatorFromEnvironment,
+  type NeonCommunicationEventDeduplicatorEnvironmentInput,
+  type NeonCommunicationEventDedupeSql
+} from "../neon/communication-event-deduplicator";
+import {
   handleCommunicationWebhook,
   WebhookConfigurationError,
   type HandleCommunicationWebhookInput
@@ -9,13 +14,18 @@ export type KrosWebhookDependencies = Omit<
   "rawBody" | "signature"
 >;
 
+export type KrosWebhookRuntimeDependencies = Omit<
+  KrosWebhookDependencies,
+  "deduplicator"
+>;
+
 function notConfigured(): never {
   throw new WebhookConfigurationError(
     "Kros webhook verification/runtime contract is not configured."
   );
 }
 
-export const unconfiguredKrosWebhookDependencies: KrosWebhookDependencies = {
+export const unconfiguredKrosWebhookRuntimeDependencies: KrosWebhookRuntimeDependencies = {
   verifier: {
     async verify() {
       return notConfigured();
@@ -37,14 +47,6 @@ export const unconfiguredKrosWebhookDependencies: KrosWebhookDependencies = {
       return notConfigured();
     },
     async normalizeEvent() {
-      return notConfigured();
-    }
-  },
-  deduplicator: {
-    async claim() {
-      return notConfigured();
-    },
-    async release() {
       return notConfigured();
     }
   }
@@ -108,5 +110,45 @@ export function createKrosWebhookPostHandler(
         { status: 500 }
       );
     }
+  };
+}
+
+/**
+ * Production-oriented wrapper that resolves the durable Neon deduplicator at
+ * request time. This keeps builds safe when DATABASE_URL is intentionally
+ * absent while ensuring the live webhook path never falls back to process
+ * memory.
+ */
+export function createKrosWebhookPostHandlerWithNeonDedupe(
+  dependencies: KrosWebhookRuntimeDependencies,
+  environment: NeonCommunicationEventDeduplicatorEnvironmentInput = process.env,
+  sql?: NeonCommunicationEventDedupeSql
+) {
+  return async function post(request: Request): Promise<Response> {
+    let deduplicator;
+
+    try {
+      deduplicator = createNeonCommunicationEventDeduplicatorFromEnvironment(
+        environment,
+        sql
+      );
+    } catch {
+      return Response.json(
+        { ok: false, error: "KROSAI_WEBHOOK_NOT_CONFIGURED" },
+        { status: 503 }
+      );
+    }
+
+    if (!deduplicator) {
+      return Response.json(
+        { ok: false, error: "KROSAI_WEBHOOK_NOT_CONFIGURED" },
+        { status: 503 }
+      );
+    }
+
+    return createKrosWebhookPostHandler({
+      ...dependencies,
+      deduplicator
+    })(request);
   };
 }
