@@ -19,7 +19,7 @@ export type CommunicationWebhookEnvelope = z.infer<
 
 export interface WebhookSignatureVerifier {
   verify(input: {
-    rawBody: string;
+    rawBody: Uint8Array;
     signature: string | null;
   }): Promise<boolean>;
 }
@@ -30,7 +30,7 @@ export interface WebhookSignatureVerifier {
  * any partner field names.
  */
 export interface WebhookEnvelopeParser {
-  parse(rawBody: string): Promise<unknown>;
+  parse(rawBody: Uint8Array): Promise<unknown>;
 }
 
 export interface WebhookCorrelationResolver {
@@ -54,7 +54,7 @@ export type HandleCommunicationWebhookResult =
     };
 
 export type HandleCommunicationWebhookInput = {
-  rawBody: string;
+  rawBody: Uint8Array;
   signature: string | null;
   verifier: WebhookSignatureVerifier;
   parser: WebhookEnvelopeParser;
@@ -66,7 +66,7 @@ export type HandleCommunicationWebhookInput = {
 /**
  * Provider-neutral webhook pipeline.
  *
- * Order is deliberate: preserve raw body -> verify authenticity -> parse the
+ * Order is deliberate: preserve raw bytes -> verify authenticity -> parse the
  * provider envelope -> resolve correlation -> deduplicate/normalize.
  */
 export async function handleCommunicationWebhook(
