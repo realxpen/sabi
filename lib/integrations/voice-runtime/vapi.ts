@@ -5,12 +5,19 @@ import type {
 } from "./types";
 
 const requiredVapiConfigurationKeys = [
+  "VAPI_API_BASE_URL",
   "VAPI_API_KEY",
   "VAPI_ASSISTANT_ID",
   "VAPI_SIP_TRUNK_CREDENTIAL_ID"
 ] as const;
 
+export const vapiApiBaseUrlSchema = z.enum([
+  "https://api.vapi.ai",
+  "https://api.eu.vapi.ai"
+]);
+
 export const vapiRuntimeConfigurationSchema = z.object({
+  apiBaseUrl: vapiApiBaseUrlSchema,
   apiKey: z.string().trim().min(1),
   assistantId: z.string().trim().min(1),
   sipTrunkCredentialId: z.string().trim().min(1)
@@ -32,9 +39,9 @@ export type VapiRuntimeVerification = {
 /**
  * Provider-specific live verification seam.
  *
- * The repository does not currently contain a verified Vapi live request
- * schema. A real implementation of this driver must come from current Vapi
- * account/docs evidence and must not be guessed from memory.
+ * A real implementation must use current verified Vapi account/docs evidence.
+ * The current HTTP driver lives in vapi-http-driver.ts and performs read-only
+ * checks against documented Vapi endpoints.
  */
 export interface VapiRuntimeDriver {
   verifyConfiguration(
@@ -53,6 +60,7 @@ export function readVapiRuntimeConfiguration(
   environment: VapiRuntimeEnvironment = process.env
 ): VapiRuntimeConfiguration | undefined {
   const candidate = {
+    apiBaseUrl: environment.VAPI_API_BASE_URL,
     apiKey: environment.VAPI_API_KEY,
     assistantId: environment.VAPI_ASSISTANT_ID,
     sipTrunkCredentialId: environment.VAPI_SIP_TRUNK_CREDENTIAL_ID
@@ -73,10 +81,9 @@ function missingVapiConfiguration(
 /**
  * Vapi voice-runtime readiness seam.
  *
- * This class deliberately does not make Vapi HTTP calls, provision SIP, or
- * create assistants. It validates that real account artifacts have been
- * supplied and only performs live verification through an injected verified
- * driver. API keys never appear in readiness output.
+ * SABI only reports VERIFIED after an injected driver confirms the configured
+ * account artifacts using live/read-only provider checks. The private API key
+ * never appears in readiness output.
  */
 export class VapiVoiceRuntime implements VoiceRuntime {
   readonly name = "vapi";
@@ -122,7 +129,7 @@ export class VapiVoiceRuntime implements VoiceRuntime {
 
     if (!this.driver) {
       throw new VapiRuntimeConfigurationError(
-        "Vapi runtime is configured but has no verified live driver. Confirm current Vapi account/API behavior before enabling live verification."
+        "Vapi runtime is configured but has no verified live driver. Use the documented read-only Vapi HTTP driver or inject another verified driver."
       );
     }
 
