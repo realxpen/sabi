@@ -27,7 +27,7 @@ The team is no longer waiting for the skeleton.
 
 ## Current integration objective
 
-Replace temporary/mock-owned pieces with the teammate modules and one verified partner path without changing shared domain contracts.
+Replace temporary/mock-owned pieces with teammate modules and one verified partner path without changing shared domain contracts.
 
 Target:
 
