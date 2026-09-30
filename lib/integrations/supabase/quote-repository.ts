@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { quoteSchema, type Quote } from "../../schemas";
+import {
+  quoteSchema,
+  quoteSourceSchema,
+  type Quote
+} from "../../schemas";
 import {
   type QuoteRepository,
   validateStoredQuote
@@ -30,7 +34,7 @@ const supabaseQuoteRowSchema = z.object({
   total: z.number().nonnegative().nullable(),
   delivery_date: z.string().min(1).nullable(),
   notes: z.string().min(1).nullable(),
-  source: z.enum(["CALL", "SMS", "MANUAL", "OTHER"]),
+  source: quoteSourceSchema,
   source_reference: z.string().min(1).nullable(),
   created_at: z.string().datetime()
 });
