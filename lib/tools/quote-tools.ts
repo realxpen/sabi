@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  communicationResultSchema,
   quoteSchema,
   quoteSourceSchema,
-  type Quote
+  type CommunicationResult,
+  type Quote,
+  type QuoteSource
 } from "../schemas";
 import { getProvider } from "./provider-tools";
 
@@ -42,5 +45,53 @@ export function recordQuote(input: RecordQuoteInput): Quote {
     id: `quote-${randomUUID()}`,
     ...quoteInput,
     createdAt: new Date().toISOString()
+  });
+}
+
+function quoteSourceForCommunication(
+  communication: CommunicationResult
+): QuoteSource {
+  if (communication.channel === "CALL") {
+    return "CALL";
+  }
+
+  if (communication.channel === "SMS") {
+    return "SMS";
+  }
+
+  return "OTHER";
+}
+
+/**
+ * Create a Quote only when a completed CommunicationResult contains explicit
+ * availability evidence. A completed call/message by itself is not a Quote.
+ *
+ * NO_ANSWER, UNAVAILABLE, FAILED, INITIATED and IN_PROGRESS results never
+ * produce Quotes here. Missing commercial values remain unknown; this helper
+ * intentionally does not calculate a total or assume a delivery fee.
+ */
+export function recordQuoteFromCommunication(
+  candidate: CommunicationResult
+): Quote | undefined {
+  const communication = communicationResultSchema.parse(candidate);
+
+  if (communication.status !== "COMPLETED") {
+    return undefined;
+  }
+
+  if (communication.observation?.available === undefined) {
+    return undefined;
+  }
+
+  return recordQuote({
+    missionId: communication.missionId,
+    providerId: communication.providerId,
+    available: communication.observation.available,
+    price: communication.observation.price,
+    deliveryFee: communication.observation.deliveryFee,
+    deliveryDate: communication.observation.deliveryDate,
+    notes: communication.observation.notes,
+    source: quoteSourceForCommunication(communication),
+    sourceReference: communication.externalId ?? communication.id
   });
 }
