@@ -6,6 +6,7 @@ import {
   type CommunicationResult
 } from "../schemas";
 import { MockCommunicationAdapter } from "../integrations/communication/mock";
+import { initiateContactWithRecovery } from "../integrations/communication/recovery";
 import type {
   ContactProviderInput,
   CommunicationAdapter
@@ -124,9 +125,9 @@ export type CallProviderInput = z.infer<typeof callProviderInputSchema>;
  * Bounded provider contact tool.
  *
  * Phase 1 uses the existing mock communication adapter, so this does not
- * place a real call. The adapter boundary is kept explicit so a verified
- * live communication adapter can be supplied later without changing the
- * tool contract.
+ * place a real call. Once a valid provider reaches the adapter boundary,
+ * transport/provider failures are normalized to FAILED rather than being
+ * mistaken for Mission failure or Quote evidence.
  */
 export async function callProvider(
   input: CallProviderInput,
@@ -149,7 +150,11 @@ export async function callProvider(
     objective: contact.objective
   };
 
-  return adapter.initiateContact(contactInput);
+  return initiateContactWithRecovery({
+    contact: contactInput,
+    adapter,
+    failureChannel: "CALL"
+  });
 }
 
 export const sendMessageInputSchema = z.object({
