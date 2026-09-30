@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { recordQuote } from "../lib/tools/quote-tools";
+import {
+  recordQuote,
+  recordQuoteFromCommunication
+} from "../lib/tools/quote-tools";
 
 describe("recordQuote", () => {
   it("returns a canonical quote from factual input", () => {
@@ -61,5 +64,63 @@ describe("recordQuote", () => {
         source: "MANUAL"
       })
     ).toThrow("Provider not found");
+  });
+});
+
+describe("recordQuoteFromCommunication", () => {
+  it("creates a source-traceable quote from completed availability evidence", () => {
+    const quote = recordQuoteFromCommunication({
+      id: "communication-call-3",
+      missionId: "mission-demo",
+      providerId: "provider-tola-fabrics",
+      channel: "CALL",
+      status: "COMPLETED",
+      externalId: "external-call-123",
+      observation: {
+        available: true,
+        price: 64000,
+        deliveryDate: "tomorrow"
+      },
+      occurredAt: "2026-09-30T12:00:00.000Z"
+    });
+
+    expect(quote?.available).toBe(true);
+    expect(quote?.price).toBe(64000);
+    expect(quote?.source).toBe("CALL");
+    expect(quote?.sourceReference).toBe("external-call-123");
+    expect(quote?.deliveryFee).toBeUndefined();
+    expect(quote?.total).toBeUndefined();
+  });
+
+  it.each(["NO_ANSWER", "UNAVAILABLE", "FAILED", "INITIATED", "IN_PROGRESS"] as const)(
+    "does not create a quote from %s communication",
+    (status) => {
+      const quote = recordQuoteFromCommunication({
+        id: `communication-${status.toLowerCase()}`,
+        missionId: "mission-demo",
+        providerId: "provider-tola-fabrics",
+        channel: "CALL",
+        status,
+        occurredAt: "2026-09-30T12:00:00.000Z"
+      });
+
+      expect(quote).toBeUndefined();
+    }
+  );
+
+  it("does not treat a completed but incomplete result as a Quote", () => {
+    const quote = recordQuoteFromCommunication({
+      id: "communication-incomplete",
+      missionId: "mission-demo",
+      providerId: "provider-tola-fabrics",
+      channel: "CALL",
+      status: "COMPLETED",
+      observation: {
+        notes: "Transcript existed but availability was not confirmed."
+      },
+      occurredAt: "2026-09-30T12:00:00.000Z"
+    });
+
+    expect(quote).toBeUndefined();
   });
 });
