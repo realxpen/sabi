@@ -93,7 +93,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(response.status).toBe(200);
     expect(payload.data.channel).toBe("MOCK");
     expect(payload.meta.liveCommunication).toBe(false);
-    expect(payload.data.summary).toContain("No real provider communication occurred");
+    expect(payload.data.summary).toContain("No real provider was contacted");
   });
 
   it("marks HTTP recordQuote output as validated but not persisted", async () => {
