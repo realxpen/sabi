@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 Status: ACTIVE
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 ## Current phase
 
@@ -95,6 +95,32 @@ Implemented:
 
 Important: current provider responses and recommendation logic are clearly marked as **Phase 1 mock fixtures**. They are integration scaffolding and must be replaced by Femi/Lara modules rather than presented as live provider results.
 
+## Partner integration research — verified 2026-09-30
+
+Official sources supplied by the team have now been recorded in:
+
+- `Raw/PartnerDocs/SOURCE_LINKS.md`
+- `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+
+Verified so far:
+
+- [x] KrosAI account/KYC/API-key model
+- [x] KrosAI phone-number + endpoint architecture
+- [x] KrosAI outbound-call request model
+- [x] KrosAI call lifecycle/failure outcomes
+- [x] KrosAI webhook event/signature model
+- [x] KrosAI Vapi/Retell/ElevenLabs/LiveKit/custom endpoint options
+- [x] YarnGPT Bearer auth, TTS, STT and real-time conversation audio
+- [x] Spitch STT, TTS, translation, Nigerian Pidgin support and LiveKit integration
+- [x] Temlio public capabilities: Voice/SMS/USSD/local numbers/RESTful integrations
+
+Important open integration details:
+
+- KrosAI official docs currently contain inconsistent outbound-call path examples; Lara must confirm the live API explorer/dashboard route before hard-coding it.
+- Temlio's public homepage does not provide enough detailed API-contract information for implementation; event/partner documentation or credentials are still needed.
+- Final KrosAI voice-provider selection remains open pending access, setup speed and live reliability testing.
+- BimpeAI live integration documentation/access is still outstanding.
+
 ## CI status
 
 Latest Xpen track verified:
@@ -156,7 +182,9 @@ Branch:
 
 Use:
 
-`Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
+- `Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
+- `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+- `Raw/PartnerDocs/SOURCE_LINKS.md`
 
 Track:
 
@@ -178,7 +206,6 @@ Lara's implementation should replace/extend the existing mock communication boun
 - BimpeAI live integration
 - live telephony integration
 - live messaging fallback
-- partner-specific webhook contracts
 - real African-language voice flow
 - end-to-end real provider demo
 - payments / escrow
@@ -192,7 +219,9 @@ Lara's implementation should replace/extend the existing mock communication boun
 ## Current blockers / unknowns
 
 - Final partner API credentials and exact event allocations.
-- Exact API/webhook contracts must be confirmed from official partner documentation/access.
+- Confirmed live KrosAI outbound-call route/version.
+- Detailed Temlio API auth/payload/webhook documentation.
+- BimpeAI API/tool documentation and access.
 - Final decision on which voice/language combination gives the most reliable event demo.
 - Official event restriction, if any, on pre-built implementation remains to be confirmed.
 
