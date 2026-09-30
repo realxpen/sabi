@@ -5,11 +5,11 @@ Last verified: 2026-09-30
 
 ## Decision objective
 
-Choose the smallest partner stack that demonstrates a real agentic loop reliably while preserving SABI's own Mission, trust, quote, and approval architecture.
+Use the smallest partner stack that proves a real agentic loop reliably while preserving SABI's own Mission, trust, Quote and Approval architecture.
 
 ## System-of-record boundary
 
-SABI remains the system of record for:
+SABI remains authoritative for:
 
 - Mission
 - Provider
@@ -20,129 +20,178 @@ SABI remains the system of record for:
 - guardrails
 - external correlation IDs
 
-External agent/voice providers may reason, speak, transport calls, or invoke tools; they do not silently redefine these domain objects.
+External agent/voice providers may reason, speak, transport calls, synthesize/transcribe audio or invoke bounded tools; they do not silently redefine SABI domain objects.
 
 ## Primary hackathon stack
 
 ```text
 SABI Next.js
-  ↓
-BimpeAI — workflow / knowledge / bounded tool orchestration
-  ↓
-SABI callProvider tool
-  ↓
-KrosAI — local number + phone transport + call lifecycle
-  ↓
-Vapi — primary fast voice-runtime candidate
-  ↓
-Provider phone
-  ↓
-KrosAI webhook / transcript
-  ↓
-CommunicationResult → Quote
-  ↓
-Femi intelligence
-  ↓
-Xpen Mission Control
-  ↓
-HUMAN APPROVAL
+→ BimpeAI workflow / Knowledge / bounded SABI tools
+→ SABI callProvider
+→ KrosAI telephony
+→ Vapi first
+→ Provider phone
+→ Kros webhook / transcript
+→ CommunicationResult
+→ Validated Quote
+→ Femi intelligence
+→ Xpen Mission Control
+→ HUMAN APPROVAL
 ```
 
-### Why Vapi is the first voice-runtime candidate
+## Why BimpeAI is the agent layer
 
-KrosAI's official integration material positions Vapi around structured workflows/tool calling/function execution and documents a concrete SIP/BYO-number path.
+BimpeAI's public docs now verify:
 
-The objective is not to declare Vapi permanently superior. It is to test the shortest reliable path first.
+- agents bound to workflows
+- text/URL Knowledge Bases
+- Custom API integrations/tools
+- API-key auth + request correlation
+- conversations/testing
 
-## Fallback voice runtime
+This maps well to SABI's knowledge-first architecture while allowing SABI APIs to remain the source of truth.
 
-If Vapi cannot be made reliable quickly:
+## Bimpe runtime decision
+
+Current `@bimpeai/sdk` docs target Node 24+; SABI CI currently runs Node 20.
+
+Therefore the first integration uses:
+
+```text
+Next.js server
+→ native fetch
+→ Bimpe REST API
+```
+
+Only adopt the SDK after an intentional Node runtime/CI upgrade and full regression verification.
+
+## Why KrosAI is the primary telephony transport
+
+KrosAI's current docs verify:
+
+- local phone numbers
+- outbound/inbound call transport
+- endpoint routing
+- logs/transcripts/recordings
+- signed webhooks
+- Vapi/Retell/ElevenLabs/LiveKit/custom endpoints
+
+This is the exact phone-network layer SABI needs.
+
+## Kros URL/version decision
+
+Official Kros docs currently show conflicting examples around `/v1` vs `/api/v1` and singular/plural outbound paths.
+
+Therefore:
+
+- use `KROSAI_BASE_URL`
+- centralize Kros route construction
+- confirm the live route through API Explorer/dashboard/minimal request
+- record the working route before demo freeze
+
+Do not let remembered examples become distributed hard-coded URLs.
+
+## Kros webhook decision
+
+Official Kros pages currently show more than one event naming convention.
+
+Therefore:
+
+- verify live event names/payload through dashboard/API Explorer
+- centralize event aliases/version mapping inside the Kros adapter
+- verify `X-Webhook-Signature` from raw body
+- deduplicate provider event IDs
+- normalize to SABI `CommunicationResult` before Mission mutation
+
+## Voice-runtime order
+
+Primary candidate:
+
+```text
+KrosAI → Vapi
+```
+
+Reason: Kros documents a concrete SIP/BYO path and positions Vapi for structured workflows/tool calling/function execution.
+
+Fallback order if Vapi is not reliable quickly:
 
 1. Retell
 2. ElevenLabs
 
-Choose one; do not integrate both as critical-path dependencies.
+Do not integrate all three as simultaneous critical-path dependencies.
 
 ## Advanced multilingual stack
 
-Once the base phone loop works:
+Only after the base phone loop works:
 
 ```text
 KrosAI number
 → LiveKit SIP
 → LiveKit Agent
 → Spitch STT/TTS
-→ LLM/SABI tools
+→ SABI/Bimpe tools
 ```
 
-This path is technically strong because both KrosAI and Spitch document LiveKit integrations, but it introduces LiveKit worker/SIP/runtime setup and therefore comes after the reliable base demo.
+Both KrosAI and Spitch document LiveKit integrations, making this technically coherent but operationally more complex.
 
 ## YarnGPT role
 
-YarnGPT is optional for:
+YarnGPT remains optional for:
 
-- African voice TTS
-- translated synthesized responses
+- African TTS
+- translated synthesis
+- low-latency single-turn audio
 - post-call/file STT
-- standalone voice enhancement
 
-Do not make YarnGPT ASR the critical real-time phone loop in the first implementation because its documented STT flow is asynchronous and polled.
+Its documented ASR flow is asynchronous/polled, so do not make it the first critical real-time phone-ASR path.
 
 ## Temlio role
 
-Temlio is the planned communication fallback, especially SMS after `no_answer`, `busy`, or call failure.
+Temlio is planned as an optional fallback, especially SMS after `no_answer`, `busy`, or failure.
 
-Public material confirms Voice/SMS/USSD REST capabilities, but the implementation contract is not public enough to code safely. Keep the adapter boundary only until event docs/credentials arrive.
+Public material verifies Voice/SMS/USSD/local-number REST capabilities but not enough request/auth/webhook detail to implement safely. Keep only the adapter boundary until event/partner documentation arrives.
 
-## BimpeAI role
+## Bimpe Knowledge decision
 
-BimpeAI should provide:
+Durable policy/domain guidance may be loaded into Bimpe Knowledge Bases.
 
-- workflow/system prompt
-- SABI knowledge base
-- bounded custom API tools
-- optional agent channels/test environment
+Examples:
 
-BimpeAI should not replace SABI's Mission database/state machine.
+- trust policy
+- approval policy
+- procurement rules
+- provider communication rules
+- category guidance
 
-There is no verified public documentation of a native BimpeAI ↔ KrosAI integration, so the bridge is SABI-owned APIs/tools.
+Live provider price, availability, delivery commitment, transcript and call outcome remain operational/tool data in SABI.
 
-## Runtime compatibility decision
+## Real-call truthfulness decision
 
-BimpeAI's TypeScript SDK currently documents Node 24+ support. SABI CI currently runs Node 20.
+A real external path is considered successful only when:
 
-For the first integration:
+```text
+call initiation accepted
+→ destination rings/answers
+→ call completes or fails truthfully
+→ webhook/log/transcript correlates to Mission/Provider
+→ CommunicationResult is validated
+```
 
-**Prefer BimpeAI REST API through native `fetch` while retaining Node 20.**
-
-Only switch to `@bimpeai/sdk` after intentionally upgrading CI/runtime to Node 24 and verifying the Next.js build/tests.
-
-This avoids an unnecessary runtime migration during the hackathon.
-
-## KrosAI URL decision
-
-KrosAI public docs currently show both `/v1` and `/api/v1` examples and inconsistent singular/plural outbound-call paths.
-
-Therefore:
-
-- use `KROSAI_BASE_URL` configuration
-- keep route construction in one Kros adapter
-- verify the actual live path with API Explorer/dashboard/minimal request
-- record the confirmed live endpoint before demo freeze
+API acceptance alone is not call success.
 
 ## Demo freeze rule
 
-The primary demo stack is frozen once all of these are repeatable:
+Freeze the primary demo stack once all of these are repeatable:
 
 ```text
 Mission created
 → candidate provider selected
-→ real consented test phone receives call
-→ provider response captured
-→ quote normalized
+→ real consented phone receives call
+→ provider response/transcript captured
+→ Quote validated
 → valid options compared
 → Mission Control updates
 → human approval requested
 ```
 
-After this point, multilingual voice/SMS/secondary providers are optional enhancements and may not destabilize the golden path.
+After this, multilingual voice, SMS fallback and extra providers are optional enhancements only.
