@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { quoteSchema, type Quote } from "../lib/schemas";
+import {
+  approvalSchema,
+  quoteSchema,
+  type Approval,
+  type Quote
+} from "../lib/schemas";
+import type { ApprovalRepository } from "../lib/repositories/approval-repository";
 import type { QuoteRepository } from "../lib/repositories/quote-repository";
 import {
   bimpeCustomApiTools,
@@ -20,6 +26,20 @@ class TestQuoteRepository implements QuoteRepository {
 
   async getById(quoteId: string): Promise<Quote | undefined> {
     return this.quotes.get(quoteId);
+  }
+}
+
+class TestApprovalRepository implements ApprovalRepository {
+  private readonly approvals = new Map<string, Approval>();
+
+  async save(approval: Approval): Promise<Approval> {
+    const validated = approvalSchema.parse(approval);
+    this.approvals.set(validated.id, validated);
+    return validated;
+  }
+
+  async getById(approvalId: string): Promise<Approval | undefined> {
+    return this.approvals.get(approvalId);
   }
 }
 
@@ -171,7 +191,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     });
   });
 
-  it("loads a stored Quote before creating a pending human approval", async () => {
+  it("fails closed when a stored Quote exists but Approval persistence is missing", async () => {
     const quoteRepository = new TestQuoteRepository();
     const quote = quoteSchema.parse({
       id: "quote-demo",
@@ -194,14 +214,47 @@ describe("Bimpe bounded agent tool bridge", () => {
       "requestApproval",
       { environment, quoteRepository }
     );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: "APPROVAL_REPOSITORY_NOT_CONFIGURED"
+    });
+  });
+
+  it("loads a stored Quote and persists a pending human approval", async () => {
+    const quoteRepository = new TestQuoteRepository();
+    const approvalRepository = new TestApprovalRepository();
+    const quote = quoteSchema.parse({
+      id: "quote-demo",
+      missionId: "mission-demo",
+      providerId: "provider-ade-textiles",
+      available: true,
+      price: 62000,
+      source: "CALL",
+      sourceReference: "communication-demo",
+      createdAt: new Date().toISOString()
+    });
+    await quoteRepository.save(quote);
+
+    const response = await handleBimpeToolRequest(
+      toolRequest({
+        missionId: "mission-demo",
+        providerId: "provider-ade-textiles",
+        quoteId: "quote-demo"
+      }),
+      "requestApproval",
+      { environment, quoteRepository, approvalRepository }
+    );
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload.data.status).toBe("PENDING");
     expect(payload.data.action).toBe("SELECT_PROVIDER");
     expect(payload.meta.quoteLoadedFromRepository).toBe(true);
-    expect(payload.meta.approvalPersisted).toBe(false);
+    expect(payload.meta.approvalPersisted).toBe(true);
+    expect(payload.meta.approvalStorage).toBe("neon-postgres");
     expect(payload.meta.transactionCommitted).toBe(false);
+    expect(await approvalRepository.getById(payload.data.id)).toEqual(payload.data);
   });
 
   it("still supports an explicit Quote lookup injection for non-production callers", async () => {
@@ -232,6 +285,7 @@ describe("Bimpe bounded agent tool bridge", () => {
 
     expect(response.status).toBe(200);
     expect(payload.data.status).toBe("PENDING");
+    expect(payload.meta.approvalPersisted).toBe(false);
     expect(payload.meta.transactionCommitted).toBe(false);
   });
 
