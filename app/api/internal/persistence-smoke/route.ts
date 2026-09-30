@@ -12,7 +12,7 @@ function internalRequest(path: string, token: string, body: unknown): Request {
   });
 }
 
-export async function POST(): Promise<Response> {
+async function runSmoke(): Promise<Response> {
   if (
     process.env.VERCEL_ENV !== "preview" ||
     process.env.VERCEL_GIT_COMMIT_REF !== "lara/agent-tools"
@@ -91,4 +91,13 @@ export async function POST(): Promise<Response> {
       approvalPayload?.meta?.quoteLoadedFromRepository === true,
     transactionCommitted: approvalPayload?.meta?.transactionCommitted === true
   });
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.searchParams.get("run") !== "quote-approval-smoke") {
+    return new Response(null, { status: 404 });
+  }
+
+  return runSmoke();
 }
