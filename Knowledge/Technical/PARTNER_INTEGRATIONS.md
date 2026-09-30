@@ -3,89 +3,129 @@
 Status: ACTIVE
 Last verified: 2026-09-30
 
-This file records implementation facts verified from official partner documentation. It replaces Phase 0 assumptions where the docs now provide concrete contracts.
+This file records implementation facts verified from official/public partner documentation. It replaces Phase 0 assumptions where concrete contracts are now available. Where documentation conflicts or a public API contract is unavailable, the uncertainty is recorded explicitly rather than guessed.
 
-## 1. KrosAI — Telephony Layer
+## Executive integration rule
+
+Do not put every partner into the same critical path.
+
+For SABI, the preferred separation is:
+
+```text
+BimpeAI        = agent workflow / knowledge / tool orchestration
+SABI backend   = source of truth for Mission, Provider, Quote, Approval, guardrails
+KrosAI         = phone/telephony transport
+Voice runtime  = Vapi first OR LiveKit + Spitch for richer African-language voice
+Spitch         = African STT/TTS/translation, especially with LiveKit
+YarnGPT        = optional African voice/TTS/translation/post-call transcription path
+Temlio         = optional SMS/communications fallback when event API docs are provided
+```
+
+There is currently no verified public documentation showing a direct BimpeAI ↔ KrosAI native integration. Connect them through SABI-owned tools/APIs or through a supported voice runtime; do not invent a direct provider bridge.
+
+---
+
+## 1. KrosAI — Telephony Transport
 
 ### Verified role
 
-KrosAI provides AI-native phone infrastructure. It connects local phone numbers to AI endpoints and supports inbound/outbound calling, call logs, recordings/transcripts, webhooks, and provider integrations.
+KrosAI is the phone-network layer. It bridges AI voice endpoints to real phone numbers and supports local numbers, inbound/outbound calls, call lifecycle events, recordings, transcripts, logs, webhooks, and provider integrations.
 
-For SABI, KrosAI belongs behind the communication adapter and is responsible for the real phone-call transport.
+For SABI, KrosAI belongs behind the existing `CommunicationAdapter`.
 
-### Account / phone-number prerequisites
+### Account prerequisites
 
-The quickstart requires:
+Before live calling:
 
 - KrosAI account
-- KYC before purchasing phone numbers
+- completed KYC before number provisioning
 - KrosAI API key
-- a KrosAI phone number
-- an AI endpoint/provider
+- KrosAI phone number
+- one configured AI endpoint
+- a consenting test destination number
 
-Useful API-key scopes include:
+Nigeria is listed among supported number markets in the current KrosAI documentation.
+
+### Authentication
+
+Server-side requests use:
+
+```text
+x-api-key: <KROSAI_API_KEY>
+```
+
+Documented scopes include:
 
 - `numbers:read`
 - `numbers:write`
-- `calls:read`
-- `calls:write`
 - `endpoints:read`
 - `endpoints:write`
+- `calls:read`
+- `calls:write`
 - `webhooks:read`
 - `webhooks:write`
+- `voice:connect` for Voice SDK use
 
-The quickstart examples authenticate with:
+Use least privilege. Dashboard JWT/Bearer auth is separate; server-side integrations should use API keys.
 
-`x-api-key: <KROSAI_API_KEY>`
+### Important REST-path inconsistency
 
-Keep the key server-side.
+KrosAI public docs currently contain inconsistent path examples:
 
-### AI endpoints
+- several integration/quickstart examples use `https://api.krosai.com/v1/...`
+- several API-reference guides declare `https://api.krosai.com/api/v1/...`
+- the outbound guide describes `POST /outbound-call`, while integration examples use `/outbound-calls`
 
-KrosAI can route calls to:
+Therefore SABI must not scatter a hard-coded URL throughout the codebase.
+
+Use a server-side configurable base URL, e.g. `KROSAI_BASE_URL`, and confirm the live route with the dashboard/API Explorer or a minimal successful request before locking the adapter.
+
+### Endpoints
+
+KrosAI endpoint types:
+
+- `agent` — AI voice provider
+- `webhook` — custom HTTP endpoint
+
+Current documented agent providers include:
 
 - Vapi
-- ElevenLabs
 - Retell
+- ElevenLabs
 - LiveKit
-- custom webhook/server endpoints
 
-An endpoint conceptually contains:
+Endpoint records conceptually contain name, type, URL/SIP target, status, and provider configuration.
 
-- name
-- type (`agent` or `webhook`)
-- URL / SIP target
-- provider-specific configuration
+### Outbound-call contract
 
-The KrosAI number is then attached to that endpoint and inbound/outbound calling can be enabled.
+Current outbound-call guide documents:
 
-### Outbound-call model
+- `from_number` — KrosAI-owned E.164 number
+- `to_number` — destination in E.164
+- `endpoint_id` — AI endpoint handling the call
+- `metadata` — optional correlation/application data
+- `webhook_url` — optional per-call override
+- `max_duration` — optional safety cap
 
-Verified request fields include:
-
-- `from_number` — KrosAI-owned number in E.164 format
-- `to_number` — destination in E.164 format
-- `endpoint_id` — AI endpoint to handle the call
-- `metadata` — optional
-- `webhook_url` — optional override in the outbound-call reference
-- `max_duration` — optional in the outbound-call reference
-
-For SABI, metadata should carry correlation identifiers where the live API accepts them, for example:
+For SABI, metadata should include correlation fields such as:
 
 ```json
 {
   "missionId": "mission_123",
-  "providerId": "provider_456"
+  "providerId": "provider_456",
+  "correlationId": "communication_789"
 }
 ```
 
-That lets Lara resolve incoming call events back to the correct Mission and Provider without inferring identity from phone numbers.
+Do not identify a mission only by a phone number when explicit metadata is available.
 
 ### Call lifecycle
 
-The outbound-call docs describe:
+Documented lifecycle:
 
-`initiated → ringing → answered → in_progress → completed`
+```text
+initiated → ringing → answered → in_progress → completed
+```
 
 Failure outcomes include:
 
@@ -93,124 +133,216 @@ Failure outcomes include:
 - `no_answer`
 - `busy`
 
-SABI should normalize these into the existing `CommunicationResult` states rather than leaking KrosAI-specific statuses throughout the domain.
+Map these into SABI's `CommunicationResult`; do not leak Kros-specific status names across the whole domain.
+
+A request being accepted only means `initiated`, not that a provider answered or supplied a quote.
+
+### Logs, transcript and recording
+
+KrosAI call APIs expose call history, lifecycle events, recordings and transcripts. Current guides describe automatically generated recordings/transcripts for completed calls and a transcript field with speaker labels when available.
+
+SABI should treat the transcript as evidence for quote extraction, not as a Quote by itself:
+
+```text
+call completed
+→ transcript/result available
+→ extract factual fields
+→ validate Quote
+→ store source reference
+→ compare only valid data
+```
 
 ### Webhooks
 
-Verified KrosAI webhook events include:
+The current webhook event guide lists:
 
-- `call.started`
-- `call.ended`
+- `call.initiated`
+- `call.ringing`
+- `call.answered`
+- `call.completed`
 - `call.failed`
-- `call.recording.completed`
-- `transcription.completed`
+- `recording.ready`
+- `transcript.ready`
 
-The webhook documentation shows event IDs plus call data and a signing secret.
+It also documents phone-number, endpoint, port-request and billing event categories.
 
-Signature verification is based on `X-Webhook-Signature` using HMAC-SHA256 over the raw payload with the webhook secret.
+Webhook envelope fields include:
 
-The webhook retry policy shown in the docs retries failed delivery multiple times, so SABI webhook processing must be idempotent.
+- `id` — unique event identifier
+- `event`
+- `created_at`
+- `data`
 
-Store the provider event ID before applying consequential state transitions when practical.
+The docs instruct verification of `X-Webhook-Signature` and require a `2xx` response within 10 seconds. Failed deliveries are retried, so webhook processing must be idempotent; store/process event IDs safely before state mutation where practical.
 
-### Call records
+### Webhook documentation-version warning
 
-KrosAI call logs expose call history and detail, including filtering by status/direction/phone number/endpoint. This can serve as an audit/recovery source if a webhook is missed.
+Older KrosAI pages/examples use names such as `call.started`, `call.ended`, `call.recording.completed`, or `transcription.completed`, while the current event index uses the newer names above.
 
-### Important documentation conflict
+Do not code the handler around one old sample. Confirm the event list/payload in the live dashboard/API Explorer and implement provider-event mapping in one adapter module.
 
-Do not hard-code the final outbound-call URL from memory yet.
+### Simulated inbound calls
 
-Official KrosAI documentation currently contains inconsistent examples:
+KrosAI's current API index documents an authenticated simulated-inbound-call endpoint for realistic test scenarios. The exact public request schema was not reliably retrievable in this audit.
 
-- Quickstart examples use paths such as `https://api.krosai.com/v1/outbound-calls`.
-- Another outbound-call reference presents a base under `https://api.krosai.com/api/v1/outbound-calls` and also describes `POST /outbound-call`.
+Use the live API Explorer for the payload before implementing it. Do not invent fields from the endpoint name.
 
-Before Lara implements the live adapter, confirm the current path using the live API explorer/dashboard or a successful minimal test call.
+### Rate limits
 
-Record the confirmed route in this file afterward.
+KrosAI publishes plan-level and endpoint-specific rate limits and rate-limit headers. Because the public docs contain at least one concurrency discrepancy between plan tables and the outbound guide, SABI should read live response headers/dashboard limits rather than relying on hard-coded plan assumptions.
 
-### Best first SABI test
-
-Do not begin with the full agent loop.
-
-First prove:
-
-1. valid API key
-2. access to a KrosAI phone number
-3. endpoint exists
-4. initiate one test outbound call
-5. receive one webhook/call event
-6. correlate it using mission/provider metadata
-7. store the normalized `CommunicationResult`
-
-Only then connect quote extraction and the agent continuation loop.
+Handle `429` and `Retry-After` with bounded backoff.
 
 ---
 
-## 2. KrosAI Voice-Agent Provider Options
+## 2. KrosAI Voice Runtime Options
 
-### Vapi
+SABI needs one voice runtime behind KrosAI; integrating all of them creates needless risk.
 
-KrosAI documents a Vapi integration using SIP/BYO-number setup and a Vapi Assistant ID.
+### Option A — Vapi: fastest structured-agent path
 
-KrosAI positions Vapi around structured workflows/tool calling/function execution. That makes Vapi a strong candidate for the hackathon if the team wants the phone conversation itself to invoke SABI tools.
+Verified KrosAI setup requires:
 
-Do not select it solely from this description; test actual setup/latency and available event credits first.
+1. Vapi account and assistant
+2. configure a SIP trunk in Vapi using KrosAI number SIP credentials
+3. import the KrosAI number as a BYO SIP-trunk number
+4. obtain the Vapi Assistant ID
+5. connect Vapi credentials in KrosAI
+6. create a KrosAI Vapi endpoint using the Assistant ID and Vapi SIP Trunk Credential ID
+7. attach the endpoint to the KrosAI number
 
-### Retell
+KrosAI positions Vapi for structured workflows, tool calling and function execution.
 
-KrosAI documents Retell endpoints using a Retell agent ID and provider configuration. Their example shows dynamic variables passed through outbound-call metadata and call-completion data including transcripts/analysis.
+**Hackathon recommendation:** test this path first because it is the lowest-complexity route to `mission → phone call → agent conversation → result`.
 
-Retell is another viable path if its setup proves faster or more reliable during the event.
+### Option B — Retell
 
-### ElevenLabs
+Verified requirements:
 
-KrosAI supports ElevenLabs agent endpoints and describes it primarily around natural conversation/voice quality.
+- Retell account + agent
+- Retell API key
+- Retell agent ID
+- KrosAI number
+- KrosAI endpoint with `provider: retell`
 
-The currently supplied ElevenLabs integration link should be treated as official source material, but the page was not reliably retrievable during this verification pass. Do not invent missing setup fields.
+Retell dynamic variables can be passed through KrosAI call metadata. KrosAI's example completion payload includes transcript and call analysis.
 
-### Selection rule
+Use as fallback if its event setup proves more reliable than Vapi during the event.
 
-For the hackathon, choose the provider that gives the fastest reliable end-to-end loop:
+### Option C — ElevenLabs
 
-`SABI mission → callProvider → real phone → useful response → webhook/transcript → Quote`
+Verified KrosAI guide requires:
 
-Do not integrate all three voice platforms.
+- ElevenLabs Conversational AI / ElevenAgents agent
+- import KrosAI phone number through SIP trunk credentials
+- ElevenLabs Agent ID
+- KrosAI ElevenLabs endpoint
+
+This is a strong natural-voice option, but SABI should not choose it solely for voice quality if tool/action integration becomes slower.
+
+### Option D — LiveKit
+
+Verified KrosAI guide requires:
+
+- LiveKit Cloud or self-hosted instance
+- running LiveKit agent
+- configured LiveKit SIP trunk
+- LiveKit API key
+- LiveKit API secret
+- LiveKit WebSocket server URL
+- LiveKit agent name/ID
+- SIP trunk ID
+- SIP URI
+
+KrosAI provider config includes the LiveKit agent name, SIP trunk ID and SIP URI. Agent verification occurs at call-time because LiveKit agents are worker processes.
+
+This is the most coherent route if SABI wants direct control of the real-time voice pipeline and Spitch African-language STT/TTS, but it has more moving parts than Vapi.
 
 ---
 
-## 3. Temlio — Voice / SMS / USSD / Local Numbers
+## 3. Spitch — African Speech + Live Voice Layer
 
-### Verified role
+### Authentication and SDK
 
-Temlio's public site confirms cloud communication capabilities including:
+Spitch supports TypeScript/Python SDKs and Bearer API auth. Keep `SPITCH_API_KEY` server-side.
 
-- Voice
-- SMS
-- USSD
-- RESTful API integration
-- business phone communication
-- contact-center solutions
-- local virtual numbers (DIDs)
-- automated SMS/voice campaigns
+### TTS
 
-### Current documentation boundary
+Verified REST endpoint:
 
-The provided Temlio homepage does not expose enough detailed API-contract information to safely implement request payloads, auth headers, webhooks, or status values from the public page alone.
+```text
+POST https://api.spitch.app/v1/speech
+```
 
-Therefore:
+Current docs list production-ready voices across English, Hausa, Igbo, Yoruba, Amharic and Nigerian Pidgin.
 
-- keep the Temlio adapter interface ready
-- do not invent API fields
-- obtain partner API documentation/credentials from the event team or Temlio
-- use Temlio first as SMS fallback if its event API is faster to integrate than a second voice transport
+Supported output formats include:
 
-A likely SABI role is:
+- `wav`
+- `mp3`
+- `ogg_opus`
+- `webm_opus`
+- `flac`
+- `pcm_s16le`
+- `mulaw`
+- `alaw`
 
-`KrosAI call fails/no answer → Temlio SMS fallback → provider replies / alternate flow`
+Raw PCM/μ-law/A-law make Spitch useful for telephony pipelines where unnecessary decode/re-encode steps should be avoided.
 
-but this remains a product/integration plan until the actual API contract is verified.
+### STT
+
+The current SDK exposes `speech.transcribe` with:
+
+- audio bytes/file/public URL/Spitch file UUID
+- optional language code such as `en`, `yo`, `ha`, `ig`, `am`
+- optional special words
+- optional sentence/word timestamps
+
+Current docs recommend omitting the deprecated `model` parameter for new integrations.
+
+### Translation
+
+Verified REST endpoint:
+
+```text
+POST https://api.spitch.app/v1/translate
+```
+
+It accepts text, target language, optional source language, tone and formality. Source language can be auto-detected.
+
+### LiveKit integration
+
+Spitch publishes an official LiveKit integration for real-time voice agents.
+
+Prerequisites:
+
+- Python 3.10+
+- Spitch API key
+- LiveKit API key
+- LiveKit API secret
+- LiveKit URL
+
+Installation:
+
+```text
+pip install "livekit-agents[spitch]~=1.2.0"
+```
+
+The integration exposes Spitch STT and TTS plugins inside a LiveKit `AgentSession`.
+
+Therefore a technically coherent SABI multilingual stack is:
+
+```text
+KrosAI number
+→ LiveKit SIP
+→ LiveKit voice agent
+→ Spitch STT
+→ LLM/SABI tools
+→ Spitch TTS
+→ provider phone
+```
+
+Do not make this the first integration unless the simple phone loop already works.
 
 ---
 
@@ -220,232 +352,329 @@ but this remains a product/integration plan until the actual API contract is ver
 
 Developer routes under `/api/v1/*` use:
 
-`Authorization: Bearer <YARNGPT_API_KEY>`
+```text
+Authorization: Bearer <YARNGPT_API_KEY>
+```
 
-YarnGPT explicitly states there is no sandbox/test key; API calls spend real credits.
+YarnGPT states there is no sandbox/test key; calls consume credits.
 
-Store the key server-side and use short test utterances.
-
-### Text-to-Speech
-
-Async TTS:
-
-`POST /api/v1/tts`
-
-returns a `job_id` and requires an `Idempotency-Key`.
-
-Poll:
-
-`GET /api/v1/status/{job_id}`
-
-until complete.
-
-There is no webhook/callback for the async TTS job, so polling is required.
-
-Do not build the live SABI phone loop around async TTS unless needed.
-
-### Real-time single-turn conversation audio
-
-For live voice use, YarnGPT exposes:
-
-`POST /api/v1/streaming/conversation`
-
-It returns audio directly and supports:
-
-- `pcm`
-- `wav`
-- `mp3`
-
-For a telephony/audio pipeline, the docs specifically recommend `pcm` to avoid a decode step.
-
-Important: PCM sample rate is not fixed. Read the rate from the response `Content-Type` rather than hard-coding one.
-
-An optional `Idempotency-Key` is useful to prevent uncertain retries from charging twice.
-
-### Speech-to-Text
-
-Upload:
-
-`POST /api/v1/asr`
-
-with multipart audio and an `Idempotency-Key`, then poll:
-
-`GET /api/v1/asr/{job_id}`
-
-for transcription status/result.
-
-### Language caution
-
-YarnGPT's public API supports multiple translation target-language codes including Yoruba (`yo`), Hausa (`ha`) and Igbo (`ig`).
-
-Do not assume that every language/voice mentioned in event marketing maps directly to a `target_language` value. Query the live API/voice catalog and ASR-language endpoint rather than hard-coding capabilities.
-
-### SABI use
-
-Potential roles:
-
-- synthesize SABI's provider-facing speech
-- translate/synthesize a response into a supported language
-- transcribe recorded/provider audio when a live voice platform does not already provide a usable transcript
-
-For the hackathon, only add YarnGPT to the real call path if the audio plumbing can be demonstrated reliably.
-
----
-
-## 5. Spitch — African Speech / Translation Layer
-
-### Authentication / SDK
-
-Official docs support a JavaScript/TypeScript SDK and Bearer API authentication.
-
-Keep `SPITCH_API_KEY` server-side.
-
-### Speech-to-Text
-
-Verified endpoint:
-
-`POST /v1/transcriptions`
-
-The STT API accepts audio content and optionally a language code. The response includes:
-
-- `request_id`
-- `text`
-- optional segments/timestamps
-
-### Translation
-
-Verified endpoint:
-
-`POST /v1/translate`
-
-The docs list language codes including:
-
-- English `en`
-- Yoruba `yo`
-- Hausa `ha`
-- Igbo `ig`
-- Amharic `am`
-- Nigerian Pidgin `pcm`
-
-### Text-to-Speech
-
-Verified speech generation endpoint:
-
-`POST https://api.spitch.app/v1/speech`
-
-The API supports streamed speech generation and formats including:
-
-- wav
-- mp3
-- OGG/Opus
-- WebM/Opus
-- FLAC
-- raw PCM 16-bit little-endian
-- μ-law
-- A-law
-
-The docs explicitly list production-ready voices across English, Hausa, Igbo, Yoruba, Amharic and Nigerian Pidgin.
-
-This is especially useful for telephony because raw PCM / μ-law / A-law formats reduce conversion work depending on the transport used.
-
-### LiveKit
-
-Spitch has an official LiveKit integration for STT/TTS voice agents.
-
-KrosAI also lists LiveKit among supported AI-agent connection options, so a technically coherent advanced path is:
-
-`KrosAI phone number → LiveKit agent → Spitch STT/TTS → SABI LLM/tools`
-
-However, this adds another moving part. Use it only if the basic KrosAI + chosen voice-agent provider path is already stable or the partner team explicitly recommends it.
-
----
-
-## 6. Recommended Hackathon Integration Order
-
-### Stage A — prove telephony transport
-
-Lara:
-
-1. create/confirm KrosAI account and KYC
-2. create restricted API key
-3. obtain event/test phone number
-4. create one AI endpoint
-5. attach endpoint to number
-6. initiate one consented test call
-7. observe lifecycle/events
-8. receive/verify one webhook
-
-### Stage B — bind calls to SABI
-
-Use KrosAI metadata/correlation data so:
-
-`missionId + providerId → externalCallId`
-
-Store it in SABI communication state.
-
-### Stage C — normalize result
-
-Convert KrosAI/provider result to:
-
-`CommunicationResult`
-
-Then produce a Quote only when factual provider data exists.
-
-### Stage D — close the loop
-
-`call completed → transcript/result → structured quote → Femi comparison → Xpen Mission Control → human approval`
-
-### Stage E — African-language enhancement
-
-Once the English call loop works, add exactly one reliable language demonstration with YarnGPT or Spitch.
-
-Do not make multilingual integration block the core demo.
-
-### Stage F — SMS fallback
-
-If Temlio API access is provided and straightforward, add SMS for no-answer/failure recovery.
-
----
-
-## 7. Environment Variables — Names Only
-
-Do not commit values.
-
-Likely server-side names:
+### TTS job flow
 
 ```text
+POST /api/v1/tts
+GET  /api/v1/status/{job_id}
+```
+
+The TTS job route is asynchronous and requires an `Idempotency-Key`. There is no webhook/callback for job completion; polling is required.
+
+### Low-latency streaming TTS
+
+YarnGPT supports a ticket flow:
+
+```text
+POST /api/v1/tts/prepare
+GET  /api/v1/tts/stream/{ticket}
+```
+
+Voice IDs are dynamic; query the voice catalog rather than hard-coding one.
+
+### Single-turn conversation audio
+
+```text
+POST /api/v1/streaming/conversation
+```
+
+This returns synthesized audio directly for supplied text. Formats include PCM, WAV and MP3. For PCM, read the sample rate from the response `Content-Type`; it is not fixed.
+
+Important architectural distinction: this route is low-latency response synthesis, not a complete phone voice-agent loop by itself.
+
+### STT
+
+```text
+POST /api/v1/asr
+GET  /api/v1/asr/{job_id}
+GET  /api/v1/asr/languages
+```
+
+ASR uses an asynchronous file-job/polling pattern and requires an `Idempotency-Key` for upload.
+
+### SABI role
+
+YarnGPT is useful for:
+
+- African voice synthesis
+- translated voice output
+- post-call/file transcription
+- optional demo voice enhancement
+
+It is less convenient than Spitch + LiveKit as the critical real-time phone ASR loop because its documented ASR flow is asynchronous.
+
+---
+
+## 5. Temlio — Communications / Fallback Layer
+
+Temlio's public site verifies capabilities including:
+
+- Voice
+- SMS
+- USSD RESTful API integration
+- local virtual numbers (DIDs)
+- business phone communication
+- contact-center services
+- automated SMS/voice campaigns
+- IVR and interactive engagement
+
+### Public-doc boundary
+
+No sufficiently detailed public API reference was found during this audit for:
+
+- base URL
+- authentication headers
+- SMS request schema
+- delivery receipts
+- inbound reply webhooks
+- voice payloads
+- rate limits
+- sandbox/test credentials
+
+Therefore **do not implement a Temlio live adapter from guesses**.
+
+When event access arrives, ask for those exact contracts. The planned SABI role is optional fallback, e.g.:
+
+```text
+KrosAI no_answer / busy / failed
+→ Temlio SMS fallback
+→ provider response
+→ normalized CommunicationResult
+```
+
+This plan becomes ACTIVE implementation only after the API contract is verified.
+
+---
+
+## 6. BimpeAI — Agent Workflow / Knowledge / Tool Orchestration
+
+BimpeAI was listed in the hackathon material and now has public developer documentation. It materially clarifies SABI's agent layer.
+
+### API and auth
+
+Console REST API base:
+
+```text
+https://api.bimpe.ai/api/v1/console
+```
+
+Accepted secret-key headers:
+
+```text
+Authorization: Bearer sk_...
+```
+
+or:
+
+```text
+X-Api-Key: sk_...
+```
+
+Keys are scope-restricted. Bimpe also supports `X-Request-Id` correlation.
+
+### TypeScript SDK compatibility warning
+
+Official BimpeAI TypeScript SDK documentation currently states that `@bimpeai/sdk` runs on Node 24+ (along with Bun/Deno/modern edge runtimes).
+
+SABI's current GitHub CI uses Node 20.
+
+Therefore we must choose deliberately:
+
+- **hackathon-safe option:** keep Node 20 and use Bimpe's REST API through native `fetch`, or
+- upgrade runtime/CI to Node 24 and verify the entire Next.js build before using the SDK.
+
+Do not install the SDK and discover an engine/runtime conflict on demo day.
+
+### Workflows and agents
+
+Bimpe workflows define the agent's system prompt/rules/flows. Agents bind to workflows and can be created/managed via API/SDK.
+
+For SABI, Bimpe should not own Mission truth. It should reason over mission context and call safe SABI tools.
+
+### Knowledge bases
+
+Current Bimpe docs support knowledge bases created from:
+
+- `text`
+- `url`
+
+File uploads are documented as coming later.
+
+This is a direct fit for SABI's LLM knowledge layer. Good content includes:
+
+- approval policy
+- trust policy
+- procurement rules
+- communication rules
+- category/domain guidance
+
+Do **not** store current vendor price/availability as durable knowledge; those are live operational facts.
+
+### Custom API tools
+
+Bimpe supports custom HTTP API integrations. The documented pattern is:
+
+1. configure a custom API with a `base_url`
+2. add named tools with HTTP method + URL template
+3. let the agent call those bounded tools
+
+For SABI this maps naturally to safe server endpoints such as:
+
+```text
+searchProviders
+getProvider
+callProvider
+recordQuote
+compareQuotes
+requestApproval
+```
+
+Do not expose unrestricted database mutation as a tool.
+
+### Channels and telephony
+
+Bimpe supports channels such as webchat, WhatsApp and telephony. Channel connections are configured in the Console Deploy screen; the SDK can list them but does not create channel connections.
+
+Bimpe also documents outbound telephony via `calls.make`, including `is_test_call: true` for test telephony and `false` for live configured telephony.
+
+This means Bimpe has its own telephony path. However, no official public documentation found in this audit states that Bimpe's telephony is natively backed by KrosAI.
+
+For this hackathon, do not run two competing critical telephony stacks. If KrosAI is selected as the partner phone transport, use Bimpe primarily as brain/knowledge/tool orchestration and keep call transport inside the SABI communication adapter.
+
+### Conversation caution
+
+Bimpe's quickstart says conversations are customer-driven through connected channels; its conversation API is not intended as a generic cold-outreach mechanism.
+
+Provider cold/outbound calls should therefore go through a documented outbound-call mechanism (KrosAI or Bimpe telephony if intentionally selected), not by abusing a Bimpe conversation endpoint.
+
+---
+
+## 7. Recommended SABI Hackathon Stack
+
+### Recommended first path — reliability
+
+```text
+User
+→ SABI Next.js Mission API
+→ BimpeAI workflow + Knowledge Base (agent brain)
+→ bounded SABI tools
+→ callProvider()
+→ KrosAI
+→ Vapi voice runtime
+→ provider phone
+→ KrosAI lifecycle/transcript/webhook
+→ CommunicationResult
+→ validated Quote
+→ Femi filtering/ranking
+→ Mission Control
+→ HUMAN APPROVAL
+```
+
+Why this is first:
+
+- preserves SABI as system of record
+- uses Bimpe for knowledge/tool orchestration
+- uses Kros for its strongest role: telephony
+- uses Vapi where Kros explicitly positions structured workflows/tool calling
+- minimizes custom real-time audio plumbing
+
+### Advanced multilingual path
+
+After the English phone loop works:
+
+```text
+KrosAI
+→ LiveKit SIP
+→ LiveKit agent
+→ Spitch STT/TTS
+→ SABI/Bimpe tools
+```
+
+Use exactly one African-language demo first, e.g. Yoruba or Nigerian Pidgin if the verified runtime supports the desired flow.
+
+### Optional layers
+
+- YarnGPT: African TTS/translation/post-call STT or standalone voice enhancement
+- Temlio: SMS fallback after official event API docs/access
+- Retell: voice-runtime fallback if Vapi setup fails
+- ElevenLabs: alternate natural-voice runtime if it improves reliability without slowing integration
+
+---
+
+## 8. Required Environment Configuration
+
+Never commit values. The following are SABI project variable conventions unless the provider itself defines the name.
+
+```text
+# KrosAI
 KROSAI_API_KEY=
+KROSAI_BASE_URL=
 KROSAI_PHONE_NUMBER=
+KROSAI_PHONE_NUMBER_ID=
 KROSAI_ENDPOINT_ID=
 KROSAI_WEBHOOK_SECRET=
 
-YARNGPT_API_KEY=
-SPITCH_API_KEY=
+# BimpeAI
+BIMPEAI_API_KEY=
+BIMPEAI_AGENT_ID=
+BIMPEAI_WORKFLOW_ID=
 
-# Add only after verified documentation/access:
-TEMLIO_API_KEY=
-
-# Depending on selected KrosAI voice provider:
+# Vapi fast path
 VAPI_API_KEY=
 VAPI_ASSISTANT_ID=
-RETELL_API_KEY=
-RETELL_AGENT_ID=
-ELEVENLABS_API_KEY=
-ELEVENLABS_AGENT_ID=
-```
+VAPI_SIP_TRUNK_CREDENTIAL_ID=
 
-Only include variables actually used by the selected integration.
+# LiveKit + Spitch path
+LIVEKIT_URL=
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+LIVEKIT_AGENT_NAME=
+LIVEKIT_SIP_TRUNK_ID=
+LIVEKIT_SIP_URI=
+SPITCH_API_KEY=
+
+# Optional YarnGPT
+YARNGPT_API_KEY=
+
+# Temlio — add actual project variables only after partner API docs/access
+# TEMLIO_API_KEY=
+```
 
 ---
 
-## 8. Integration Truthfulness Rules
+## 9. Correct Build Order
 
-- A call is not successful just because the API accepted the request.
-- `initiated` is not `completed`.
-- No-answer/busy/failed must stay failure observations.
-- A transcript does not automatically equal a valid Quote.
-- Quote extraction must validate availability/price/delivery fields before recommendation.
-- Provider results must stay traceable to their external call/message source.
-- Webhook duplicates must not create duplicate Quotes or duplicate state transitions.
-- External partner secrets never reach client-side code.
-- Do not present simulated inbound calls, mock fixtures, or playground calls as live provider conversations without labelling them accurately.
+1. Prove KrosAI account/KYC/API key/phone number.
+2. Make one consented test call through the selected Kros endpoint.
+3. Build/verify webhook receiver, signature verification and idempotency.
+4. Correlate `missionId + providerId + communicationId` through metadata.
+5. Retrieve/use the completed call transcript/result.
+6. Normalize factual response to `CommunicationResult` and then a validated Quote.
+7. Let Femi's module filter/rank; show result in Xpen's Mission Control.
+8. Stop at human approval.
+9. Add Bimpe workflow + SABI knowledge base + bounded custom API tools.
+10. Add one multilingual enhancement only after the base loop works.
+11. Add Temlio SMS fallback only after its API contract is provided.
+12. Freeze the demo and test failure paths.
+
+---
+
+## 10. Integration Truthfulness Rules
+
+- API acceptance is not a successful phone conversation.
+- `initiated` is not `answered` or `completed`.
+- no-answer/busy/failed events never create a fake Quote.
+- a transcript is evidence, not automatically a Quote.
+- missing delivery fee is not assumed to be zero.
+- missing price/availability stays unknown.
+- duplicate webhooks must not duplicate Quotes or state transitions.
+- all provider facts remain traceable to a call/message/source reference.
+- secrets remain server-side.
+- simulated calls, playground calls, and mock fixtures must be labelled accurately.
+- no purchase/payment/booking occurs without explicit human approval.
