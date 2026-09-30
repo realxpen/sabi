@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { callProvider, getProvider, searchProviders } from "../lib/tools/provider-tools";
+import {
+  callProvider,
+  getProvider,
+  searchProviders,
+  sendMessage
+} from "../lib/tools/provider-tools";
 
 describe("searchProviders", () => {
   it("returns active demo providers when no filters are supplied", () => {
@@ -42,7 +47,6 @@ describe("searchProviders", () => {
   });
 });
 
-
 describe("getProvider", () => {
   it("returns a validated provider by canonical ID", () => {
     const provider = getProvider("provider-tola-fabrics");
@@ -78,5 +82,67 @@ describe("callProvider", () => {
         objective: "Confirm current availability."
       })
     ).rejects.toThrow("Provider not found");
+  });
+});
+
+describe("sendMessage", () => {
+  it("returns UNAVAILABLE without pretending an SMS was sent", async () => {
+    const result = await sendMessage({
+      missionId: "mission-demo",
+      providerId: "provider-tola-fabrics",
+      communicationId: "communication-sms-1",
+      message: "Please confirm availability."
+    });
+
+    expect(result.id).toBe("communication-sms-1");
+    expect(result.channel).toBe("SMS");
+    expect(result.status).toBe("UNAVAILABLE");
+    expect(result.errorCode).toBe("MESSAGE_TRANSPORT_UNAVAILABLE");
+    expect(result.summary).toContain("no message was sent");
+  });
+
+  it("accepts a verified/injected transport result and preserves correlation", async () => {
+    const result = await sendMessage(
+      {
+        missionId: "mission-demo",
+        providerId: "provider-tola-fabrics",
+        communicationId: "communication-sms-2",
+        message: "Please confirm availability."
+      },
+      async (input) => ({
+        id: input.communicationId,
+        missionId: input.missionId,
+        providerId: input.providerId,
+        channel: "SMS",
+        status: "INITIATED",
+        externalId: "message-provider-123",
+        summary: "Provider accepted message for delivery.",
+        occurredAt: new Date().toISOString()
+      })
+    );
+
+    expect(result.status).toBe("INITIATED");
+    expect(result.externalId).toBe("message-provider-123");
+  });
+
+  it("rejects transport results with mismatched correlation", async () => {
+    await expect(
+      sendMessage(
+        {
+          missionId: "mission-demo",
+          providerId: "provider-tola-fabrics",
+          communicationId: "communication-sms-3",
+          message: "Please confirm availability."
+        },
+        async () => ({
+          id: "different-communication",
+          missionId: "mission-demo",
+          providerId: "provider-tola-fabrics",
+          channel: "SMS",
+          status: "INITIATED",
+          occurredAt: new Date().toISOString()
+        })
+      )
+    ).rejects.toThrow("mismatched correlation fields");
   });
 });
