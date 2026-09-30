@@ -120,7 +120,7 @@ Separate durable knowledge from operational facts.
 
 ## F6 — Bimpe Knowledge mapping
 
-Prepare the curated material that belongs in the Bimpe Knowledge Base:
+Prepare curated content that belongs in the Bimpe Knowledge Base:
 
 - trust policy
 - approval policy
@@ -128,7 +128,7 @@ Prepare the curated material that belongs in the Bimpe Knowledge Base:
 - provider communication rules
 - category guidance
 
-Do **not** put today's price/availability/call outcome into Bimpe KB.
+Do not put today's price/availability/call outcome into Bimpe KB.
 
 ## F7 — Evaluation
 
@@ -241,7 +241,7 @@ Preferred advanced path:
 KrosAI → LiveKit → Spitch STT/TTS → SABI/Bimpe tools
 ```
 
-Add one useful language first (for example Nigerian Pidgin or Yoruba), not many.
+Add one useful language first, not many.
 
 YarnGPT remains optional for TTS/translation/streaming synthesis/post-call STT.
 
@@ -270,7 +270,7 @@ The team merges/integrates in this order:
 4. Xpen integrated mock loop
 5. Bimpe workflow/KB/bounded tools
 6. Kros real transport
-7. Vapi (or one fallback runtime)
+7. Vapi or one fallback runtime
 8. optional Spitch/LiveKit multilingual enhancement
 9. optional Temlio SMS fallback
 10. demo hardening/freeze
