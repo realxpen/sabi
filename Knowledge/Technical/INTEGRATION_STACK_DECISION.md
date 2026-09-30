@@ -41,21 +41,15 @@ SABI Next.js
 
 ## Why BimpeAI is the agent layer
 
-BimpeAI's public docs now verify:
+BimpeAI's public docs verify agents bound to workflows, text/URL Knowledge Bases, Custom API integrations/tools, API-key auth/request correlation, and conversation/testing surfaces.
 
-- agents bound to workflows
-- text/URL Knowledge Bases
-- Custom API integrations/tools
-- API-key auth + request correlation
-- conversations/testing
-
-This maps well to SABI's knowledge-first architecture while allowing SABI APIs to remain the source of truth.
+This maps to SABI's knowledge-first architecture while allowing SABI APIs to remain the system of record.
 
 ## Bimpe runtime decision
 
 Current `@bimpeai/sdk` docs target Node 24+; SABI CI currently runs Node 20.
 
-Therefore the first integration uses:
+First integration:
 
 ```text
 Next.js server
@@ -65,18 +59,11 @@ Next.js server
 
 Only adopt the SDK after an intentional Node runtime/CI upgrade and full regression verification.
 
-## Why KrosAI is the primary telephony transport
+## Why KrosAI is the telephony transport
 
-KrosAI's current docs verify:
+KrosAI's current docs verify local phone numbers, inbound/outbound calling, endpoint routing, logs/transcripts/recordings, signed webhooks and Vapi/Retell/ElevenLabs/LiveKit/custom endpoints.
 
-- local phone numbers
-- outbound/inbound call transport
-- endpoint routing
-- logs/transcripts/recordings
-- signed webhooks
-- Vapi/Retell/ElevenLabs/LiveKit/custom endpoints
-
-This is the exact phone-network layer SABI needs.
+This is the phone-network layer SABI needs.
 
 ## Kros URL/version decision
 
@@ -89,7 +76,7 @@ Therefore:
 - confirm the live route through API Explorer/dashboard/minimal request
 - record the working route before demo freeze
 
-Do not let remembered examples become distributed hard-coded URLs.
+Do not spread remembered URLs throughout the codebase.
 
 ## Kros webhook decision
 
@@ -136,18 +123,13 @@ Both KrosAI and Spitch document LiveKit integrations, making this technically co
 
 ## YarnGPT role
 
-YarnGPT remains optional for:
+YarnGPT remains optional for African TTS, translated synthesis, low-latency single-turn audio and post-call/file STT.
 
-- African TTS
-- translated synthesis
-- low-latency single-turn audio
-- post-call/file STT
-
-Its documented ASR flow is asynchronous/polled, so do not make it the first critical real-time phone-ASR path.
+Its documented ASR flow is asynchronous/polled, so it should not be the first critical real-time phone-ASR path.
 
 ## Temlio role
 
-Temlio is planned as an optional fallback, especially SMS after `no_answer`, `busy`, or failure.
+Temlio is planned as optional fallback, especially SMS after `no_answer`, `busy`, or failure.
 
 Public material verifies Voice/SMS/USSD/local-number REST capabilities but not enough request/auth/webhook detail to implement safely. Keep only the adapter boundary until event/partner documentation arrives.
 
@@ -167,7 +149,7 @@ Live provider price, availability, delivery commitment, transcript and call outc
 
 ## Real-call truthfulness decision
 
-A real external path is considered successful only when:
+A real external path is successful only when:
 
 ```text
 call initiation accepted
@@ -181,7 +163,7 @@ API acceptance alone is not call success.
 
 ## Demo freeze rule
 
-Freeze the primary demo stack once all of these are repeatable:
+Freeze the primary demo stack once all are repeatable:
 
 ```text
 Mission created
