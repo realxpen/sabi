@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { providerSchema, type Provider, type CommunicationResult } from "../schemas";
+import {
+  communicationResultSchema,
+  providerSchema,
+  type Provider,
+  type CommunicationResult
+} from "../schemas";
 import { MockCommunicationAdapter } from "../integrations/communication/mock";
-import type { ContactProviderInput, CommunicationAdapter } from "../integrations/communication/types";
+import type {
+  ContactProviderInput,
+  CommunicationAdapter
+} from "../integrations/communication/types";
 import { temporaryDemoProviders } from "../demo/temporary-scenario";
 
 export const searchProvidersInputSchema = z.object({
@@ -104,7 +112,6 @@ export function getProvider(providerId: string): Provider | undefined {
   return provider ? providerSchema.parse(provider) : undefined;
 }
 
-
 export const callProviderInputSchema = z.object({
   missionId: z.string().trim().min(1),
   providerId: z.string().trim().min(1),
@@ -143,4 +150,66 @@ export async function callProvider(
   };
 
   return adapter.initiateContact(contactInput);
+}
+
+export const sendMessageInputSchema = z.object({
+  missionId: z.string().trim().min(1),
+  providerId: z.string().trim().min(1),
+  communicationId: z.string().trim().min(1),
+  message: z.string().trim().min(1)
+});
+
+export type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
+
+export type MessageTransport = (
+  input: SendMessageInput
+) => Promise<CommunicationResult>;
+
+/**
+ * Bounded provider messaging tool.
+ *
+ * No verified live SMS transport is configured yet. Without an injected
+ * transport this returns an explicit UNAVAILABLE result and does not send
+ * anything. A future verified Temlio (or other approved) transport can be
+ * injected without changing the tool input contract.
+ */
+export async function sendMessage(
+  input: SendMessageInput,
+  transport?: MessageTransport
+): Promise<CommunicationResult> {
+  const messageInput = sendMessageInputSchema.parse(input);
+  const provider = getProvider(messageInput.providerId);
+
+  if (!provider) {
+    throw new Error(`Provider not found: ${messageInput.providerId}`);
+  }
+
+  if (!provider.active) {
+    throw new Error(`Provider is inactive: ${messageInput.providerId}`);
+  }
+
+  if (!transport) {
+    return communicationResultSchema.parse({
+      id: messageInput.communicationId,
+      missionId: messageInput.missionId,
+      providerId: messageInput.providerId,
+      channel: "SMS",
+      status: "UNAVAILABLE",
+      summary: "No verified live messaging transport is configured; no message was sent.",
+      errorCode: "MESSAGE_TRANSPORT_UNAVAILABLE",
+      occurredAt: new Date().toISOString()
+    });
+  }
+
+  const result = communicationResultSchema.parse(await transport(messageInput));
+
+  if (
+    result.id !== messageInput.communicationId ||
+    result.missionId !== messageInput.missionId ||
+    result.providerId !== messageInput.providerId
+  ) {
+    throw new Error("Message transport returned mismatched correlation fields");
+  }
+
+  return result;
 }
