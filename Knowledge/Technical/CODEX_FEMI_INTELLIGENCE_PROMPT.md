@@ -32,41 +32,32 @@ Then inspect the current shared schemas, Mission engine and tests.
 
 Do not redefine Mission, Provider, Quote, MissionStep, Approval, CommunicationResult, mission states, or shared adapter contracts without first identifying the conflict and stopping for team review.
 
-## Your responsibility
+## Responsibility
 
-Make SABI's provider selection and recommendations reliable, explainable, testable, and grounded in the right knowledge/data.
+Make SABI's provider selection and recommendations reliable, explainable, testable, and grounded in the correct knowledge and operational data.
 
 You own:
 
-- demo provider/quote data
+- demo provider/Quote data
 - hard-constraint filtering
 - soft ranking
-- quote normalization/intelligence
+- Quote normalization/intelligence
 - runtime Knowledge retrieval
 - context assembly
 - recommendation reasoning
 - Bimpe Knowledge-Base content mapping
 - evaluation scenarios
 
-You do **not** own:
-
-- UI architecture
-- telephony transport
-- webhook transport
-- partner voice-runtime setup
-- real payment/escrow
-- changing product scope/shared contracts unilaterally
+You do not own UI architecture, telephony transport, webhook transport, partner voice-runtime setup, real payment/escrow, or unilateral shared-contract changes.
 
 ## F1 — Demo provider / Quote fixtures
 
-Create 5–8 clearly fictional providers/fixtures that support the canonical mission:
+Create 5–8 clearly fictional providers/fixtures supporting the canonical mission.
 
-> I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.
-
-Include scenarios for:
+Include:
 
 - one strong qualifying provider
-- cheaper offer missing the deadline
+- cheaper offer missing deadline
 - over-budget offer
 - unavailable provider
 - incomplete quote
@@ -75,151 +66,75 @@ Include scenarios for:
 
 Never use real personal phone numbers in fixtures.
 
-### F1 gate
-
-All fixtures validate against shared schemas and cover evaluation cases.
-
 ## F2 — Hard constraints
 
-Implement deterministic eligibility filtering.
+Check, where present:
 
-Where Mission data provides the constraint, check:
-
-- correct item/service match
+- item/service match
 - availability
 - quantity/capacity
 - deadline
 - hard budget
-- any explicit user constraint
+- explicit user constraints
 
-Return structured exclusion reasons.
-
-Never silently relax a hard constraint.
-
-### F2 gate
-
-Invalid options are excluded for the correct reason; valid options survive.
+Return structured exclusion reasons and never silently relax a hard constraint.
 
 ## F3 — Soft ranking
 
-Rank only candidates that passed hard constraints.
+Rank only qualifying candidates using transparent factors such as valid total price, verification, reliability, rating, location/proximity and previous successful interaction where represented.
 
-Use transparent factors such as:
-
-- valid total price
-- verification signal
-- reliability
-- rating
-- location/proximity where represented
-- previous successful interaction where represented
-
-Return:
-
-- system ranking/score data
-- explanation-ready factual factors
-
-Do not expose meaningless black-box numbers as the user explanation.
-
-### F3 gate
-
-Canonical recommendation is deterministic and explainable from observable facts.
+Return explanation-ready factual reasons, not only opaque scores.
 
 ## F4 — Quote intelligence
-
-Normalize factual provider observations to the shared Quote schema.
 
 Rules:
 
 - unknown remains unknown
 - missing delivery fee is not assumed zero
 - malformed observations fail clearly
-- unavailable/no-answer providers do not get fabricated totals
-- transcript alone is evidence, not automatically a Quote
-- preserve source/sourceReference back to call/message/transcript
-- deterministically compute total only when its verified components exist
-
-### F4 gate
-
-Quote fixtures normalize or fail predictably without invented values.
+- unavailable/no-answer providers get no fabricated totals
+- transcript is evidence, not automatically Quote data
+- preserve source/sourceReference
+- compute totals only from verified components
 
 ## F5 — Runtime Knowledge / retrieval
 
-Implement the minimal SABI retrieval seam.
+Create/select only relevant chunks for a Mission.
 
-Curated knowledge should cover concepts such as:
+Include policies such as:
 
-- human approval is required for consequential actions
-- hard budgets cannot be silently exceeded
-- live provider price/availability must come from operational/tool data
-- unknown values must not be invented
-- verification is a signal, not a guarantee
-- provider contact may be required when current facts are missing
+- human approval for consequential actions
+- hard budget protection
+- live provider price/availability from operational/tool data
+- unknown values are not invented
+- verification is a signal, not guarantee
+- provider contact may be required for missing current facts
 
-Each chunk should have:
-
-- id
-- topic/tags
-- content
-- lifecycle status when useful
-- source identifier
-
-Do not inject the entire Knowledge folder into every prompt.
-
-### Context assembler
-
-Assemble only relevant:
-
-- Mission
-- retrieved Knowledge
-- provider/Quote facts
-- user memory if available/permitted
-- latest tool observations
-- approval/permission state
-
-Keep Knowledge, operational data and memory distinguishable.
-
-### F5 gate
-
-The canonical procurement Mission retrieves procurement/trust/approval guidance and not unrelated material.
+Keep Knowledge, operational data and user memory distinguishable.
 
 ## F6 — BimpeAI Knowledge-Base mapping
 
-BimpeAI is now the planned workflow/agent/Knowledge/bounded-tool layer.
+Prepare a small curated set suitable for Bimpe text/URL Knowledge Bases:
 
-Prepare a small curated set of Knowledge content suitable for Bimpe text/URL Knowledge Bases, for example:
-
-- SABI trust policy
+- trust policy
 - approval policy
 - procurement rules
 - provider communication rules
 - category guidance
 - truthfulness/fraud guardrails
 
-Do **not** place live operational facts in the Bimpe KB, including:
-
-- today's provider price
-- current availability
-- delivery promise
-- current call/transcript result
-
-Those remain SABI operational/tool data.
-
-Your output should be reusable whether Bimpe is configured manually in Console or through REST.
-
-### F6 gate
-
-We have a small, non-contradictory KB set that grounds agent reasoning without contaminating it with stale live facts.
+Do not place current provider price, availability, delivery promises or call results in the Bimpe KB.
 
 ## F7 — Recommendation output
 
-Return a structured recommendation result with concepts such as:
+Return structured:
 
-- selectedQuoteId/providerId
+- selected provider/Quote
 - qualifying options
 - excluded options + reasons
 - recommendation factors
 - factual user-facing explanation
-- whether human approval is required
+- approval-required flag
 
 Do not perform approval yourself.
 
@@ -227,18 +142,18 @@ Do not perform approval yourself.
 
 Required cases:
 
-1. happy-path procurement
+1. happy path
 2. cheaper offer misses deadline
 3. all offers over budget
 4. missing price
-5. provider unavailable
-6. no-answer represented without fake Quote
+5. unavailable provider
+6. no-answer without fake Quote
 7. all providers invalid
 8. irrelevant Knowledge not retrieved
 9. approval policy retrieved for consequential next step
 10. transcript missing required Quote fields
 11. deterministic canonical recommendation
-12. duplicated/contradictory Knowledge does not silently override ACTIVE policy
+12. deprecated/irrelevant Knowledge does not override ACTIVE policy
 
 ## Coding rules
 
@@ -249,29 +164,22 @@ Required cases:
 - use shared schemas
 - prefer pure/deterministic functions
 - add focused tests
-- do not introduce ML merely to make the module look intelligent
+- do not introduce ML merely to look intelligent
 - do not change product rules to make tests pass
 - never commit secrets
 
 ## Before completion
 
-Run relevant:
-
-- lint
-- typecheck
-- tests
-- build if affected
-
-Report:
+Run relevant lint/typecheck/tests/build and report:
 
 1. files changed
-2. F1–F8 stages completed
+2. F1–F8 completed
 3. test results
 4. canonical Ankara recommendation behavior
-5. Knowledge/Bimpe-KB artifacts produced
+5. Knowledge/Bimpe-KB artifacts
 6. assumptions
 7. blockers
 8. shared-contract questions
 9. branch/commit hash
 
-Stop when your track is integration-ready. Do not merge into `main` unless the team workflow explicitly allows it.
+Stop when integration-ready. Do not merge to `main` unless the team workflow explicitly allows it.
