@@ -7,7 +7,7 @@ Last updated: 2026-09-30
 
 **Phase 1 — Parallel Build / Verified Integration Handoff**
 
-Phase 0 is complete. The shared Phase 1 foundation, mock Mission Control path, team prompts, partner research, integration architecture, and verified build order are on `main`.
+Phase 0 is complete. The shared Phase 1 foundation, mock Mission Control path, teammate prompts, partner research, integration architecture, and verified build order are all normalized on `main`.
 
 ## Event target
 
@@ -43,22 +43,28 @@ Canonical demo:
 - [x] focused tests + GitHub CI
 - [x] LLM Knowledge/Retrieval architecture
 - [x] teammate-specific Codex prompts
+- [x] verified partner source map
+- [x] integration stack decision
+- [x] integration access checklist
+- [x] active decisions updated from verified docs
+- [x] README/AGENTS/env/build-plan normalization
 
-Current mock provider responses/recommendation are still clearly labelled temporary fixtures and must be replaced by teammate modules rather than presented as live provider results.
+Current mock provider responses/recommendation are temporary fixtures and must be replaced by teammate modules rather than presented as live provider results.
 
-## Verified integration research — normalized 2026-09-30
+## Current integration source of truth
 
-The repo now uses these as integration source of truth:
-
-- `Raw/PartnerDocs/SOURCE_LINKS.md`
+- `AGENTS.md`
+- `Knowledge/Decisions/ACTIVE_DECISIONS.md`
+- `Knowledge/Product/TEAM_BUILD_PHASES.md`
+- `Knowledge/Technical/ARCHITECTURE.md`
+- `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
 - `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
 - `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
 - `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
-- `Knowledge/Technical/ARCHITECTURE.md`
-- `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-- `Knowledge/Decisions/ACTIVE_DECISIONS.md`
+- `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
+- `Raw/PartnerDocs/SOURCE_LINKS.md`
 
-### Primary stack
+## Primary stack
 
 ```text
 SABI Next.js / domain state
@@ -75,7 +81,7 @@ SABI Next.js / domain state
 → human approval
 ```
 
-### Advanced language path
+## Advanced language path
 
 Only after the primary phone loop works:
 
@@ -94,8 +100,8 @@ Temlio is optional SMS/communications fallback pending detailed API contract/acc
 - Use Bimpe REST/native server-side `fetch` first because current Bimpe TS SDK docs target Node 24+ while SABI CI is Node 20.
 - KrosAI is the primary telephony transport.
 - Vapi is the first voice-runtime candidate; Retell then ElevenLabs are fallbacks.
-- Kros official docs currently conflict on `/v1` vs `/api/v1` and outbound singular/plural paths; keep `KROSAI_BASE_URL` configurable and confirm live route before freeze.
-- Kros webhook event-name conventions also differ across official pages; keep aliases/version mapping inside one adapter and confirm the live dashboard schema.
+- Kros official docs conflict on `/v1` vs `/api/v1` and outbound singular/plural paths; keep `KROSAI_BASE_URL` configurable and confirm the live route before freeze.
+- Kros webhook event naming differs across official pages; keep aliases/version mapping inside one adapter and confirm the live dashboard schema.
 - Webhook processing must verify signature, deduplicate event IDs and preserve correlation.
 - A transcript is evidence, not automatically a Quote.
 - Durable policies may live in Bimpe/SABI Knowledge; live price/availability/call outcomes stay operational/tool data.
@@ -105,17 +111,11 @@ Temlio is optional SMS/communications fallback pending detailed API contract/acc
 
 Branch: `xpen/mvp-shell`
 
-Completed:
-
-- scaffold/shared contracts
-- mock Mission engine
-- Mission Control/approval shell
-
 Current gates:
 
 1. integrate Femi + Lara mock-ready modules
 2. configure Bimpe workflow/agent/Knowledge + bounded SABI API tool seam
-3. connect the real Kros transport once Lara proves it
+3. connect real Kros transport once Lara proves it
 4. replace temporary fixtures with real module results
 5. own final golden-path demo/freeze
 
@@ -129,7 +129,7 @@ Use:
 
 Track:
 
-- demo/provider/Quote fixtures
+- provider/Quote fixtures
 - hard constraints
 - transparent ranking
 - Quote intelligence
@@ -137,8 +137,6 @@ Track:
 - Bimpe Knowledge-Base content mapping
 - recommendation output
 - evaluation
-
-Femi must keep durable Knowledge separate from live provider/tool facts.
 
 ## Lara — Agent Tools & Communication
 
