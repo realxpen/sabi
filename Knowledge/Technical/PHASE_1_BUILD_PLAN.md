@@ -1,168 +1,147 @@
 # Phase 1 — MVP Skeleton Build Plan
 
-Status: ACTIVE PLAN
+Status: FOUNDATION COMPLETE / CURRENT INTEGRATION HANDOFF
+Last updated: 2026-09-30
 Owner: Xpen
-Team review required before implementation
 
-## Goal
+## Completed foundation
 
-Create the smallest reliable application skeleton that lets all three team members work in parallel without inventing different architectures.
+The original Phase 1 skeleton goal has been achieved on `main`.
 
-Phase 1 does not integrate real partner APIs yet.
+Completed:
 
-## Phase 1 checkpoint
-
-At the end of this phase, the repository should contain:
-
-- working Next.js + TypeScript app
-- shared domain schemas
-- seeded demo provider data
-- mission creation/read flow
-- deterministic mission state transitions
-- mock provider search
+- Next.js + TypeScript app
+- shared Zod schemas
+- Mission/Provider/Quote/MissionStep/Approval/CommunicationResult
+- deterministic Mission state machine
+- provider-neutral communication adapter
 - mock communication adapter
-- mock quote collection
-- comparison logic placeholder/interface
-- Mission Control UI
-- approval screen
-- clear integration adapter interfaces
-- tests for core schemas/state transitions
-- no real payments
-- no exposed secrets
+- Home + Mission Control
+- mock Mission engine
+- mock Quote/recommendation display
+- human-approval UI
+- focused tests
+- GitHub CI
 
-## Recommended structure
+The team is no longer waiting for the skeleton.
 
-~~~
-app/
-  page.tsx
-  mission/[id]/page.tsx
-  api/
-    missions/
-    providers/
-    approvals/
-    webhooks/
+## Current integration objective
 
-components/
-  MissionInput.tsx
-  MissionHeader.tsx
-  MissionTimeline.tsx
-  MissionStep.tsx
-  ProviderCard.tsx
-  QuoteCard.tsx
-  RecommendationCard.tsx
-  ApprovalCard.tsx
-  StatusBadge.tsx
+Replace temporary/mock-owned pieces with the teammate modules and one verified partner path without changing shared domain contracts.
 
-lib/
-  agent/
-  tools/
-  integrations/
-  matching/
-  mission/
-  knowledge/
-  db/
-  schemas/
+Target:
 
-data/
-  demo-providers.ts
-
-tests/
-~~~
-
-Preserve architectural intent rather than forcing paths that fight the framework.
-
-## Build sequence
-
-### 1A — Foundation scaffold
-
-Owner: Xpen
-
-Create the app, lint/typecheck/test commands, project structure, shared schema files, and basic home/mission routes.
-
-Gate: app runs locally and shared domain types compile.
-
-### 1B — Domain contracts
-
-Owner: Xpen, reviewed by Femi and Lara.
-
-Implement the ACTIVE contracts from MISSION_MODEL.md and INTEGRATION_CONTRACTS.md:
-
-- Mission
-- Provider
-- Quote
-- MissionStep
-- Approval
-- CommunicationResult
-- communication adapter interface
-
-Gate: Femi and Lara can build against stable interfaces.
-
-### 1C — Mock mission engine
-
-Owner: Xpen.
-
-Create a local happy path:
-
-~~~
+```text
 request
-→ mission
-→ mock providers
-→ mock communication result
-→ normalized quotes
-→ comparison
-→ awaiting approval
-~~~
+→ validated Mission
+→ provider discovery
+→ bounded communication action
+→ CommunicationResult
+→ validated Quote
+→ hard filtering/ranking
+→ recommendation
+→ Mission Control
+→ human approval
+```
 
-Gate: canonical Ankara mission reaches AWAITING_APPROVAL with mock data.
+## Current workstreams
 
-### 1D — Mission Control UI
+### Xpen
 
-Owner: Xpen.
+- integrate Femi + Lara modules
+- keep Mission Control truthful
+- configure BimpeAI workflow/Knowledge/bounded SABI API tools
+- preserve Approval boundary
+- own final demo integration/freeze
 
-Build intent input, extracted mission summary, real mission-step timeline, result cards, recommendation, and approval UI.
+### Femi
 
-The UI must render stored system state rather than fake completed actions.
+- canonical demo data
+- hard constraints
+- ranking
+- Quote intelligence
+- Knowledge/retrieval/context assembly
+- Bimpe KB content mapping
+- evaluation
 
-## Parallel start point
+### Lara
 
-Femi and Lara do not wait until Phase 1 is finished.
+- tool layer
+- communication adapter/event normalization
+- Kros webhook/idempotency
+- real Kros transport
+- Vapi first runtime
+- optional Spitch/LiveKit multilingual path
+- optional Temlio fallback only with verified contract
 
-They begin implementation immediately after 1B — Domain contracts is merged.
+## Verified partner order
 
-At that point:
+1. integrated mock loop
+2. Bimpe agent/Knowledge/tool seam
+3. Kros account/KYC/key/number + confirmed live route
+4. one consented Kros test call + verified webhook/transcript
+5. Vapi first voice runtime
+6. close Quote/comparison/approval loop
+7. optional Spitch/LiveKit language enhancement
+8. optional Temlio SMS fallback
 
-- Femi starts Intelligence/Data/Knowledge work.
-- Lara starts Agent Tools/Communication work.
-- Xpen continues the mission engine, UI, and integration.
+## Build gates
 
-## Branches
+### Gate 1 — integrated mock loop
 
-Suggested branches:
+Femi and Lara modules replace the temporary Xpen fixtures without breaking Mission Control.
 
-- xpen/mvp-shell
-- femi/intelligence
-- lara/agent-tools
+### Gate 2 — Bimpe tool seam
 
-Rules:
+Bimpe agent uses curated knowledge and can invoke at least one bounded SABI API tool while SABI remains system of record.
 
-- pull latest main before integration
-- keep changes small
-- do not silently modify shared contracts
-- discuss shared-contract changes first
-- record consequential decisions in Knowledge/Decisions
-- do not let a coding agent rewrite unrelated areas
+Use REST/native server-side `fetch` under current Node 20 unless the team deliberately upgrades runtime/CI for the Node-24+ Bimpe SDK.
 
-## Phase 1 acceptance tests
+### Gate 3 — Kros transport
 
-1. App boots.
-2. Canonical mission can be submitted.
-3. Request becomes a validated Mission.
-4. Provider seed data can be searched.
-5. Mock communication produces a structured observation.
-6. Observation normalizes into Quote.
-7. Hard constraints exclude invalid quotes.
-8. A recommendation can be produced.
-9. Mission reaches AWAITING_APPROVAL.
-10. Approval causes no real transaction.
-11. At least one failure path is truthful.
-12. No secrets exist in client code or the repository.
+- live base/path confirmed
+- endpoint attached to number
+- one consented call
+- external call ID/lifecycle observed
+- signed webhook/event verified
+- event deduplicated/correlated
+- transcript/result available
+- `CommunicationResult` produced
+
+### Gate 4 — real Quote loop
+
+```text
+real provider result
+→ factual extraction
+→ Quote validation
+→ Femi comparison
+→ Mission Control
+→ human approval
+```
+
+No transcript-only or no-answer event may fabricate a Quote.
+
+### Gate 5 — demo freeze
+
+Freeze when the golden path is repeatable. Optional integrations may not destabilize it.
+
+## Out of scope remains unchanged
+
+- real payments
+- escrow
+- full marketplace
+- full KYC platform
+- delivery network
+- complex auth/admin
+- broad autonomous purchasing
+- unrelated social/product features
+
+## Source rule
+
+For partner implementation, follow:
+
+1. current official docs
+2. live API Explorer/dashboard/account behavior
+3. ACTIVE SABI partner knowledge
+
+If official docs conflict, centralize/configure the uncertain behavior and verify it with a minimal safe request rather than guessing.
