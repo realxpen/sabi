@@ -38,26 +38,11 @@ Do not redefine Mission, Provider, Quote, MissionStep, Approval, CommunicationRe
 
 Make SABI capable of taking bounded external communication actions and reliably converting partner outcomes into validated internal state.
 
-You own:
+You own communication/tools, adapter behavior, call/message lifecycle, webhook/event normalization, idempotency/recovery, KrosAI telephony, selected voice runtime, optional multilingual enhancement, and optional Temlio fallback after its contract is known.
 
-- communication/tool implementations
-- provider-neutral adapter behavior
-- call/message lifecycle
-- event/webhook normalization
-- idempotency/recovery
-- KrosAI telephony integration
-- selected voice runtime
-- optional multilingual enhancement after base loop
-- optional Temlio fallback only after its contract is known
+You do not own recommendation/ranking logic, UI architecture, product-scope changes, or real payment/escrow.
 
-You do not own:
-
-- recommendation/ranking logic
-- UI architecture
-- product-scope changes
-- real payment/escrow
-
-## Source-priority rule
+## Source priority
 
 For partner code:
 
@@ -66,11 +51,11 @@ For partner code:
 3. ACTIVE SABI integration knowledge
 4. older examples only as historical context
 
-If official docs conflict, do not guess. Centralize the uncertainty and verify with a minimal safe request/test.
+If official docs conflict, do not guess. Centralize uncertainty and verify with a minimal safe request/test.
 
 ## L1 — Tool layer
 
-Implement/maintain bounded tools using shared schemas:
+Maintain bounded tools:
 
 - `searchProviders`
 - `getProvider`
@@ -79,28 +64,13 @@ Implement/maintain bounded tools using shared schemas:
 - `recordQuote`
 - `requestApproval`
 
-Rules:
-
-- validate input
-- structured output only
-- no unrestricted database access
-- `callProvider` initiation does not pretend a call completed
-- `requestApproval` never performs payment/purchase
+Validate inputs/outputs. `callProvider` initiation does not mean completion. `requestApproval` never performs payment/purchase.
 
 ## L2 — Communication adapter
 
-Use the existing provider-neutral adapter boundary.
+Use the existing provider-neutral adapter. Keep deterministic mocks until the real path is proven.
 
-Support normalized states equivalent to:
-
-- initiated
-- in progress
-- completed
-- no answer
-- unavailable
-- failed
-
-Keep deterministic mocks until the real path is proven.
+Normalize states equivalent to initiated, in-progress, completed, no-answer, unavailable and failed.
 
 ## L3 — Event normalization
 
@@ -113,87 +83,69 @@ partner payload
 → controlled Mission transition
 ```
 
-Raw partner payloads must never mutate Mission directly.
-
-Preserve external IDs/source references.
+Raw partner payloads never mutate Mission directly.
 
 ## L4 — Kros webhook boundary
 
 Implement:
 
-- raw request body preservation
-- `X-Webhook-Signature` verification according to the confirmed live Kros contract
+- raw body preservation
+- `X-Webhook-Signature` verification using the confirmed live contract
 - provider event-ID deduplication
 - mission/provider/communication correlation
 - quick valid 2xx response
-- centralized Kros event alias/version mapping
-- idempotent downstream transcript/Quote processing
-- logs without secrets
+- centralized event alias/version mapping
+- idempotent transcript/Quote processing
+- secret-safe logs
 
-Important: current official Kros pages contain multiple webhook naming conventions. Confirm the live dashboard/API Explorer event schema and keep all partner-name differences inside the Kros adapter.
+Current official Kros pages contain multiple webhook naming conventions. Confirm the live dashboard/API Explorer schema and keep all differences inside the adapter.
 
 ## L5 — Failure/recovery
 
-Test:
-
-- no answer
-- busy
-- delayed response
-- malformed event
-- duplicate event
-- unknown external call ID
-- network/provider failure
-- provider unavailable
-- incomplete transcript/result
+Test no-answer, busy, delay, malformed/duplicate event, unknown external call ID, network/provider failure, unavailable provider and incomplete transcript/result.
 
 Rules:
 
-- one provider failure does not automatically fail the whole Mission
+- provider failure does not automatically fail the whole Mission
 - failed/no-answer calls create no fake Quote
 - transcript is evidence, not automatically Quote data
 - unknown values stay unknown
-- fallback is attempted only when implemented/authorized
+- fallback only when implemented/authorized
 
 ## L6 — KrosAI transport
 
-Do this before full voice-runtime complexity.
-
-1. Confirm account/KYC/API key/phone number.
-2. Confirm actual live REST base/path using API Explorer or a minimal request; official docs currently show `/v1` vs `/api/v1` and outbound singular/plural inconsistencies.
-3. Store route/base through configuration, not scattered hard-coded URLs.
+1. Confirm account/KYC/key/number.
+2. Confirm actual live REST base/path through API Explorer/minimal request; official docs currently show `/v1` vs `/api/v1` and outbound singular/plural inconsistencies.
+3. Store base/route through centralized configuration.
 4. Create one endpoint.
 5. Attach endpoint to Kros number.
 6. Place one consented test call.
 7. Capture external call ID/lifecycle.
 8. Receive/verify one signed webhook/event.
-9. Correlate `missionId`, `providerId`, `communicationId` through metadata/records.
+9. Correlate `missionId`, `providerId`, `communicationId`.
 10. Retrieve transcript/result.
 11. Normalize to `CommunicationResult`.
 12. Create Quote only when factual required fields exist.
 
-### L6 gate
-
-One consented real call uses the same SABI adapter boundary as mocks and becomes truthful internal state without rewriting Mission.
+L6 gate: one consented real call uses the same adapter boundary as mocks without rewriting Mission.
 
 ## L7 — Voice runtime
 
 ### Primary: Vapi
 
-Test the documented Kros SIP/BYO-number path first.
+Test documented Kros SIP/BYO path first.
 
-Expected access/artifacts:
+Expected access:
 
 - Vapi API key
-- Vapi Assistant ID
-- Vapi SIP Trunk Credential ID
+- Assistant ID
+- SIP Trunk Credential ID
 - Kros endpoint ID
 - Kros number SIP credentials
 
 Keep Vapi only if repeat calls are reliable.
 
 ### Fallback order
-
-If Vapi cannot be made reliable quickly:
 
 1. Retell
 2. ElevenLabs
@@ -210,17 +162,13 @@ Preferred advanced path:
 KrosAI → LiveKit SIP → LiveKit Agent → Spitch STT/TTS → SABI/Bimpe tools
 ```
 
-Add one useful language first, for example Nigerian Pidgin or Yoruba.
+Add one language first, e.g. Nigerian Pidgin or Yoruba.
 
-YarnGPT may be used for optional TTS/translation/streaming synthesis/post-call STT. Its documented ASR is asynchronous/polled, so do not make it the first critical live-ASR path.
+YarnGPT is optional for TTS/translation/streaming synthesis/post-call STT; its documented ASR is asynchronous/polled, so it is not the first critical live-ASR path.
 
 ## L9 — Temlio fallback
 
-Temlio's public site verifies Voice/SMS/USSD/local-number REST capabilities but detailed auth/request/webhook contracts remain unavailable publicly.
-
-Do not invent a payload.
-
-If partner docs/access arrive, preferred first use is:
+Do not invent payloads. If detailed partner docs/access arrive, preferred first use is:
 
 ```text
 Kros no_answer / busy / failed
@@ -229,17 +177,17 @@ Kros no_answer / busy / failed
 → CommunicationResult
 ```
 
-## Bimpe coordination boundary
+## Bimpe boundary
 
-BimpeAI is primarily the workflow/Knowledge/bounded-tool layer. Your communication tools may be exposed to Bimpe through SABI Custom API endpoints, but Bimpe must not bypass Mission/CommunicationResult contracts.
+BimpeAI is the workflow/Knowledge/bounded-tool layer. Communication tools may be exposed through SABI Custom API endpoints, but Bimpe must not bypass Mission/CommunicationResult contracts.
 
-Current Bimpe TypeScript SDK docs target Node 24+ while SABI CI is Node 20. The active plan is REST/native server-side `fetch` first unless the team deliberately upgrades and retests the runtime.
+Current Bimpe TS SDK docs target Node 24+ while SABI CI is Node 20, so the active plan is REST/native server-side `fetch` unless the team deliberately upgrades and retests runtime.
 
-No native BimpeAI↔KrosAI bridge is assumed; SABI-owned tools/APIs connect them.
+No native BimpeAI↔KrosAI bridge is assumed; SABI-owned APIs/tools connect them.
 
 ## Observability
 
-Ensure we can inspect:
+Track:
 
 - missionId
 - providerId
@@ -257,13 +205,13 @@ Never log credentials/auth headers unnecessarily.
 ## Coding rules
 
 - work only on `lara/agent-tools`
-- pull/rebase latest `main` first
+- pull/rebase latest `main`
 - do not alter Femi ranking/retrieval logic
-- do not alter UI except minimal integration glue when explicitly needed
+- minimal UI changes only if explicitly required
 - no real payment/escrow
 - never invent partner endpoints/payloads
 - keep partner code behind adapters
-- explicit input → validation → transformation → state functions
+- explicit input → validation → transformation → state
 - idempotent event handling
 - focused success/failure tests
 - no secrets in commits
@@ -271,12 +219,10 @@ Never log credentials/auth headers unnecessarily.
 
 ## Before completion
 
-Run relevant lint/typecheck/tests/build.
-
-Report:
+Run relevant lint/typecheck/tests/build and report:
 
 1. files changed
-2. L1–L9 stages completed
+2. L1–L9 completed
 3. mock scenarios verified
 4. confirmed live Kros REST route/event convention
 5. Kros real-call status
@@ -287,4 +233,4 @@ Report:
 10. shared-contract questions
 11. branch/commit hash
 
-Stop when the track is integration-ready. Do not merge to `main` unless the team workflow explicitly allows it.
+Stop when integration-ready. Do not merge to `main` unless the team workflow explicitly allows it.
