@@ -1,17 +1,17 @@
 # SABI Integration & Tool Contracts
 
 Status: ACTIVE
-Important: partner-specific payloads are provisional until verified against official docs.
+Last verified: 2026-09-30
+
+Partner-independent contracts below are binding. Partner-specific details are implemented only from verified official documentation/live account behavior and stay behind adapters.
 
 ## Agent tool principle
 
-The LLM receives narrow tools, not unrestricted backend access.
+The agent receives narrow tools, not unrestricted backend/database access.
 
 ## searchProviders
 
-Purpose: return candidate providers that match basic criteria.
-
-Concept:
+Purpose: return candidate providers matching basic criteria.
 
 ```ts
 searchProviders({
@@ -22,11 +22,9 @@ searchProviders({
 })
 ```
 
-Returns provider IDs plus the minimum facts needed for planning.
+Return provider IDs plus only the facts required for planning/matching.
 
 ## getProvider
-
-Purpose: retrieve detail for one provider.
 
 ```ts
 getProvider({ providerId })
@@ -34,24 +32,31 @@ getProvider({ providerId })
 
 ## callProvider
 
-Purpose: initiate a bounded provider conversation.
+Purpose: initiate a bounded real-world provider conversation.
 
 ```ts
 callProvider({
   missionId,
   providerId,
-  objective
+  objective,
+  communicationId
 })
 ```
 
-Example objective:
+Immediate success means **contact initiation accepted**, not that the call completed or a Quote exists.
 
-- confirm 20 yards of black Ankara
-- ask total item price
-- ask whether delivery to Yaba tomorrow is possible
-- ask delivery fee
+The adapter should return a structured initiation result such as:
 
-Expected immediate result should be an initiation status and external reference, not a fabricated completed quote.
+```ts
+{
+  communicationId,
+  externalId,
+  status: "INITIATED",
+  provider: "KROSAI"
+}
+```
+
+When supported by the live transport, send correlation metadata including `missionId`, `providerId`, and `communicationId`.
 
 ## sendMessage
 
@@ -61,9 +66,12 @@ Fallback/alternate channel:
 sendMessage({
   missionId,
   providerId,
+  communicationId,
   message
 })
 ```
+
+Temlio is the planned SMS fallback only after its detailed API contract is supplied/verified.
 
 ## recordQuote
 
@@ -82,7 +90,13 @@ recordQuote({
 })
 ```
 
-Input must be validated.
+Rules:
+
+- validate input
+- unknown remains unknown
+- do not assume missing delivery fee is zero
+- unavailable/no-answer calls do not create fabricated totals
+- preserve source reference back to transcript/call/message
 
 ## compareQuotes
 
@@ -92,10 +106,11 @@ compareQuotes({ missionId })
 
 Flow:
 
-1. apply hard constraints
-2. rank qualifying options
-3. return explanation-ready factors
-4. do not hide invalid/excluded reasoning from logs
+1. load validated Mission + Quotes
+2. apply hard constraints
+3. rank only qualifying options
+4. return explanation-ready factors
+5. preserve excluded options + reasons in logs/state
 
 ## requestApproval
 
@@ -107,56 +122,148 @@ requestApproval({
 })
 ```
 
-Creates a pending approval. It does not purchase anything.
+Creates a pending approval. It does not purchase, book, transfer, release funds, or otherwise commit the user.
 
-## Webhook contract pattern
+## BimpeAI tool boundary
 
-Partner-specific endpoint examples may include:
+BimpeAI may call safe SABI HTTP tools through its Custom API integration.
+
+Recommended initial tool set:
+
+```text
+searchProviders
+getProvider
+callProvider
+recordQuote
+compareQuotes
+requestApproval
+```
+
+Bimpe receives curated Knowledge + tool results; it does not directly mutate Mission tables.
+
+Use Bimpe REST/native server `fetch` first under the current Node 20 runtime. Do not install the Node-24+ TS SDK unless the runtime migration is intentional and verified.
+
+## Communication adapter contract
+
+All transports implement/extend one domain boundary.
+
+Conceptual interface:
+
+```ts
+interface CommunicationAdapter {
+  initiateContact(input: ContactProviderInput): Promise<CommunicationResult>;
+  normalizeEvent(payload: unknown): Promise<CommunicationResult>;
+}
+```
+
+Partner-specific status/event values are normalized before Mission logic sees them.
+
+## KrosAI transport mapping
+
+KrosAI is the primary telephony transport.
+
+Verified outbound concepts include:
+
+```text
+from_number
+to_number
+endpoint_id
+metadata            optional
+webhook_url         optional
+max_duration        optional
+```
+
+Use E.164 numbers.
+
+Kros official docs currently conflict on exact base/path examples. Therefore:
+
+- configure `KROSAI_BASE_URL`
+- keep routes in one adapter module
+- verify the current live route via API Explorer/dashboard/minimal test
+- never scatter hard-coded Kros URLs throughout SABI
+
+Normalize Kros lifecycle/failure outcomes into existing SABI communication states. Do not equate accepted/initiated/ringing with completed.
+
+## Kros webhook contract
+
+Target route:
 
 ```text
 POST /api/webhooks/krosai
-POST /api/webhooks/temlio
-POST /api/webhooks/voice
 ```
 
-Common handler responsibilities:
+Handler responsibilities:
 
-1. authenticate/verify event when supported
-2. enforce idempotency where feasible
-3. resolve external event to mission/provider
-4. store raw/normalized communication outcome
-5. extract structured fields
-6. validate against Quote schema
-7. update mission step/state
-8. resume or trigger the agent
-9. log failures honestly
+1. read/preserve raw request body
+2. verify `X-Webhook-Signature` using the current official/live contract
+3. validate envelope/data
+4. deduplicate provider event ID
+5. resolve external call → mission/provider/communication
+6. map partner event/status into `CommunicationResult`
+7. respond 2xx promptly for valid events
+8. persist/queue heavier transcript and quote processing where practical
+9. never duplicate Quote/state transitions on retry
+10. log request/event IDs without secrets
 
-## Integration adapter boundary
+Official Kros pages currently show more than one event naming convention. Keep aliases/version differences inside the Kros adapter and confirm the live dashboard schema before demo freeze.
 
-Partner logic should not leak through the whole application.
+## Transcript/result → Quote boundary
 
-Concept:
+A transcript is evidence, not automatically a Quote.
+
+Flow:
 
 ```text
-SABI domain
-→ communication adapter interface
-→ KrosAI / Temlio / other provider
+provider transcript/result
+→ structured extraction
+→ schema validation
+→ required fact checks
+→ Quote or incomplete observation
 ```
 
-This allows the team to swap or combine services without rewriting Mission logic.
+Only create a Quote when factual provider values exist. Missing information may trigger follow-up or remain unknown.
 
-## Voice/language
+## Voice runtime
 
-YarnGPT and Spitch are candidates for African-language voice/speech capability based on organizer material.
+Primary candidate:
 
-Do not hard-code one provider as mandatory until the team has verified:
+```text
+KrosAI → Vapi
+```
 
-- credentials
-- latency
-- language quality
-- webhook behavior
-- demo reliability
-- integration time
+Fallback if Vapi cannot be made reliable quickly:
+
+1. Retell
+2. ElevenLabs
+
+Voice runtime choices stay behind Kros/SABI adapters and do not alter Mission contracts.
+
+## African-language layer
+
+Only after the base call loop works.
+
+Preferred advanced path:
+
+```text
+KrosAI → LiveKit SIP → LiveKit Agent → Spitch STT/TTS → SABI/Bimpe tools
+```
+
+Spitch can also be called directly for STT/translation/TTS where useful.
+
+YarnGPT is optional for TTS, translated synthesis, low-latency single-turn audio, or asynchronous file/post-call STT. Read live voice/language catalogs rather than hard-coding unsupported values.
+
+## Temlio boundary
+
+Planned first use:
+
+```text
+Kros no_answer / busy / failed
+→ Temlio SMS
+→ provider reply/event
+→ CommunicationResult
+```
+
+Do not implement request/auth/webhook payloads until detailed Temlio partner docs/live access are available.
 
 ## Secrets
 
@@ -164,8 +271,9 @@ Never commit:
 
 - API keys
 - webhook secrets
-- phone credentials
-- service tokens
+- phone/SIP credentials
+- bearer tokens
+- provider secrets
 - private access credentials
 
-Use environment variables and maintain a safe `.env.example` only when application scaffolding begins.
+Use `.env.local` locally and deployment environment/secret storage remotely. `.env.example` contains names only.
