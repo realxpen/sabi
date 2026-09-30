@@ -87,22 +87,13 @@ Raw partner payloads never mutate Mission directly.
 
 ## L4 — Kros webhook boundary
 
-Implement:
-
-- raw body preservation
-- `X-Webhook-Signature` verification using the confirmed live contract
-- provider event-ID deduplication
-- mission/provider/communication correlation
-- quick valid 2xx response
-- centralized event alias/version mapping
-- idempotent transcript/Quote processing
-- secret-safe logs
+Implement raw-body preservation, `X-Webhook-Signature` verification against the confirmed live contract, provider event-ID deduplication, mission/provider/communication correlation, quick valid 2xx response, centralized event alias/version mapping, idempotent transcript/Quote processing and secret-safe logs.
 
 Current official Kros pages contain multiple webhook naming conventions. Confirm the live dashboard/API Explorer schema and keep all differences inside the adapter.
 
 ## L5 — Failure/recovery
 
-Test no-answer, busy, delay, malformed/duplicate event, unknown external call ID, network/provider failure, unavailable provider and incomplete transcript/result.
+Test no-answer, busy, delayed response, malformed/duplicate event, unknown external call ID, network/provider failure, unavailable provider and incomplete transcript/result.
 
 Rules:
 
@@ -131,21 +122,11 @@ L6 gate: one consented real call uses the same adapter boundary as mocks without
 
 ## L7 — Voice runtime
 
-### Primary: Vapi
+Primary: Vapi. Expected artifacts include Vapi API key, Assistant ID, SIP Trunk Credential ID, Kros endpoint ID and Kros number SIP credentials.
 
-Test documented Kros SIP/BYO path first.
+Keep Vapi only if repeated calls are reliable.
 
-Expected access:
-
-- Vapi API key
-- Assistant ID
-- SIP Trunk Credential ID
-- Kros endpoint ID
-- Kros number SIP credentials
-
-Keep Vapi only if repeat calls are reliable.
-
-### Fallback order
+Fallback order:
 
 1. Retell
 2. ElevenLabs
@@ -187,18 +168,7 @@ No native BimpeAI↔KrosAI bridge is assumed; SABI-owned APIs/tools connect them
 
 ## Observability
 
-Track:
-
-- missionId
-- providerId
-- communicationId
-- partner external call/event ID
-- normalized status
-- timestamps
-- failure category
-- source channel
-- transcript/result reference
-- Quote/source relationship
+Track missionId, providerId, communicationId, partner external call/event ID, normalized status, timestamps, failure category, source channel, transcript/result reference and Quote/source relationship.
 
 Never log credentials/auth headers unnecessarily.
 
@@ -219,18 +189,6 @@ Never log credentials/auth headers unnecessarily.
 
 ## Before completion
 
-Run relevant lint/typecheck/tests/build and report:
-
-1. files changed
-2. L1–L9 completed
-3. mock scenarios verified
-4. confirmed live Kros REST route/event convention
-5. Kros real-call status
-6. selected voice-runtime status
-7. webhook/recovery tests
-8. assumptions
-9. credentials/access still needed
-10. shared-contract questions
-11. branch/commit hash
+Run relevant lint/typecheck/tests/build and report files changed, L1–L9 completed, mock scenarios, confirmed Kros route/event convention, real-call status, selected voice runtime, webhook/recovery tests, assumptions, access still needed, shared-contract questions and branch/commit hash.
 
 Stop when integration-ready. Do not merge to `main` unless the team workflow explicitly allows it.
