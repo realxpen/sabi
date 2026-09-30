@@ -74,4 +74,4 @@ Optional advanced path after the golden path is stable:
 KrosAI → LiveKit → Spitch STT/TTS → SABI/Bimpe tools
 ```
 
-Do not use the old Phase 1 instructions to create a second architecture or to reintroduce placeholders that have now been resolved by verified partner documentation.
+Do not use the old Phase 1 instructions to create a second architecture or reintroduce placeholders that have now been resolved by verified partner documentation.
