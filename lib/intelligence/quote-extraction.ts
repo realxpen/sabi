@@ -144,7 +144,7 @@ export function extractQuoteFromCommunication(
       status: "NOT_QUOTABLE",
       observedFacts,
       missingFacts,
-      needsFollowUp: communication.status !== "NO_ANSWER",
+      needsFollowUp: true,
       provenance: sourceProvenance
     };
   }
