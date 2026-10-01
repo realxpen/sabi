@@ -42,6 +42,7 @@ describe("Bimpe-facing SABI tools", () => {
       "searchProviders",
       "getProvider",
       "callProvider",
+      "getCommunicationEvidence",
       "recordProviderResponse",
       "recordQuote",
       "compareQuotes",
