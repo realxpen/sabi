@@ -23,7 +23,10 @@ import {
   callProviderInputSchema,
   getProvider,
   searchProviders,
-  searchProvidersInputSchema
+  searchProvidersInputSchema,
+  sendMessage,
+  sendMessageInputSchema,
+  type MessageTransport
 } from "../../tools/provider-tools";
 import {
   recordQuote,
@@ -38,6 +41,7 @@ export type BimpeToolEnvironment = {
 
 export type BimpeToolBridgeDependencies = {
   communicationAdapter?: CommunicationAdapter;
+  messageTransport?: MessageTransport;
   quoteLookup?: QuoteLookup;
   quoteRepository?: QuoteRepository;
   approvalRepository?: ApprovalRepository;
@@ -48,12 +52,19 @@ export const bimpeToolNameSchema = z.enum([
   "searchProviders",
   "getProvider",
   "callProvider",
+  "sendMessage",
   "recordQuote",
   "requestApproval"
 ]);
 
 export type BimpeToolName = z.infer<typeof bimpeToolNameSchema>;
 
+/**
+ * These are the five Bimpe Custom API actions already configured in the
+ * hackathon workflow. sendMessage is intentionally available as a SABI route
+ * without silently adding a sixth Bimpe action; enable that action explicitly
+ * once the team chooses to expose the SMS fallback to the workflow.
+ */
 export const bimpeCustomApiTools = [
   {
     name: "Search Providers",
@@ -190,7 +201,10 @@ function toolErrorResponse(error: unknown): Response {
 
   const message = error instanceof Error ? error.message : "Agent tool failed.";
 
-  if (message.startsWith("Provider not found:") || message.startsWith("Quote not found:")) {
+  if (
+    message.startsWith("Provider not found:") ||
+    message.startsWith("Quote not found:")
+  ) {
     return Response.json(
       { error: "AGENT_TOOL_RESOURCE_NOT_FOUND", message },
       { status: 404 }
@@ -310,6 +324,25 @@ export async function handleBimpeToolRequest(
         });
       }
 
+      case "sendMessage": {
+        const input = sendMessageInputSchema.parse(body);
+        const communication = await sendMessage(
+          input,
+          dependencies.messageTransport
+        );
+
+        return Response.json({
+          tool: toolName,
+          data: communication,
+          meta: {
+            transportConfigured: Boolean(dependencies.messageTransport),
+            externalMessageAccepted: Boolean(communication.externalId),
+            initiationOnly: communication.status === "INITIATED",
+            quoteCreated: false
+          }
+        });
+      }
+
       case "recordQuote": {
         const repository = resolveQuoteRepository(dependencies, environment);
 
@@ -361,7 +394,10 @@ export async function handleBimpeToolRequest(
           });
         }
 
-        const quoteRepository = resolveQuoteRepository(dependencies, environment);
+        const quoteRepository = resolveQuoteRepository(
+          dependencies,
+          environment
+        );
 
         if (!quoteRepository) {
           return Response.json(

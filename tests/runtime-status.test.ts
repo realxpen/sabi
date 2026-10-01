@@ -22,10 +22,11 @@ describe("Preview runtime status", () => {
     expect(response.status).toBe(404);
   });
 
-  it("reports Vapi readiness booleans without exposing secrets or phone numbers", async () => {
+  it("reports Vapi, L8 and L9 readiness without exposing secrets or phone numbers", async () => {
     process.env.VERCEL_ENV = "preview";
     delete process.env.DATABASE_URL;
     process.env.SABI_AGENT_TOOL_TOKEN = "private-agent-token";
+
     process.env.SABI_COMMUNICATION_MODE = "mock";
     process.env.VAPI_API_BASE_URL = "https://api.vapi.ai";
     process.env.VAPI_API_KEY = "private-vapi-key";
@@ -35,6 +36,24 @@ describe("Preview runtime status", () => {
     process.env.SABI_CONSENTED_PROVIDER_PHONES_JSON = JSON.stringify({
       "provider-tola-fabrics": "+2348012345678"
     });
+
+    process.env.SABI_AFRICAN_VOICE_MODE = "livekit-spitch";
+    process.env.SPITCH_API_KEY = "private-spitch-key";
+    process.env.LIVEKIT_URL = "wss://private.livekit.cloud";
+    process.env.LIVEKIT_API_KEY = "private-livekit-key";
+    process.env.LIVEKIT_API_SECRET = "private-livekit-secret";
+    process.env.LIVEKIT_AGENT_NAME = "sabi-african-voice";
+    process.env.LIVEKIT_SIP_TRUNK_ID = "private-trunk-id";
+
+    process.env.SABI_MESSAGE_MODE = "voicebip-temlio";
+    process.env.VOICEBIP_API_KEY = "pk_test_private";
+    process.env.VOICEBIP_AGENT_ID = "agt_private";
+    process.env.VOICEBIP_SMS_FROM_NUMBER = "+2348000001000";
+    process.env.VOICEBIP_WEBHOOK_SIGNING_SECRET = "private-signing-secret";
+    process.env.SABI_CONSENTED_PROVIDER_MESSAGE_PHONES_JSON =
+      JSON.stringify({
+        "provider-tola-fabrics": "+2348000002000"
+      });
 
     const response = await GET();
     const text = await response.text();
@@ -54,22 +73,62 @@ describe("Preview runtime status", () => {
         configured: true
       },
       consentedProviderPhoneCount: 1,
-      liveCommunicationReady: false
+      liveCommunicationReady: false,
+      africanVoice: {
+        mode: "livekit-spitch",
+        spitchApiKeyConfigured: true,
+        livekitUrlConfigured: true,
+        livekitApiKeyConfigured: true,
+        livekitApiSecretConfigured: true,
+        livekitAgentConfigured: true,
+        livekitSipTrunkConfigured: true,
+        configured: true,
+        readyForExternalAgentProof: true
+      },
+      messaging: {
+        mode: "voicebip-temlio",
+        voicebipApiKeyConfigured: true,
+        voicebipAgentConfigured: true,
+        voicebipFromNumberConfigured: true,
+        webhookAuthConfigured: true,
+        correlationTableReady: false,
+        consentedProviderPhoneCount: 1,
+        configured: true,
+        liveReady: false
+      }
     });
-    expect(text).not.toContain("private-agent-token");
-    expect(text).not.toContain("private-vapi-key");
-    expect(text).not.toContain("private-webhook-token");
-    expect(text).not.toContain("+2348012345678");
+
+    for (const secret of [
+      "private-agent-token",
+      "private-vapi-key",
+      "private-webhook-token",
+      "private-spitch-key",
+      "wss://private.livekit.cloud",
+      "private-livekit-key",
+      "private-livekit-secret",
+      "private-trunk-id",
+      "pk_test_private",
+      "agt_private",
+      "private-signing-secret",
+      "+2348012345678",
+      "+2348000001000",
+      "+2348000002000"
+    ]) {
+      expect(text).not.toContain(secret);
+    }
   });
 
-  it("treats malformed consent configuration as zero callable destinations", async () => {
+  it("treats malformed consent configuration as zero destinations", async () => {
     process.env.VERCEL_ENV = "preview";
     process.env.SABI_CONSENTED_PROVIDER_PHONES_JSON = "not-json";
+    process.env.SABI_CONSENTED_PROVIDER_MESSAGE_PHONES_JSON = "not-json";
 
     const response = await GET();
     const payload = await response.json();
 
     expect(payload.consentedProviderPhoneCount).toBe(0);
     expect(payload.liveCommunicationReady).toBe(false);
+    expect(payload.messaging.consentedProviderPhoneCount).toBe(0);
+    expect(payload.messaging.liveReady).toBe(false);
   });
 });
