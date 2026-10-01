@@ -41,6 +41,20 @@ const orchestrateMissionInputSchema = z.object({
   mode: z.enum(["SIMULATION", "LIVE"]).default("SIMULATION")
 });
 
+function providerSourceMeta(mode: "SIMULATION" | "LIVE") {
+  return mode === "LIVE"
+    ? {
+        source: "configured-live-test-provider-metadata",
+        liveDirectory: true,
+        dialingNumberExposed: false
+      }
+    : {
+        source: "explicit-simulation-provider-fixtures",
+        liveDirectory: false,
+        dialingNumberExposed: false
+      };
+}
+
 function errorResponse(error: unknown): Response {
   if (error instanceof ZodError) {
     return Response.json(
@@ -63,7 +77,7 @@ function errorResponse(error: unknown): Response {
       {
         error: message,
         message:
-          "SABI has no verified live provider directory yet. Demo fixtures were not returned."
+          "SABI has no configured live test-provider metadata. Demo fixtures were not returned."
       },
       { status: 503 }
     );
@@ -114,10 +128,7 @@ export async function POST(
         return Response.json({
           tool: "searchProviders",
           data: providers,
-          meta: {
-            source: "explicit-simulation-provider-fixtures",
-            liveDirectory: false
-          }
+          meta: providerSourceMeta(input.mode)
         });
       }
 
@@ -130,10 +141,7 @@ export async function POST(
         return Response.json({
           tool: "getProvider",
           data: provider,
-          meta: {
-            source: "explicit-simulation-provider-fixtures",
-            liveDirectory: false
-          }
+          meta: providerSourceMeta(input.mode)
         });
       }
 
