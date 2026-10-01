@@ -1,13 +1,13 @@
 # PROJECT_STATE.md
 
 Status: ACTIVE
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ## Current phase
 
-**Phase 1 — Parallel Build / Verified Integration Handoff**
+**Phase 1 — Integrated Golden Path / External Live Verification**
 
-Phase 0 is complete. The shared Phase 1 foundation, mock Mission Control path, teammate prompts, partner research, integration architecture, and verified build order are normalized on `main`.
+The core hackathon product path is now implemented in code on the clean integration branch. The main remaining critical gap is external live verification: Kros/Vapi phone transport and Bimpe account-side configuration.
 
 ## Event target
 
@@ -25,226 +25,284 @@ Canonical demo:
 
 > I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.
 
-## Completed foundation
+## Current integration branch
+
+```text
+integration/runtime-mission-control
+```
+
+Draft integration PR:
+
+```text
+#7 — Wire live communication and intelligence into Mission Control
+```
+
+Base: `xpen/mvp-shell`
+
+Do not merge blindly. Review the integrated golden path and live-verification evidence first.
+
+## Completed product/runtime foundation
 
 - [x] product source + MVP boundary
 - [x] trust/human-approval model
-- [x] team ownership/build phases
 - [x] Next.js + TypeScript scaffold
 - [x] canonical Zod schemas
-- [x] Mission/Provider/Quote/MissionStep/Approval/CommunicationResult
 - [x] deterministic Mission state machine
-- [x] provider-neutral communication adapter
-- [x] mock communication adapter
-- [x] Home → Mission Control flow
-- [x] mock Mission engine through `AWAITING_APPROVAL`
-- [x] provider/Quote/recommendation UI
-- [x] human-approval UI with no real transaction
-- [x] focused tests + GitHub CI
-- [x] LLM Knowledge/Retrieval architecture
-- [x] teammate-specific Codex prompts
-- [x] verified partner source map
-- [x] integration stack decision
-- [x] integration access checklist
-- [x] active decisions updated from verified docs
-- [x] README/AGENTS/env/build-plan normalization
+- [x] persisted Mission snapshots in Neon
+- [x] Mission create/read lifecycle
+- [x] Mission Control from persisted state
+- [x] human approval persistence with no transaction
+- [x] live-refresh Mission Control
+- [x] provider-neutral CommunicationResult contract
+- [x] Lara Vapi/Kros communication adapter code
+- [x] authenticated Vapi webhook code
+- [x] durable webhook-event deduplication
+- [x] retry-safe webhook → Mission persistence
+- [x] call initiation → Mission Control persistence
+- [x] Femi hard-constraint filtering
+- [x] deterministic qualifying-option ranking
+- [x] explainable recommendation output
+- [x] runtime Knowledge/context layer
+- [x] recommendation → Mission Control persistence
+- [x] progressive Mission orchestration
+- [x] explicit SIMULATION vs LIVE separation
+- [x] bounded Bimpe-facing SABI tool surface
+- [x] agent-tool bearer authentication
+- [x] Quote source-reference requirement
+- [x] Mission-stage gates on Quote/comparison/approval actions
+- [x] Bimpe runtime prompt pack
+- [x] Bimpe durable Knowledge pack
+- [x] Bimpe Custom API setup guide
+- [x] GitHub CI typecheck/test/build gates
 
-Current mock provider responses/recommendation are temporary fixtures and must be replaced by teammate modules rather than presented as live provider results.
+## Progressive Mission runtime
 
-## Current integration source of truth
-
-- `AGENTS.md`
-- `Knowledge/Decisions/ACTIVE_DECISIONS.md`
-- `Knowledge/Product/TEAM_BUILD_PHASES.md`
-- `Knowledge/Technical/ARCHITECTURE.md`
-- `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-- `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-- `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-- `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
-- `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
-- `Raw/PartnerDocs/SOURCE_LINKS.md`
-
-## Primary stack
-
-```text
-SABI Next.js / domain state
-→ BimpeAI workflow + Knowledge + bounded SABI tools
-→ SABI callProvider
-→ KrosAI telephony
-→ Vapi first
-→ provider phone
-→ Kros webhook/transcript
-→ CommunicationResult
-→ validated Quote
-→ Femi filtering/ranking
-→ Xpen Mission Control
-→ human approval
-```
-
-## Advanced language path
-
-Only after the primary phone loop works:
+A newly created Mission now starts at `CREATED` and advances through real persisted states rather than appearing instantly at the end of a fixture flow:
 
 ```text
-KrosAI → LiveKit SIP → LiveKit Agent → Spitch STT/TTS → SABI/Bimpe tools
+CREATED
+→ UNDERSTANDING
+→ PLANNING
+→ SEARCHING
+→ CONTACTING
+→ COLLECTING_QUOTES
+→ COMPARING
+→ AWAITING_APPROVAL
 ```
 
-YarnGPT is optional for African TTS/translation/streaming/post-call STT.
+`AWAITING_APPROVAL` is a hard human checkpoint.
 
-Temlio is optional SMS/communications fallback pending detailed API contract/access.
+Simulation mode may use explicitly labelled fixtures. Live mode must never fall back to simulation providers, communication outcomes, or Quotes.
 
-## Binding integration decisions
+## Current bounded agent-tool surface
 
-- SABI remains system of record for Mission, Provider, CommunicationResult, Quote, recommendation and Approval.
-- BimpeAI is the agent/workflow/Knowledge/bounded-tool layer, not the Mission database.
-- Use Bimpe REST/native server-side `fetch` first because current Bimpe TS SDK docs target Node 24+ while SABI CI is Node 20.
-- KrosAI is the primary telephony transport.
-- Vapi is the first voice-runtime candidate; Retell then ElevenLabs are fallbacks.
-- Kros official docs conflict on `/v1` vs `/api/v1` and outbound singular/plural paths; keep `KROSAI_BASE_URL` configurable and confirm live route before freeze.
-- Kros webhook event naming differs across official pages; keep aliases/version mapping inside one adapter and confirm live dashboard schema.
-- Webhook processing must verify signature, deduplicate event IDs and preserve correlation.
-- A transcript is evidence, not automatically a Quote.
-- Durable policies may live in Bimpe/SABI Knowledge; live price/availability/call outcomes stay operational/tool data.
-- Multilingual and SMS fallback work may not block or destabilize the golden path.
+```text
+searchProviders
+getProvider
+callProvider
+recordQuote
+compareQuotes
+orchestrateMission
+requestApproval
+```
 
-## Xpen — Product & Integration
+Source-of-truth code:
 
-Branch: `xpen/mvp-shell`
+- `lib/integrations/bimpe/tool-manifest.ts`
+- `app/api/agent-tools/[tool]/route.ts`
+- `app/api/agent-tools/call-provider/route.ts`
 
-Current gates:
+All agent-tool actions are bounded. They do not expose unrestricted database access.
 
-1. integrate Femi + Lara mock-ready modules
-2. configure Bimpe workflow/agent/Knowledge + bounded SABI API tool seam
-3. connect real Kros transport once Lara proves it
-4. replace temporary fixtures with real module results
-5. own final golden-path demo/freeze
+## Bimpe configuration pack
 
-## Femi — Intelligence, Data & Knowledge
+Ready in the repository:
 
-Branch: `femi/intelligence`
+- `Knowledge/Technical/BIMPE_SABI_AGENT_PROMPT.md`
+- `Knowledge/Technical/BIMPE_KNOWLEDGE_BASE.md`
+- `Knowledge/Technical/BIMPE_CUSTOM_API_SETUP.md`
+- `Knowledge/Technical/MISSION_ORCHESTRATION_RUNTIME.md`
 
-Use `Knowledge/Technical/CODEX_FEMI_INTELLIGENCE_PROMPT.md`.
+Account-side Bimpe configuration is still external work; do not claim it is live until the actual agent/workflow/Custom API actions are configured and invoked.
 
-Track:
+## Intelligence status — Femi
 
-- provider/Quote fixtures
-- hard constraints
-- transparent ranking
-- Quote intelligence
-- runtime Knowledge/retrieval/context assembly
-- Bimpe Knowledge-Base content mapping
-- recommendation output
-- evaluation
+Femi's core hackathon intelligence module is implemented and integrated.
 
-## Lara — Agent Tools & Communication
+Current deterministic flow:
 
-Branch: `lara/agent-tools`
+```text
+validated Mission + Providers + Quotes
+→ hard constraints
+→ exclude invalid options with reasons
+→ rank qualifying options
+→ explain recommendation
+→ persist recommendation
+→ request human approval
+```
 
-Use:
+Canonical example:
 
-- `Knowledge/Technical/CODEX_LARA_AGENT_TOOLS_PROMPT.md`
-- `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-- `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-- `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
+```text
+A — ₦63k / tomorrow / available → qualifies
+B — ₦55k / 3 days → reject deadline
+C — ₦74k / tomorrow → reject hard budget
+D — no answer → no Quote
+```
 
-Track:
+Do not add unnecessary ML before the golden path is live-verified.
 
-- bounded tools
-- communication adapter
-- event normalization
-- Kros webhook/signature/idempotency
-- failure/recovery
-- real Kros transport
-- Vapi first runtime
-- optional Spitch/LiveKit language path
-- optional Temlio fallback only with verified contract
+## Communication status — Lara
 
-## Current external access gates
+Lara's core communication/runtime code is implemented. The remaining critical work is external account/transport proof.
+
+Implemented:
+
+- Vapi/Kros adapter boundary
+- consent-gated live destinations
+- initiation semantics
+- webhook normalization
+- correlation
+- event deduplication
+- retry/recovery behavior
+- Mission persistence
+- truthful NO_ANSWER/FAILED handling
+- transcript-is-evidence rule
+
+Still unverified end-to-end:
+
+```text
+SABI
+→ Vapi
+→ Kros number/SIP transport
+→ consenting test phone rings
+→ answer/conversation
+→ Vapi webhook
+→ correct Mission correlation
+→ CommunicationResult persists
+→ Mission Control displays result
+```
+
+## External access gates
 
 ### KrosAI — critical
 
-- [ ] account/access
-- [ ] KYC
-- [ ] API key/scopes
-- [ ] phone number/event credits
-- [ ] confirmed live REST route
-- [ ] endpoint attached
-- [ ] one consented test call
-- [ ] verified webhook/signature
-- [ ] transcript/result
+- [x] KYC completed by Xpen
+- [ ] hackathon/usable phone number provisioned
+- [ ] sponsored/usable call credit confirmed
+- [ ] outbound calling permission confirmed
+- [ ] SIP credentials obtained/verified
+- [ ] Kros number connected to the selected Vapi BYO/SIP path
+- [ ] one consenting test phone rings
+- [ ] call lifecycle verified
+- [ ] webhook/result returns to SABI
 
-### Vapi — critical candidate
+Do not personally buy unnecessary call credit before checking hackathon provisioning/support.
 
-- [ ] account/API key
-- [ ] SABI provider-calling Assistant
-- [ ] Assistant ID
-- [ ] SIP Trunk Credential ID
-- [ ] Kros BYO/SIP path tested
+### Vapi — critical runtime
+
+Code support exists, but account-side values/live path still require verification:
+
+- [ ] intended Vapi account/API key configured in Preview
+- [ ] SABI provider-calling Assistant verified
+- [ ] Assistant ID configured
+- [ ] SIP Trunk Credential ID configured
+- [ ] Kros BYO/SIP phone path verified
+- [ ] Vapi webhook token + endpoint configured
+- [ ] one real consented call verified
 
 ### BimpeAI — core agent layer
 
-- [ ] API key
-- [ ] workflow
-- [ ] SABI agent
-- [ ] curated Knowledge Base
-- [ ] SABI Custom API integration
-- [ ] at least one bounded tool invocation
+Repository assets are ready; account-side configuration remains:
 
-### Spitch/LiveKit — optional enhancement
+- [ ] SABI Bimpe agent/workflow selected or created
+- [ ] `BIMPE_SABI_AGENT_PROMPT.md` applied
+- [ ] `BIMPE_KNOWLEDGE_BASE.md` added as curated durable Knowledge
+- [ ] `SABI_AGENT_TOOL_TOKEN` configured securely on both sides
+- [ ] Custom API actions registered from `BIMPE_CUSTOM_API_SETUP.md`
+- [ ] one simulation tool invocation verified from Bimpe
+- [ ] full simulated orchestration verified from Bimpe
+- [ ] live `callProvider` enabled only after Kros/Vapi readiness
 
-- [ ] Spitch key
-- [ ] LiveKit credentials only if multilingual path is attempted
+## Preview database
 
-### YarnGPT — optional
-
-- [ ] key/credits only if selected
-
-### Temlio — optional fallback
-
-Still need detailed partner/event API auth/request/webhook documentation before live coding.
-
-## Next integration gate
-
-First complete:
+Integration Preview Neon branch:
 
 ```text
-request
-→ validated Mission
-→ provider discovery
-→ mock/real communication through shared adapter
-→ CommunicationResult
-→ validated Quote
-→ filtering/ranking
-→ recommendation
-→ Mission Control
-→ human approval
+preview/integration/runtime-mission-control
 ```
 
-Then prove the first real external gate:
+Required tables available there:
 
 ```text
-Kros account/KYC/number
-→ confirmed live route
-→ one consented real call
-→ one verified webhook/transcript
-→ CommunicationResult
+mission_snapshots
+communication_event_claims
+quotes
+approvals
 ```
 
-Do not add optional partner integrations before this is stable.
+Production Neon has not been intentionally modified by the integration work.
+
+## Verification levels
+
+Use these labels consistently:
+
+```text
+Level 0 — code only
+Level 1 — GitHub CI verified
+Level 2 — Vercel Preview/runtime verified
+Level 3 — partner API/account verified
+Level 4 — real end-to-end external action verified
+```
+
+Do not collapse these levels into one claim.
+
+## Current verified status
+
+Core orchestration and Bimpe-facing tool code has passed GitHub CI (typecheck, tests and Next.js production build). Exact-head CI must always be checked again after functional changes.
+
+Vercel has recently rate-limited additional Preview builds. That is a hosting quota/rate gate, not permission to stop development or to claim deployment proof that did not occur.
+
+## What can continue without the Kros phone number
+
+- Bimpe account/workflow setup
+- upload/apply SABI agent prompt
+- upload/apply curated Knowledge
+- configure bounded Custom API actions
+- simulate the full Mission lifecycle through the bounded tools
+- improve demo reliability and failure UX
+- review PR #7 integration diff
+- keep tests/typecheck/build green
+- prepare live-call checklist and consented test provider mapping structure
+
+## What specifically waits for the phone number/credits
+
+Only the external voice proof:
+
+```text
+Kros number/SIP
+→ Vapi BYO phone path
+→ real consented outbound call
+→ live provider conversation
+→ webhook/event
+→ persisted CommunicationResult
+→ Mission Control update
+```
 
 ## Demo freeze gate
 
-Freeze the primary stack when this is repeatable:
+Freeze feature expansion when this becomes repeatable:
 
 ```text
 Mission created
-→ candidate selected
-→ consented phone receives call
-→ provider response captured
+→ providers discovered
+→ at least one verified communication path exercised
+→ factual provider response captured
 → Quote validated
-→ options compared
+→ valid options compared
+→ recommendation explained
 → Mission Control updated
 → human approval requested
 ```
 
-The hackathon MVP still performs no real payment/escrow transaction.
+The hackathon MVP still performs no real payment or escrow transaction.
