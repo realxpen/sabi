@@ -1,6 +1,10 @@
 import { ZodError, z } from "zod";
 import { authorizeAgentToolRequest } from "../../../../lib/integrations/bimpe/agent-tool-auth";
 import {
+  getCommunicationEvidenceForAgent,
+  getCommunicationEvidenceToolInputSchema
+} from "../../../../lib/integrations/bimpe/communication-evidence";
+import {
   agentProviderModeSchema,
   compareQuotesForAgent,
   getProviderForAgent,
@@ -13,6 +17,10 @@ import {
   searchProvidersToolInputSchema
 } from "../../../../lib/integrations/bimpe/tools";
 import { createConfiguredCommunicationAdapter } from "../../../../lib/integrations/communication/live-runtime";
+import {
+  VapiEvidenceConfigurationError,
+  VapiEvidenceUnavailableError
+} from "../../../../lib/integrations/voice-runtime/vapi-evidence";
 import { advanceMissionOrchestration } from "../../../../lib/mission/orchestrator";
 
 export const runtime = "nodejs";
@@ -20,6 +28,7 @@ export const runtime = "nodejs";
 const toolSchema = z.enum([
   "search-providers",
   "get-provider",
+  "get-communication-evidence",
   "record-provider-response",
   "record-quote",
   "compare-quotes",
@@ -63,6 +72,19 @@ function errorResponse(error: unknown): Response {
     );
   }
 
+  if (
+    error instanceof VapiEvidenceConfigurationError ||
+    error instanceof VapiEvidenceUnavailableError
+  ) {
+    return Response.json(
+      {
+        error: "COMMUNICATION_EVIDENCE_UNAVAILABLE",
+        message: error.message
+      },
+      { status: 503 }
+    );
+  }
+
   const message = error instanceof Error ? error.message : "AGENT_TOOL_FAILED";
 
   if (
@@ -94,6 +116,8 @@ function errorResponse(error: unknown): Response {
     message === "COMMUNICATION_MISSION_MISMATCH" ||
     message === "COMMUNICATION_NOT_COMPLETED" ||
     message === "COMMUNICATION_PROVIDER_MISMATCH" ||
+    message === "COMMUNICATION_EVIDENCE_NOT_A_CALL" ||
+    message === "COMMUNICATION_EXTERNAL_ID_MISSING" ||
     message === "MOCK_EVIDENCE_NOT_ALLOWED_FOR_LIVE_MISSION"
   ) {
     return Response.json({ error: message }, { status: 409 });
@@ -142,6 +166,20 @@ export async function POST(
           tool: "getProvider",
           data: provider,
           meta: providerSourceMeta(input.mode)
+        });
+      }
+
+      case "get-communication-evidence": {
+        const input = getCommunicationEvidenceToolInputSchema.parse(body);
+        const evidence = await getCommunicationEvidenceForAgent(input);
+        return Response.json({
+          tool: "getCommunicationEvidence",
+          data: evidence,
+          meta: {
+            evidenceOnly: true,
+            quoteCreated: false,
+            transcriptPersistedToMission: false
+          }
         });
       }
 
