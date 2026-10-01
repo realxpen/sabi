@@ -1,3 +1,4 @@
+// Integration gate: Lara communication evidence + Femi deterministic intelligence.
 import { describe, expect, it } from "vitest";
 import {
   InMemoryCommunicationEventDeduplicator,
