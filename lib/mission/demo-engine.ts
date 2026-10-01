@@ -5,10 +5,10 @@ import {
   type MissionStep
 } from "../schemas";
 import {
-  buildTemporaryDemoQuotes,
-  selectTemporaryRecommendation,
-  temporaryDemoProviders
-} from "../demo/temporary-scenario";
+  buildIntelligenceDemoQuotes,
+  intelligenceDemoProviders,
+  recommend
+} from "../intelligence";
 import { parseDemoMissionRequest } from "./demo-parser";
 import { transitionMission } from "./state-machine";
 import type { MissionSnapshot } from "./snapshot";
@@ -33,7 +33,7 @@ const demoSteps: StepDefinition[] = [
   {
     status: "SEARCHING",
     type: "SEARCH_PROVIDERS",
-    message: "Temporary Phase 1 provider fixtures loaded."
+    message: "Fictional provider fixtures loaded for the intelligence demo."
   },
   {
     status: "CONTACTING",
@@ -48,7 +48,7 @@ const demoSteps: StepDefinition[] = [
   {
     status: "COMPARING",
     type: "COMPARE_QUOTES",
-    message: "Temporary deterministic comparison executed."
+    message: "Hard constraints applied before deterministic soft ranking."
   },
   {
     status: "AWAITING_APPROVAL",
@@ -92,37 +92,22 @@ export function buildDemoMissionSnapshot(
     );
   });
 
-  const quotes = buildTemporaryDemoQuotes(mission);
-  const selected = selectTemporaryRecommendation(mission, quotes);
-  const selectedProvider = selected
-    ? temporaryDemoProviders.find(
-        (provider) => provider.id === selected.providerId
-      )
-    : undefined;
+  const quotes = buildIntelligenceDemoQuotes(mission);
+  const result = recommend(mission, intelligenceDemoProviders, quotes);
+  const selected = result.selected;
 
   return {
     mission,
     steps,
-    providers: temporaryDemoProviders,
+    providers: intelligenceDemoProviders,
     quotes,
-    recommendation:
-      selected && selectedProvider
-        ? {
-            providerId: selected.providerId,
-            quoteId: selected.id,
-            reasons: [
-              selected.total !== undefined && mission.budget !== undefined
-                ? `₦${selected.total.toLocaleString()} total stays within the ₦${mission.budget.toLocaleString()} budget.`
-                : "Qualifying total is available.",
-              selected.deliveryDate === mission.deadline
-                ? `Can meet the ${mission.deadline} delivery requirement.`
-                : "Has a delivery commitment recorded.",
-              selectedProvider.verified
-                ? "Provider has the demo verified signal."
-                : "Provider qualification was based on available demo signals."
-            ]
-          }
-        : undefined,
+    recommendation: selected
+      ? {
+          providerId: selected.provider.id,
+          quoteId: selected.quote.id,
+          reasons: result.recommendationFactors
+        }
+      : undefined,
     demoMode: true
   };
 }
