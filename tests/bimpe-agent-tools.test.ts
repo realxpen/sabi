@@ -3,6 +3,7 @@ import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
 import { buildInitialMissionSnapshot } from "../lib/mission/initial-snapshot";
 import { buildTemporaryDemoQuotes } from "../lib/demo/temporary-scenario";
 import { bimpeToolManifest } from "../lib/integrations/bimpe/tool-manifest";
+import { communicationResultSchema } from "../lib/schemas";
 
 const repositoryMocks = vi.hoisted(() => ({
   current: undefined as unknown,
@@ -17,6 +18,7 @@ vi.mock("../lib/integrations/neon/mission-snapshot-repository", () => ({
 
 import {
   compareQuotesForAgent,
+  recordProviderResponseForAgent,
   recordQuoteForAgent,
   requestHumanApprovalForAgent,
   searchProvidersForAgent
@@ -40,6 +42,7 @@ describe("Bimpe-facing SABI tools", () => {
       "searchProviders",
       "getProvider",
       "callProvider",
+      "recordProviderResponse",
       "recordQuote",
       "compareQuotes",
       "orchestrateMission",
@@ -72,6 +75,86 @@ describe("Bimpe-facing SABI tools", () => {
 
     expect(updated.quotes).toHaveLength(1);
     expect(updated.quotes[0].sourceReference).toBe("phase1-mock-scenario");
+  });
+
+  it("turns structured factual fields into a traceable Quote only after completed communication", async () => {
+    const snapshot = buildDemoMissionSnapshot(
+      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "mission-provider-response"
+    );
+    const provider = snapshot.providers[0];
+    const communication = communicationResultSchema.parse({
+      id: "communication-provider-response",
+      missionId: snapshot.mission.id,
+      providerId: provider.id,
+      channel: "CALL",
+      status: "COMPLETED",
+      externalId: "vapi-call-123",
+      summary: "Verified communication evidence is available for structured extraction.",
+      occurredAt: "2026-10-01T21:00:00.000Z"
+    });
+
+    repositoryMocks.current = {
+      ...snapshot,
+      mission: { ...snapshot.mission, status: "COLLECTING_QUOTES" },
+      communications: [communication],
+      quotes: []
+    };
+
+    const result = await recordProviderResponseForAgent({
+      missionId: snapshot.mission.id,
+      communicationId: communication.id,
+      available: true,
+      price: 60000,
+      deliveryFee: 3000,
+      total: 63000,
+      deliveryDate: "tomorrow",
+      notes: "Structured facts supplied by the downstream evidence extractor."
+    });
+
+    expect(result.quote.providerId).toBe(provider.id);
+    expect(result.quote.source).toBe("CALL");
+    expect(result.quote.sourceReference).toBe("vapi-call-123");
+    expect(result.quote.total).toBe(63000);
+    expect(result.snapshot.communications[0].observation?.price).toBe(60000);
+    expect(result.snapshot.quotes).toHaveLength(1);
+  });
+
+  it("refuses to create a Quote from a no-answer communication", async () => {
+    const snapshot = buildDemoMissionSnapshot(
+      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "mission-no-answer"
+    );
+    const provider = snapshot.providers[0];
+    const communication = communicationResultSchema.parse({
+      id: "communication-no-answer",
+      missionId: snapshot.mission.id,
+      providerId: provider.id,
+      channel: "CALL",
+      status: "NO_ANSWER",
+      externalId: "vapi-call-no-answer",
+      summary: "Provider did not answer.",
+      occurredAt: "2026-10-01T21:00:00.000Z"
+    });
+
+    repositoryMocks.current = {
+      ...snapshot,
+      mission: { ...snapshot.mission, status: "COLLECTING_QUOTES" },
+      communications: [communication],
+      quotes: []
+    };
+
+    await expect(
+      recordProviderResponseForAgent({
+        missionId: snapshot.mission.id,
+        communicationId: communication.id,
+        available: true,
+        total: 63000,
+        deliveryDate: "tomorrow"
+      })
+    ).rejects.toThrow("COMMUNICATION_NOT_COMPLETED");
+
+    expect(repositoryMocks.saveMissionSnapshot).not.toHaveBeenCalled();
   });
 
   it("refuses to record a Quote before provider contact", async () => {
