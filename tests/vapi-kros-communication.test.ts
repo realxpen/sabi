@@ -146,7 +146,7 @@ describe("VapiKrosCommunicationAdapter", () => {
         ]);
       }
 
-      if (url.endsWith("/call/phone")) {
+      if (url.endsWith("/call")) {
         return jsonResponse({ id: "vapi-call-123", status: "queued" });
       }
 
@@ -170,7 +170,7 @@ describe("VapiKrosCommunicationAdapter", () => {
 
     expect(calls.map((call) => call.url)).toEqual([
       "https://api.vapi.ai/phone-number",
-      "https://api.vapi.ai/call/phone"
+      "https://api.vapi.ai/call"
     ]);
 
     const requestBody = JSON.parse(String(calls[1]?.init?.body));
