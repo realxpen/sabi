@@ -1,4 +1,5 @@
 import { MissionControl } from "../../../components/MissionControl";
+import { MissionLiveRefresh } from "../../../components/MissionLiveRefresh";
 import { getMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
 import type { MissionSnapshot } from "../../../lib/mission/snapshot";
 
@@ -44,6 +45,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
         </section>
       ) : snapshot ? (
         <>
+          <MissionLiveRefresh status={snapshot.mission.status} />
           <p className="missionRequest">{snapshot.mission.rawRequest}</p>
           <MissionControl snapshot={snapshot} />
         </>
