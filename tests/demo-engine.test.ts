@@ -15,6 +15,12 @@ describe("buildDemoMissionSnapshot", () => {
       "provider-ade-textiles"
     );
     expect(snapshot.quotes).toHaveLength(3);
+    expect(snapshot.communications).toHaveLength(snapshot.quotes.length);
+    expect(
+      snapshot.communications.every(
+        (result) => result.channel === "MOCK" && result.status === "COMPLETED"
+      )
+    ).toBe(true);
     expect(
       snapshot.quotes.every(
         (quote) => quote.sourceReference === "phase1-mock-scenario"
