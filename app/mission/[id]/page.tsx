@@ -1,5 +1,6 @@
 import { MissionControl } from "../../../components/MissionControl";
 import { getMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
+import type { MissionSnapshot } from "../../../lib/mission/snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ type MissionPageProps = {
 };
 
 export default async function MissionPage({ params }: MissionPageProps) {
-  let snapshot = null;
+  let snapshot: MissionSnapshot | null = null;
   let persistenceError = false;
 
   try {
