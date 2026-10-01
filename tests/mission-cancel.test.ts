@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
+import type { MissionSnapshot } from "../lib/mission/snapshot";
 
 const repositoryMocks = vi.hoisted(() => ({
-  current: undefined as unknown,
+  current: undefined as MissionSnapshot | undefined,
   getMissionSnapshot: vi.fn(),
   saveMissionSnapshot: vi.fn()
 }));
@@ -46,8 +47,8 @@ describe("mission cancellation route", () => {
     expect(body.missionStatus).toBe("CANCELLED");
     expect(body.persisted).toBe(true);
     expect(body.transactionPerformed).toBe(false);
-    expect(repositoryMocks.current.mission.status).toBe("CANCELLED");
-    expect(repositoryMocks.current.steps.at(-1)?.type).toBe("HUMAN_CANCELLED");
+    expect(repositoryMocks.current?.mission.status).toBe("CANCELLED");
+    expect(repositoryMocks.current?.steps.at(-1)?.type).toBe("HUMAN_CANCELLED");
   });
 
   it("refuses cancellation after a terminal mission state", async () => {
