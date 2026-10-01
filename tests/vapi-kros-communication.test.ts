@@ -49,6 +49,22 @@ function createPersistentSqlMock() {
   return sql;
 }
 
+function verifiedCallFetch() {
+  return (async (input: RequestInfo | URL) => {
+    const url = String(input);
+
+    if (url.endsWith("/call/vapi-call-123")) {
+      return jsonResponse({
+        id: "vapi-call-123",
+        assistantId: "assistant-test",
+        status: "ended"
+      });
+    }
+
+    return jsonResponse({}, 404);
+  }) as typeof fetch;
+}
+
 function vapiEvent(overrides: Record<string, unknown> = {}) {
   return {
     message: {
@@ -202,14 +218,18 @@ describe("VapiKrosCommunicationAdapter", () => {
 });
 
 describe("Vapi webhook", () => {
-  it("authenticates, correlates and durably deduplicates webhook retries without creating a Quote", async () => {
+  it("authenticates, verifies the call ID, correlates and durably deduplicates webhook retries without creating a Quote", async () => {
     const sql = createPersistentSqlMock();
     const environment = {
       ...liveEnvironment,
       VAPI_WEBHOOK_TOKEN: "webhook-test-token",
       DATABASE_URL: "postgresql://test:test@localhost/neondb"
     };
-    const handler = createVapiWebhookPostHandler(environment, fetch, sql);
+    const handler = createVapiWebhookPostHandler(
+      environment,
+      verifiedCallFetch(),
+      sql
+    );
     const body = JSON.stringify(vapiEvent());
     const request = () =>
       new Request("https://sabi.example/api/webhooks/vapi", {
