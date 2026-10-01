@@ -25,7 +25,7 @@ describe("approveDemoRecommendation", () => {
     expect(snapshot.mission.status).toBe("COMPARING");
     expect(snapshot.recommendation).toBeUndefined();
     expect(() => approveDemoRecommendation(snapshot)).toThrow(
-      "No recommendation is available to approve."
+      "Mission is not awaiting approval."
     );
   });
 
@@ -35,8 +35,10 @@ describe("approveDemoRecommendation", () => {
       "mission-no-recommendation"
     );
 
+    expect(snapshot.mission.status).toBe("COMPARING");
+    expect(snapshot.recommendation).toBeUndefined();
     expect(() => approveDemoRecommendation(snapshot)).toThrow(
-      "No recommendation is available to approve."
+      "Mission is not awaiting approval."
     );
   });
 });
