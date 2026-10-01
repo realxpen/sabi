@@ -129,9 +129,50 @@ Important semantics:
 
 Until the Kros number/runtime is ready, keep live communication disabled.
 
-## 4. Record Provider Response
+## 4. Get Communication Evidence
 
-Preferred boundary for provider-call evidence:
+Preferred read-only bridge after a Vapi call has completed:
+
+```text
+POST /api/agent-tools/get-communication-evidence
+```
+
+Request:
+
+```json
+{
+  "missionId": "mission-...",
+  "communicationId": "communication-..."
+}
+```
+
+Rules enforced by SABI:
+
+- Mission must exist;
+- CommunicationResult must exist in that Mission;
+- communication channel must be `CALL`;
+- communication status must be `COMPLETED`;
+- communication must have the Vapi external call ID;
+- SABI uses its server-side `VAPI_API_KEY` to retrieve `GET /call/:id` from Vapi;
+- returned call ID must match the expected external call ID;
+- returned Assistant ID must match `VAPI_ASSISTANT_ID`;
+- transcript evidence is returned to the authenticated agent caller only;
+- transcript is not persisted into Mission state;
+- no Quote is created.
+
+Response metadata explicitly reports:
+
+```text
+evidenceOnly: true
+quoteCreated: false
+transcriptPersistedToMission: false
+```
+
+Bimpe should read the evidence and extract only factual fields actually supported by the provider's words. Unknown facts remain unknown.
+
+## 5. Record Provider Response
+
+Preferred write boundary after factual fields have been extracted from a completed provider communication:
 
 ```text
 POST /api/agent-tools/record-provider-response
@@ -166,9 +207,9 @@ Rules enforced by SABI:
 - the structured facts are also attached to the communication observation;
 - no recommendation is changed automatically.
 
-This tool does not parse the transcript itself. The caller must supply only factual fields supported by the communication evidence.
+For live Vapi calls, use `getCommunicationEvidence` first, extract only supported facts, then call this tool.
 
-## 5. Record Quote
+## 6. Record Quote
 
 ```text
 POST /api/agent-tools/record-quote
@@ -204,9 +245,9 @@ Rules enforced by SABI:
 - missing optional facts remain missing;
 - recording a Quote does not automatically change the recommendation.
 
-For provider communication, prefer `recordProviderResponse` because it binds the Quote directly to a completed communication.
+For provider communication, prefer `getCommunicationEvidence` → factual extraction → `recordProviderResponse` because that binds the Quote directly to a completed communication.
 
-## 6. Compare Quotes
+## 7. Compare Quotes
 
 ```text
 POST /api/agent-tools/compare-quotes
@@ -231,7 +272,7 @@ Behavior:
 - returns exclusions/reasons through the intelligence result;
 - performs no consequential action.
 
-## 7. Orchestrate Mission
+## 8. Orchestrate Mission
 
 ```text
 POST /api/agent-tools/orchestrate-mission
@@ -271,7 +312,7 @@ CREATED
 
 Bimpe may call this action again when the returned state indicates another safe stage can be advanced. Stop when the backend returns a waiting state or human checkpoint.
 
-## 8. Request Approval
+## 9. Request Approval
 
 ```text
 POST /api/agent-tools/request-approval
@@ -301,6 +342,7 @@ Register actions with these logical names so the agent prompt and backend termin
 searchProviders
 getProvider
 callProvider
+getCommunicationEvidence
 recordProviderResponse
 recordQuote
 compareQuotes
@@ -322,7 +364,7 @@ These can be configured now:
 2. Add the runtime prompt from `BIMPE_SABI_AGENT_PROMPT.md`.
 3. Upload/add the durable Knowledge from `BIMPE_KNOWLEDGE_BASE.md`.
 4. Configure the shared bearer secret for SABI Custom API actions.
-5. Register simulation-safe actions: `searchProviders`, `getProvider`, `recordProviderResponse`, `recordQuote`, `compareQuotes`, `orchestrateMission`, `requestApproval`.
+5. Register the bounded actions from the manifest, including `getCommunicationEvidence`; the evidence action simply remains unused until a real completed Vapi call exists.
 6. Exercise one simulation mission and confirm tool responses remain labelled.
 7. Configure `callProvider` as an action, but keep SABI live communication disabled until the Kros/Vapi runtime is ready.
 8. Prepare the real consenting test-provider metadata for `SABI_LIVE_TEST_PROVIDERS_JSON` without including the phone number.
@@ -338,9 +380,11 @@ Only after the live phone/SIP/runtime configuration is verified:
 5. Set `SABI_COMMUNICATION_MODE=vapi-kros` only on the intended test Preview.
 6. Configure the Vapi webhook to SABI.
 7. Test `callProvider` for the consented test provider.
-8. Verify the phone rings and webhook returns into the same Mission.
-9. Use the completed communication evidence to test `recordProviderResponse`.
-10. Keep production disabled until the hackathon team explicitly decides otherwise.
+8. Verify the phone rings and webhook returns `COMPLETED` into the same Mission.
+9. Call `getCommunicationEvidence` for that completed CommunicationResult.
+10. Extract supported facts only and call `recordProviderResponse`.
+11. Advance/compare until the recommendation appears.
+12. Keep production disabled until the hackathon team explicitly decides otherwise.
 
 ## Required truth check before demo freeze
 
@@ -351,6 +395,7 @@ HTTP request accepted
 != tool result correct
 != external action initiated
 != external action completed
+!= transcript evidence retrieved
 != provider fact verified
 ```
 
