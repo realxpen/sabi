@@ -102,7 +102,6 @@ export function retrieveKnowledge(
         0
       )
     }))
-    .filter(({ score }) => requestedTopics !== undefined || score > 0)
     .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
     .map(({ entry }) => entry);
 }
