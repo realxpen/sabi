@@ -101,6 +101,14 @@ export async function recordQuoteForAgent(
 
   if (!snapshot) throw new Error("MISSION_NOT_FOUND");
 
+  if (
+    !["CONTACTING", "COLLECTING_QUOTES", "COMPARING"].includes(
+      snapshot.mission.status
+    )
+  ) {
+    throw new Error("MISSION_NOT_READY_FOR_QUOTE_RECORDING");
+  }
+
   if (!snapshot.providers.some((provider) => provider.id === quote.providerId)) {
     throw new Error("QUOTE_PROVIDER_MISMATCH");
   }
@@ -117,6 +125,16 @@ export async function recordQuoteForAgent(
 }
 
 export async function compareQuotesForAgent(missionId: string) {
+  const snapshot = await getMissionSnapshot(missionId);
+
+  if (!snapshot) throw new Error("MISSION_NOT_FOUND");
+  if (snapshot.mission.status !== "COMPARING") {
+    throw new Error("MISSION_NOT_READY_FOR_COMPARISON");
+  }
+  if (snapshot.quotes.length === 0) {
+    throw new Error("QUOTES_NOT_READY");
+  }
+
   return runMissionIntelligence(missionId);
 }
 
