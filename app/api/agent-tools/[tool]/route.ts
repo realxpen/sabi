@@ -67,6 +67,9 @@ function errorResponse(error: unknown): Response {
     message === "QUOTE_PROVIDER_MISMATCH" ||
     message === "RECOMMENDATION_NOT_READY" ||
     message === "MISSION_NOT_READY_FOR_APPROVAL_REQUEST" ||
+    message === "MISSION_NOT_READY_FOR_QUOTE_RECORDING" ||
+    message === "MISSION_NOT_READY_FOR_COMPARISON" ||
+    message === "QUOTES_NOT_READY" ||
     message === "SIMULATION_NOT_ALLOWED_FOR_LIVE_MISSION"
   ) {
     return Response.json({ error: message }, { status: 409 });
