@@ -1,4 +1,5 @@
 import type {
+  CommunicationResult,
   Mission,
   MissionStep,
   Provider,
@@ -15,6 +16,7 @@ export type MissionSnapshot = {
   mission: Mission;
   steps: MissionStep[];
   providers: Provider[];
+  communications: CommunicationResult[];
   quotes: Quote[];
   recommendation?: MissionRecommendation;
   demoMode: true;
