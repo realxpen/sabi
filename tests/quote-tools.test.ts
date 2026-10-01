@@ -75,6 +75,29 @@ describe("recordQuote", () => {
     expect(quote.deliveryDate).toBeUndefined();
   });
 
+  it("treats unresolved optional Bimpe placeholders as unknown", () => {
+    const quote = recordQuote({
+      missionId: "mission-bimpe-placeholder",
+      providerId: "provider-ade-textiles",
+      available: "true" as unknown as boolean,
+      price: "{{price}}" as unknown as number,
+      deliveryFee: "{{deliveryFee}}" as unknown as number,
+      total: "{{total}}" as unknown as number,
+      deliveryDate: "{{deliveryDate}}",
+      notes: "{{notes}}",
+      source: "MANUAL",
+      sourceReference: "{{sourceReference}}"
+    });
+
+    expect(quote.available).toBe(true);
+    expect(quote.price).toBeUndefined();
+    expect(quote.deliveryFee).toBeUndefined();
+    expect(quote.total).toBeUndefined();
+    expect(quote.deliveryDate).toBeUndefined();
+    expect(quote.notes).toBeUndefined();
+    expect(quote.sourceReference).toBeUndefined();
+  });
+
   it("rejects an unknown provider", () => {
     expect(() =>
       recordQuote({
