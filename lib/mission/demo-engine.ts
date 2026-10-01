@@ -1,5 +1,7 @@
 import {
+  communicationResultSchema,
   missionStepSchema,
+  type CommunicationResult,
   type Mission,
   type MissionStatus,
   type MissionStep
@@ -73,6 +75,36 @@ function makeStep(
   });
 }
 
+function buildDemoCommunications(
+  mission: Mission,
+  quotes: MissionSnapshot["quotes"]
+): CommunicationResult[] {
+  return quotes.map((quote, index) => {
+    const provider = temporaryDemoProviders.find(
+      (candidate) => candidate.id === quote.providerId
+    );
+
+    return communicationResultSchema.parse({
+      id: `${mission.id}-communication-${index + 1}`,
+      missionId: mission.id,
+      providerId: quote.providerId,
+      channel: "MOCK",
+      status: "COMPLETED",
+      summary: quote.available
+        ? `Mock response captured from ${provider?.name ?? "provider"}.`
+        : `${provider?.name ?? "Provider"} responded that the request is unavailable.`,
+      observation: {
+        available: quote.available,
+        price: quote.price,
+        deliveryFee: quote.deliveryFee,
+        deliveryDate: quote.deliveryDate,
+        notes: quote.notes
+      },
+      occurredAt: new Date().toISOString()
+    });
+  });
+}
+
 export function buildDemoMissionSnapshot(
   rawRequest: string,
   id = "demo-mission"
@@ -93,6 +125,7 @@ export function buildDemoMissionSnapshot(
   });
 
   const quotes = buildTemporaryDemoQuotes(mission);
+  const communications = buildDemoCommunications(mission, quotes);
   const selected = selectTemporaryRecommendation(mission, quotes);
   const selectedProvider = selected
     ? temporaryDemoProviders.find(
@@ -104,6 +137,7 @@ export function buildDemoMissionSnapshot(
     mission,
     steps,
     providers: temporaryDemoProviders,
+    communications,
     quotes,
     recommendation:
       selected && selectedProvider
