@@ -77,6 +77,24 @@ describe("Vapi/Kros failure matrix", () => {
     expect(result.summary).toContain("No Quote evidence was produced");
   });
 
+  it("normalizes current Vapi worker, transport and assistant-resolution failures as FAILED", async () => {
+    const adapter = new VapiKrosCommunicationAdapter(environment);
+    const endedReasons = [
+      "call.in-progress.error-vapifault-worker-died",
+      "phone-call-provider-closed-websocket",
+      "assistant-not-found"
+    ];
+
+    for (const endedReason of endedReasons) {
+      const result = await adapter.normalizeEvent(vapiEvent({ endedReason }));
+
+      expect(result.status).toBe("FAILED");
+      expect(result.errorCode).toBe(endedReason);
+      expect(result.observation).toBeUndefined();
+      expect(result.summary).toContain("No Quote evidence was produced");
+    }
+  });
+
   it("rejects malformed webhook JSON before correlation or persistence", async () => {
     const handler = createVapiWebhookPostHandler(environment);
     const response = await handler(webhookRequest("{not-json"));
