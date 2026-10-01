@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
 import { buildTemporaryDemoQuotes } from "../lib/demo/temporary-scenario";
+import { bimpeToolManifest } from "../lib/integrations/bimpe/tool-manifest";
 
 const repositoryMocks = vi.hoisted(() => ({
   current: undefined as unknown,
@@ -30,6 +31,18 @@ describe("Bimpe-facing SABI tools", () => {
       repositoryMocks.current = snapshot;
       return snapshot;
     });
+  });
+
+  it("exposes the bounded golden-path tool manifest", () => {
+    expect(bimpeToolManifest.map((tool) => tool.name)).toEqual([
+      "searchProviders",
+      "getProvider",
+      "callProvider",
+      "recordQuote",
+      "compareQuotes",
+      "orchestrateMission",
+      "requestApproval"
+    ]);
   });
 
   it("returns explicit simulation providers but refuses to fake a live directory", () => {
