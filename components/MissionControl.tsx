@@ -32,11 +32,13 @@ export function MissionControl({ snapshot }: MissionControlProps) {
   return (
     <div className="missionLayout">
       <div className="demoBanner">
-        <strong>Integration-safe demo mode</strong>
+        <strong>
+          {snapshot.demoMode ? "Integration-safe demo mode" : "Integrated mission"}
+        </strong>
         <span>
-          The screen now consumes the same normalized communication shape Lara’s
-          live adapter produces. Current provider responses are still demo
-          fixtures until the live branch is integrated.
+          {snapshot.demoMode
+            ? "Mission Control is consuming the shared communication contract with demo fixtures. Live teammate outputs can replace the source without changing the UI architecture."
+            : "Mission Control is showing validated runtime outputs assembled through the shared SABI contracts. Human approval is still required before consequential action."}
         </span>
       </div>
 
