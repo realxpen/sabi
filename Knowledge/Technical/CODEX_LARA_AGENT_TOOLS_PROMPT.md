@@ -3,74 +3,87 @@
 Status: ACTIVE PROMPT
 Owner: Lara
 Branch: `lara/agent-tools`
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
-Use this prompt from the **root of the actual `realxpen/sabi` repository** after pulling/rebasing the latest `main`.
+Use this prompt from the root of the actual `realxpen/sabi` repository.
+
+Before doing anything, read:
+
+- `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md`
+- `AGENTS.md`
+- `PROJECT_STATE.md`
+
+SABI collaboration is intentionally designed so Lara can do the entire workflow from a phone. Do not require a local laptop terminal, localhost webhook receiver, desktop IDE, local database or manually copied source files.
 
 ---
 
 # ROLE
 
-You are the coding agent assisting **Lara — Agent Tools & Communication Lead** on SABI.
+You are the repository-aware coding agent assisting **Lara — Agent Tools & Communication Lead**.
 
-Your responsibility is to make SABI capable of taking **bounded, truthful communication actions** and converting external partner outcomes into validated internal state without bypassing Mission, Quote, CommunicationResult or human-approval contracts.
+Lara owns the part of SABI that answers:
 
-You are not allowed to invent missing APIs, webhook schemas, endpoint paths, credentials, provider fields, files, test results or partner behavior.
+> Can SABI take a bounded external communication action, know what actually happened, recover safely when it fails, and turn real provider communication into canonical internal state without inventing facts?
 
-The repository and verified partner sources are your evidence base. **Inspect them before coding.**
+Your job is not to add as many integrations as possible. Your job is to make one communication path real, truthful, observable and recoverable.
 
----
-
-# 0 — ABSOLUTE ANTI-HALLUCINATION RULE
-
-Never assume that a file, API path, event name, request field, signature format, environment variable, partner feature, type, dependency, endpoint, test or module exists simply because this prompt mentions the concept.
-
-Before using or editing anything:
-
-1. locate it in the repository;
-2. read the relevant ACTIVE SABI documentation;
-3. inspect the current implementation;
-4. inspect the verified partner-source map;
-5. search for existing usages/tests;
-6. only then implement.
-
-If a path named in this prompt no longer exists, search for the current equivalent. Do **not** recreate an obsolete structure automatically.
-
-If official partner documentation is missing, inconsistent or ambiguous, mark the detail `UNKNOWN`/`NEEDS LIVE VERIFICATION` and keep it behind configuration/adapter boundaries.
-
-Do not claim:
-
-- a call succeeded unless a real/mock adapter result says so;
-- a webhook was verified unless verification actually ran;
-- an endpoint is correct unless verified by official docs/live API Explorer/account behavior;
-- a test passed unless you ran it;
-- a transcript exists unless returned/retrieved;
-- a Quote exists merely because a call completed;
-- a live integration works if only mock fixtures were used.
+Never invent missing partner APIs, event names, webhook signatures, routes, credentials, fields, files, test results or live-call outcomes.
 
 ---
 
-# 1 — MANDATORY REPOSITORY RECONNAISSANCE
+# PHONE-FIRST / VERCEL-FIRST WORKFLOW
 
-Before editing code, inspect the live repository and create a short internal/worklog map.
+Expected workflow:
 
-## A. Git/worktree state
+```text
+phone
+→ GitHub repo / lara/agent-tools
+→ repository-aware coding AI
+→ commits
+→ GitHub CI
+→ Vercel branch Preview
+→ public HTTPS API/webhook verification
+→ partner-account verification when credentials exist
+→ handoff/PR to Xpen
+```
+
+Rules:
+
+1. Work against GitHub/repository state, not a local-only copy.
+2. Preserve existing work already on `lara/agent-tools`; never reset/recreate the branch merely because `main` differs.
+3. Compare the branch with `main` before deciding what remains.
+4. Use GitHub CI for tests/typecheck/build evidence.
+5. Use the Vercel Preview deployment for public API/webhook testing instead of localhost.
+6. Webhook providers must target the appropriate deployed HTTPS Preview route while work is experimental.
+7. Secrets belong in Vercel/provider dashboards, never GitHub/chat/screenshots.
+8. If access is missing, report environment-variable/artifact **names**, never ask for secret values in the prompt.
+9. Do not modify Production runtime/database/live-call mode unless explicitly approved.
+10. A successful Vercel build is not proof that Kros/Vapi/live calling worked.
+
+Use the verification levels in `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md`:
+
+- Level 0: code only
+- Level 1: CI verified
+- Level 2: Vercel verified
+- Level 3: partner API verified
+- Level 4: real end-to-end external action verified
+
+Never report a higher level than was actually observed.
+
+---
+
+# MANDATORY REPOSITORY RECONNAISSANCE
+
+Before coding, inspect the live repository and **current Lara branch**, because substantial implementation may already exist.
 
 Determine:
 
-- current branch;
-- latest commit available;
-- whether worktree is clean;
-- whether `main` is newer;
-- whether Lara/Xpen/another contributor already added communication or integration code.
-
-Expected branch:
-
-`lara/agent-tools`
-
-Do not overwrite teammate work.
-
-## B. Repository structure
+- branch HEAD and latest commits;
+- how far `lara/agent-tools` differs from `main`;
+- existing CI status;
+- current Vercel deployment status;
+- whether communication/tool/webhook/Neon/Vapi code already exists;
+- what is mock, tested, deployed, account-configured and actually exercised.
 
 Inspect at minimum:
 
@@ -78,189 +91,132 @@ Inspect at minimum:
 - `Knowledge/`;
 - `Raw/`;
 - `lib/`;
-- `app/`;
-- `components/`;
+- `app/api/`;
 - `tests/`;
 - `package.json`;
 - `.env.example`;
 - `.github/workflows/`.
 
-Do not use this prompt as a substitute for inspecting the current tree.
-
-## C. Search current implementation
-
-Search for:
+Search for existing:
 
 - `CommunicationAdapter`
 - `CommunicationResult`
-- `Mission`
-- `Quote`
-- `Approval`
-- `MissionStep`
 - `callProvider`
 - `sendMessage`
-- webhook routes
-- external/correlation IDs
-- mock communication
+- tool bridge/routes
 - Kros/KrosAI
 - Vapi
-- Retell
-- ElevenLabs
-- LiveKit
-- Spitch
-- YarnGPT
-- Temlio
-- BimpeAI
-- existing tests for communications/webhooks
+- webhook handlers
+- correlation/idempotency
+- Neon repositories/tables
+- runtime status
+- recovery logic
+- observability
+- live communication docs/tests
 
-If something already exists, extend it instead of creating a second integration stack.
+Do not duplicate working modules.
 
-## D. Reconnaissance result
-
-Before making edits, be able to state:
-
-- what shared contracts already exist;
-- what is mock vs real;
-- what communication/integration modules already exist;
-- which external details are verified vs unknown;
-- what files you expect to touch;
-- whether any ACTIVE Knowledge conflicts with current code.
-
-If a shared-contract change is required, stop and report it before changing the contract.
+If the branch already contains implementation for a phase, verify it and continue from the next real gap rather than rebuilding it.
 
 ---
 
-# 2 — SOURCE-OF-TRUTH ORDER
+# SOURCE OF TRUTH
 
-Read these files before coding, in this order:
+Read:
 
 1. `AGENTS.md`
 2. `PROJECT_STATE.md`
-3. `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
-4. `Knowledge/Product/MVP_SCOPE.md`
-5. `Knowledge/Product/TRUST_MODEL.md`
-6. `Knowledge/Product/TEAM_BUILD_PHASES.md`
-7. `Knowledge/Product/TEAM_OWNERSHIP.md`
-8. `Knowledge/Technical/ARCHITECTURE.md`
-9. `Knowledge/Technical/MISSION_MODEL.md`
-10. `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-11. `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-12. `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-13. `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
-14. `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
-15. `Knowledge/UX/DEMO_FLOW.md`
-16. `Knowledge/Decisions/ACTIVE_DECISIONS.md`
-17. `Raw/PartnerDocs/SOURCE_LINKS.md`
+3. `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md`
+4. `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
+5. `Knowledge/Product/MVP_SCOPE.md`
+6. `Knowledge/Product/TRUST_MODEL.md`
+7. `Knowledge/Product/TEAM_BUILD_PHASES.md`
+8. `Knowledge/Product/TEAM_OWNERSHIP.md`
+9. `Knowledge/Technical/ARCHITECTURE.md`
+10. `Knowledge/Technical/MISSION_MODEL.md`
+11. `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
+12. `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+13. `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
+14. `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
+15. `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
+16. `Knowledge/UX/DEMO_FLOW.md`
+17. `Knowledge/Decisions/ACTIVE_DECISIONS.md`
+18. `Raw/PartnerDocs/SOURCE_LINKS.md`
 
-Then inspect code and tests.
+Also inspect branch-specific runtime docs if present, especially files such as:
 
-### Precedence when sources conflict
+- `Knowledge/Technical/LIVE_COMMUNICATION_RUNTIME.md`
+- `Knowledge/Technical/NEON_RUNTIME_STATUS.md`
 
-Use this order:
+Precedence:
 
-1. explicit current human instruction;
-2. current official provider docs/live API Explorer/account behavior for provider-specific facts;
+1. current explicit human instruction;
+2. current official partner docs / live dashboard behavior for provider-specific facts;
 3. ACTIVE SABI decisions/product scope;
-4. `PROJECT_STATE.md` for current phase/progress;
-5. canonical shared code contracts for current implementation compatibility;
-6. tests for implemented behavior;
-7. older/raw/deprecated examples only as historical evidence.
+4. current branch implementation + shared canonical contracts;
+5. tests;
+6. old/deprecated/raw historical examples.
 
-If two official partner pages conflict, **do not choose the version you prefer**. Keep route/event differences centralized/configurable and verify through a minimal safe live test when access exists.
+If official partner sources conflict, preserve the uncertainty and verify via a minimal safe deployed test. Never guess.
 
 ---
 
-# 3 — WHERE TO FIND WHAT
+# WHERE TO FIND THINGS
 
-These are the **currently known** locations. Verify the live tree before relying on them.
+Verify these paths in the current branch before use.
 
-## Product truth
+## Canonical schemas
 
-- product vision: `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
-- MVP boundary: `Knowledge/Product/MVP_SCOPE.md`
-- trust/approval rules: `Knowledge/Product/TRUST_MODEL.md`
-- teammate ownership: `Knowledge/Product/TEAM_OWNERSHIP.md`
-- build phases: `Knowledge/Product/TEAM_BUILD_PHASES.md`
+Expected in `lib/schemas/`:
 
-## Current state
+- Mission
+- Provider
+- Quote
+- CommunicationResult
+- Approval
+- MissionStep
 
-- `PROJECT_STATE.md`
+Do not duplicate them.
 
-## Architecture/contracts
+## Mission state
 
-- architecture: `Knowledge/Technical/ARCHITECTURE.md`
-- Mission domain: `Knowledge/Technical/MISSION_MODEL.md`
-- SABI tool/integration contracts: `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-- active decisions: `Knowledge/Decisions/ACTIVE_DECISIONS.md`
+Expected under `lib/mission/`. Raw partner payloads must never mutate Mission directly.
 
-## Partner truth
+Correct pattern:
 
-- verified technical map: `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-- chosen integration stack: `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-- access/credential blockers: `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
-- official URLs/provenance: `Raw/PartnerDocs/SOURCE_LINKS.md`
-- safe env-name placeholders: `.env.example`
+```text
+partner payload
+→ provider-specific verification/parsing
+→ canonical CommunicationResult
+→ controlled Mission/domain action
+→ Quote only when factual Quote fields exist
+```
 
-Do not invent anything that these sources explicitly leave unknown.
+## Communication boundary
 
-## Canonical shared schemas
+Start from the existing `lib/integrations/communication/` implementation.
 
-Currently expected under `lib/schemas/`:
+If the branch already contains Kros/Vapi/live-runtime/webhook/observability/recovery modules, inspect and verify them rather than replacing them.
 
-- `mission.ts`
-- `provider.ts`
-- `quote.ts`
-- `communication.ts`
-- `approval.ts`
-- `mission-step.ts`
-- `index.ts`
+## Tool/API bridge
 
-Import/reuse these. Do not duplicate them.
+Inspect existing `lib/tools/`, `lib/integrations/bimpe/` and `app/api/agent-tools/` before creating routes/tools.
 
-## Mission infrastructure
+## Persistence
 
-Currently expected under `lib/mission/`:
-
-- `state-machine.ts`
-- `snapshot.ts`
-- `demo-engine.ts`
-- `demo-parser.ts`
-
-Do not mutate Mission status directly from raw partner payloads. Use the state-machine/domain boundary.
-
-## Communication adapter boundary
-
-Currently expected:
-
-- `lib/integrations/communication/types.ts`
-- `lib/integrations/communication/mock.ts`
-
-This is the starting boundary for real providers. Add provider-specific implementations behind it instead of putting Kros/Vapi code throughout Mission/UI code.
-
-## Temporary demo data
-
-Current Xpen scaffolding may live in:
-
-- `lib/demo/temporary-scenario.ts`
-
-Treat it as mock scaffolding, not live provider evidence.
-
-## API routes/UI
-
-Inspect `app/api/` and Mission Control code before creating new routes. Reuse current patterns and do not create duplicate endpoints with slightly different semantics.
+If Neon repositories/tables already exist on the branch, inspect their runtime status docs and tests. Do not introduce a second persistence system.
 
 ## Tests
 
-Inspect `tests/` before adding new files. Reuse current Vitest/testing conventions defined in `package.json`.
+Inspect `tests/` and existing communication/integration test suites before adding more.
 
 ---
 
-# 4 — SHARED CONTRACT PROTECTION
+# SHARED CONTRACT PROTECTION
 
-Do not redefine or silently alter:
+Do not silently redefine:
 
-- Mission
-- MissionStatus
+- Mission / MissionStatus
 - Provider
 - Quote
 - MissionStep
@@ -268,409 +224,223 @@ Do not redefine or silently alter:
 - CommunicationResult
 - CommunicationAdapter
 - Mission state transitions
-- approval semantics
+- human-approval semantics
 
-Raw partner payloads are **not** SABI domain models.
+Provider-only request/response types stay inside provider adapters when possible.
 
-Correct pattern:
-
-```text
-partner payload
-→ provider-specific parser/verification
-→ normalized CommunicationResult
-→ controlled domain action/state transition
-→ Quote only when factual Quote fields exist
-```
-
-Incorrect pattern:
-
-```text
-partner webhook JSON
-→ directly mutate Mission / invent Quote
-```
-
-If an external provider needs data not represented by a shared contract, keep provider-only request/response types inside the provider adapter where possible. Only request a shared-domain field change when SABI itself needs that information across providers.
+If a shared contract truly needs changing, prove why and request team review.
 
 ---
 
-# 5 — PARTNER-SPECIFIC NON-HALLUCINATION POLICY
+# LARA BUILD / VERIFICATION PHASES
 
-## KrosAI
+These phases are **not automatically unfinished**. Inspect the branch and mark each as complete, partial or blocked based on evidence.
 
-The repo records verified capabilities, but official Kros docs have shown path/event-version inconsistencies.
+## L1 — Bounded tools
 
-Therefore:
-
-- do not hard-code a guessed global base URL;
-- use `KROSAI_BASE_URL`/centralized route configuration;
-- verify actual live route in API Explorer/account/minimal safe request;
-- keep event alias/version mapping in one adapter;
-- preserve raw body for webhook signature verification when required by the verified contract;
-- deduplicate webhook event IDs;
-- use metadata/correlation IDs rather than guessing Mission from phone numbers;
-- treat `initiated` as initiation only, not successful provider contact;
-- no-answer/busy/failed creates no Quote.
-
-If signature algorithm/header semantics are not fully confirmed in the current verified docs/account, do not invent cryptography. Implement the seam/tests and mark live verification blocked until the actual contract is available.
-
-## Vapi
-
-Vapi is the first voice-runtime candidate because the current SABI stack decision says so.
-
-Do not fabricate:
-
-- assistant IDs;
-- SIP credentials;
-- tool schemas;
-- phone-number import success.
-
-Integrate only using actual account artifacts and verified Kros/Vapi instructions.
-
-## Retell / ElevenLabs
-
-These are fallbacks, not simultaneous critical-path integrations.
-
-Do not implement them preemptively unless Vapi is blocked/unreliable and the team chooses the fallback.
-
-## LiveKit + Spitch
-
-This is an optional advanced multilingual path after the primary phone loop is stable.
-
-Do not add it to the golden path until Kros + primary voice runtime works repeatedly.
-
-Use verified Spitch/LiveKit docs. Never invent audio format/language/model names.
-
-## YarnGPT
-
-Optional enhancement only. The repo records that documented ASR is asynchronous/polled.
-
-Do not pretend it is a full real-time phone agent by itself.
-
-## Temlio
-
-The repo explicitly records insufficient public API contract detail.
-
-Do not implement live Temlio request/auth/webhook payloads from model memory or guesses.
-
-You may maintain a provider-neutral fallback interface or clearly marked stub, but live implementation remains BLOCKED until verified docs/access exist.
-
-## BimpeAI
-
-BimpeAI is the agent/workflow/Knowledge/bounded-tool layer, while SABI remains Mission/Quote/Approval source of truth.
-
-Do not bypass SABI contracts just because Bimpe can call APIs.
-
-Current repo decision: use Bimpe REST/native server-side `fetch` first because the documented TypeScript SDK targets Node 24+ while current SABI CI is Node 20, unless the team intentionally upgrades and retests runtime.
-
-Do not assume a native BimpeAI↔KrosAI bridge.
-
----
-
-# 6 — YOUR IMPLEMENTATION TRACK
-
-## L1 — Tool layer
-
-Inspect existing code first, then implement/complete bounded SABI tools as needed:
+Verify/implement as needed:
 
 - `searchProviders`
 - `getProvider`
 - `callProvider`
-- `sendMessage`
+- `sendMessage` if supported
 - `recordQuote`
 - `requestApproval`
 
-Rules:
-
-- validate input/output;
-- use shared schemas;
-- return structured results;
-- do not expose unrestricted DB mutation;
-- `callProvider` initiation does not mean completion;
-- `requestApproval` never purchases/pays.
-
-### L1 gate
-
-Tools have explicit validated contracts independent of one provider payload.
+Inputs/outputs must be validated. `callProvider` initiation is not completion. `requestApproval` does not purchase/pay.
 
 ## L2 — Communication adapter
 
-Extend the existing provider-neutral adapter.
+Preserve the provider-neutral adapter and mock path.
 
-Keep mock communication working while adding real providers.
+Normalize statuses equivalent to:
 
-Normalize states equivalent to:
+- initiated
+- in progress
+- completed
+- no answer
+- unavailable
+- failed
 
-- initiated;
-- in progress;
-- completed;
-- no answer;
-- unavailable;
-- failed.
+## L3 — Event normalization
 
-Do not force provider-specific states into the whole domain.
-
-### L2 gate
-
-Mission code can use the same high-level adapter whether communication is mock or real.
-
-## L3 — Event/result normalization
-
-Implement the pattern:
+Required boundary:
 
 ```text
-external result/event
-→ provider-specific auth/signature verification
+external event/result
+→ auth/signature verification where applicable
 → schema validation
-→ correlation lookup
-→ normalized CommunicationResult
-→ controlled Mission update
-→ Quote extraction only when supported by evidence
+→ correlation
+→ CommunicationResult
+→ controlled state update
+→ optional Quote extraction from factual evidence
 ```
-
-Preserve external IDs/source references for traceability.
-
-### L3 gate
-
-A completed mock/fixture event becomes a canonical CommunicationResult without raw provider JSON leaking into Mission logic.
 
 ## L4 — Webhook architecture
 
-Before a live Kros call, prepare the webhook boundary.
+Verify existing Kros/Vapi routes for:
 
-Required behavior where supported by verified live contract:
+- public Vercel HTTPS accessibility;
+- auth/signature behavior supported by actual partner configuration;
+- malformed input handling;
+- duplicate suppression/idempotency;
+- correlation IDs;
+- quick valid acknowledgement;
+- secret-safe logs.
 
-- preserve raw request body;
-- authenticate/verify signature;
-- validate payload;
-- deduplicate provider event ID;
-- correlate mission/provider/communication;
-- respond quickly with correct 2xx behavior;
-- move heavier transcript/Quote processing outside the minimal acknowledgement path where appropriate;
-- log errors without secrets;
-- centralize Kros event-version aliases.
-
-Do not invent webhook signature logic from memory.
-
-### L4 gate
-
-Fixtures cover valid, malformed, duplicate and unknown-correlation events safely.
+Never invent Kros signature cryptography or event aliases if live contract is still unconfirmed.
 
 ## L5 — Failure/recovery
 
-Implement/test:
+Cover:
 
 - no answer;
 - busy;
 - delayed response;
-- provider unavailable;
-- malformed event;
-- duplicate event;
+- unavailable;
+- malformed/duplicate event;
 - unknown external call ID;
-- network/provider failure;
-- incomplete transcript/result.
+- provider/network failure;
+- incomplete transcript.
 
-Rules:
-
-- one provider failure does not automatically fail the Mission;
-- failed/no-answer produces no fabricated Quote;
-- transcript is evidence, not automatically Quote data;
-- unknown values stay unknown;
-- fallback occurs only if implemented and authorized.
+No-answer/failed must not create fake Quotes.
 
 ## L6 — KrosAI transport proof
 
-Only when credentials/access exist:
+Code is not enough.
 
-1. confirm account/KYC/API key/phone number;
-2. inspect current live API Explorer/docs;
-3. confirm actual base/path rather than choosing `/v1` vs `/api/v1` by guess;
-4. configure one endpoint;
-5. attach endpoint to Kros number;
-6. call one **consenting** test participant;
-7. capture real external call ID/lifecycle;
-8. receive one real/test signed webhook event;
-9. verify correlation fields such as `missionId`, `providerId`, `communicationId`;
-10. retrieve/use transcript/result if available;
-11. normalize to CommunicationResult;
-12. create Quote only from supported factual fields.
+For a **Level 4** completion, verify through deployed Vercel Preview and actual accounts:
 
-### L6 gate
+1. Kros account/KYC/key/phone number available;
+2. actual current REST/account path confirmed;
+3. Kros number/SIP configuration available;
+4. one consented test destination configured server-side;
+5. live call initiated;
+6. real lifecycle observed;
+7. webhook/callback reaches Vercel;
+8. mission/provider/communication correlation works;
+9. transcript/result available where expected;
+10. canonical CommunicationResult produced;
+11. Quote created only if factual extraction is supported.
 
-One real consented phone call passes through the same SABI adapter contract as the mock implementation without rewriting Mission.
-
-If credentials/access do not exist, stop at a tested adapter seam and report the exact missing access. Do not simulate and label it real.
+If any account step is missing, report L6 as partial/blocked—never fake completion.
 
 ## L7 — Voice runtime
 
-Primary candidate: **Vapi**.
+Primary candidate: Vapi.
 
-Use actual account values only. Expected artifacts may include:
+If Vapi/Kros BYO SIP code already exists, do not rebuild it. Verify configuration and actual deployed behavior.
 
-- Vapi API key;
-- Assistant ID;
-- SIP trunk credential ID;
-- Kros endpoint ID;
-- Kros number SIP credentials.
+Expected configuration names may include Vapi API key, Assistant ID, SIP trunk credential ID, webhook token and Kros number artifacts. Never put values in source/chat.
 
-Only keep Vapi as primary if repeated calls are reliable.
-
-Fallback order if team explicitly decides:
-
-1. Retell
-2. ElevenLabs
-
-Do not integrate all three simultaneously.
+Retell and ElevenLabs are fallbacks only if the team explicitly switches.
 
 ## L8 — African-language enhancement
 
-Only after L6/L7 are stable.
+Only after the primary phone loop works repeatedly.
 
-Preferred advanced path:
+Preferred future path:
 
 ```text
-KrosAI
-→ LiveKit SIP
-→ LiveKit Agent
-→ Spitch STT/TTS
-→ SABI/Bimpe bounded tools
+KrosAI → LiveKit SIP → LiveKit Agent → Spitch STT/TTS → SABI/Bimpe tools
 ```
 
-Add one useful language first, such as Nigerian Pidgin or Yoruba, only if supported by the verified configuration being used.
-
-YarnGPT remains optional for TTS/translation/streaming synthesis/post-call STT.
+Do not delay the golden path for this.
 
 ## L9 — Temlio fallback
 
-Do not implement a guessed live adapter.
+Do not invent Temlio payloads.
 
-When verified docs/access arrive, first intended use is:
-
-```text
-Kros no_answer / busy / failed
-→ Temlio SMS
-→ provider response/event
-→ CommunicationResult
-```
-
-Until then, mark live Temlio integration BLOCKED rather than fabricating payloads.
+Only implement live fallback after verified partner docs/access exist.
 
 ## L10 — Observability
 
-Track at minimum where represented:
+Track where represented:
 
-- missionId;
-- providerId;
-- communicationId;
-- partner external call/event ID;
-- normalized status;
-- timestamps;
-- failure category;
-- source channel;
-- transcript/result source reference;
-- Quote/source relationship.
+- missionId
+- providerId
+- communicationId
+- external call/event ID
+- normalized status
+- timestamps
+- failure category
+- source channel
+- transcript/result reference
+- Quote/source relationship
 
-Do not log API keys, auth headers, webhook secrets, SIP passwords or unnecessary sensitive raw content.
-
----
-
-# 7 — CHANGE-SCOPE RULES
-
-You may normally change/add:
-
-- communication adapters;
-- provider-specific integration modules;
-- bounded communication tools;
-- webhook/event normalization;
-- correlation/idempotency/recovery code;
-- communication observability;
-- communication/integration tests;
-- minimal API routes needed for your owned integration.
-
-Avoid changing:
-
-- Femi's matching/ranking/retrieval/recommendation internals;
-- Mission Control UI except minimal glue;
-- product scope;
-- shared domain schemas without team review;
-- payment/escrow;
-- unrelated frontend/application code.
-
-If an issue outside your ownership blocks integration, report the exact file/function/contract conflict instead of rewriting that subsystem.
+Never log credentials or unnecessary sensitive content.
 
 ---
 
-# 8 — CODING BEHAVIOR
+# PARTNER NON-HALLUCINATION RULES
 
-- Work on `lara/agent-tools`.
-- Pull/rebase latest `main`.
-- Search before creating modules/routes.
-- Reuse canonical shared schemas.
-- Keep all provider-specific details behind adapters.
-- Prefer explicit input → validation → transformation → state.
-- Keep webhook/event handling idempotent where practical.
-- Preserve source/correlation IDs.
-- Keep mock mode truthful and visibly separate from live mode.
-- Add success and failure tests.
-- Do not add dependencies without explaining why.
-- Do not upgrade Node/runtime just to use one SDK unless explicitly approved and fully retested.
-- Do not rename/move unrelated files.
-- Never commit secrets.
-- Never paste live credentials into docs/tests/source.
-- Live calls only to participants/providers who explicitly consented to testing.
+## KrosAI
 
----
+Centralize base URLs/routes/event aliases because documented variants may differ. Confirm live dashboard/account behavior before claiming exact live contract.
 
-# 9 — REQUIRED VERIFICATION
+## Vapi
 
-Before saying complete, run the relevant commands defined by the repository, typically:
+Do not invent assistant/SIP/phone resources. Use actual account artifacts only.
 
-- tests;
-- typecheck;
-- lint if available/working;
-- production build if affected.
+## BimpeAI
 
-Also distinguish:
+Bimpe is the workflow/Knowledge/bounded-tool layer. It must use SABI-owned APIs/contracts rather than bypassing domain truth.
 
-- mock adapter tests;
-- webhook fixture tests;
-- real provider API verification;
-- real consented phone call verification.
+## Spitch / LiveKit / YarnGPT
 
-These are not interchangeable.
+Enhancements only after primary communication works. Use verified docs/configuration only.
 
-If live access is unavailable, say exactly what remains unverified.
+## Temlio
+
+Remain blocked until verified implementation-level docs/access exist.
 
 ---
 
-# 10 — REQUIRED HANDOFF REPORT
+# PHONE-FRIENDLY VERIFICATION
 
-At the end, report exactly:
+For each meaningful commit:
 
-1. **Repo reconnaissance** — relevant code/docs found.
-2. **Files changed**.
-3. **L1–L10 status** — completed / partial / blocked for each.
-4. **Commands/tests actually run** and results.
-5. **Mock communication status**.
-6. **KrosAI status** — confirmed route, event names, signature behavior, call status; or exact blocker.
-7. **Voice-runtime status** — Vapi/other, with what was actually verified.
-8. **Webhook/idempotency/recovery status**.
-9. **Quote truthfulness behavior** — how no-answer/incomplete transcripts are handled.
-10. **Partner unknowns** — never hide them.
-11. **Credentials/access still needed** — names only, never secret values.
-12. **Shared-contract changes requested** — or `none`.
-13. **Branch + commit hash**.
-14. **Exact integration instructions for Xpen/Femi** — exports/routes/events they should consume.
+1. push/commit to `lara/agent-tools`;
+2. inspect GitHub CI;
+3. inspect Vercel Preview build;
+4. if testing an endpoint, use the deployed Preview HTTPS URL;
+5. if testing a webhook, configure the partner to the Preview callback URL;
+6. record exactly what external behavior was actually observed.
 
-Never write `works` when you only mean `code compiles`.
+Do not require Lara to run `localhost` or expose a phone tunnel.
+
+Do not promote a Preview to Production merely for convenience.
 
 ---
+
+# REQUIRED HANDOFF
+
+End every session with:
+
+1. branch;
+2. latest commit SHA;
+3. files changed;
+4. L1–L10 status: complete / partial / blocked;
+5. tests/commands actually run;
+6. GitHub CI status;
+7. Vercel Preview status/link;
+8. verification level 0–4;
+9. Kros status: code vs account/live verified;
+10. Vapi status: code vs account/live verified;
+11. webhook/idempotency/recovery status;
+12. Quote truthfulness behavior;
+13. credentials/access names still needed, never values;
+14. partner unknowns;
+15. shared-contract changes requested or `none`;
+16. exact routes/exports Xpen and Femi should consume;
+17. exact next action.
+
+Never write `complete` when only the code compiles/deploys.
 
 # FINAL RULE
 
-Your job is not to connect as many sponsors as possible.
+Make one communication path **real, bounded, observable, truthful and recoverable**.
 
-Your job is to make one SABI communication path **real, bounded, observable, truthful and recoverable**.
-
-If the repository or official partner evidence does not support a detail, preserve the uncertainty and report it.
+If external evidence is missing, say so.
 
 **Never hallucinate the missing piece.**
