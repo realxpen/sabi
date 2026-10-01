@@ -15,6 +15,7 @@ import {
   getMissionSnapshot,
   saveMissionSnapshot
 } from "../integrations/neon/mission-snapshot-repository";
+import { discoverLiveTestProvidersForMission } from "../integrations/providers/live-test-directory";
 import type { CommunicationAdapter } from "../integrations/communication/types";
 import type { MissionSnapshot } from "./snapshot";
 import { transitionMission } from "./state-machine";
@@ -138,8 +139,10 @@ async function contactLiveProviders(
  * Advance exactly one safe orchestration stage.
  *
  * SIMULATION is explicitly labelled and may use fixture providers/Quotes.
- * LIVE never imports simulation providers or Quotes. It stops and waits when
- * provider discovery, provider responses or validated Quotes are missing.
+ * LIVE never imports simulation providers or Quotes. It may discover only the
+ * separately configured SABI_LIVE_TEST_PROVIDERS_JSON metadata directory and
+ * stops when provider discovery, provider responses or validated Quotes are
+ * missing.
  */
 export async function advanceMissionOrchestration(
   missionId: string,
@@ -185,10 +188,15 @@ export async function advanceMissionOrchestration(
     }
 
     case "PLANNING": {
+      const configuredLiveProviders =
+        dependencies.mode === "LIVE" && snapshot.providers.length === 0
+          ? discoverLiveTestProvidersForMission(snapshot.mission) ?? []
+          : snapshot.providers;
+
       const providers =
         dependencies.mode === "SIMULATION"
           ? temporaryDemoProviders
-          : snapshot.providers;
+          : configuredLiveProviders;
 
       const next = await persistTransition(
         snapshot,
@@ -197,8 +205,8 @@ export async function advanceMissionOrchestration(
         dependencies.mode === "SIMULATION"
           ? "Simulation provider fixtures loaded; no live directory was queried."
           : providers.length
-            ? "Existing validated provider candidates are ready for contact."
-            : "Waiting for validated live provider discovery before contact.",
+            ? "Configured live test-provider metadata matched the Mission and is ready for bounded contact."
+            : "Waiting for configured live test-provider metadata before contact.",
         { providers }
       );
 
