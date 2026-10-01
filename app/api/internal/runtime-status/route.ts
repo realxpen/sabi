@@ -3,6 +3,30 @@ import { neon } from "@neondatabase/serverless";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function configured(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+function consentedProviderPhoneCount(raw: string | undefined): number {
+  if (!raw?.trim()) {
+    return 0;
+  }
+
+  try {
+    const decoded: unknown = JSON.parse(raw);
+
+    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+      return 0;
+    }
+
+    return Object.values(decoded).filter(
+      (value) => typeof value === "string" && value.trim().length > 0
+    ).length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET(): Promise<Response> {
   if (process.env.VERCEL_ENV !== "preview") {
     return new Response(null, { status: 404 });
@@ -10,6 +34,17 @@ export async function GET(): Promise<Response> {
 
   const databaseUrl = process.env.DATABASE_URL?.trim();
   const agentToolToken = process.env.SABI_AGENT_TOOL_TOKEN?.trim();
+  const communicationMode = process.env.SABI_COMMUNICATION_MODE?.trim() || "mock";
+  const vapiApiBaseConfigured = configured(process.env.VAPI_API_BASE_URL);
+  const vapiApiKeyConfigured = configured(process.env.VAPI_API_KEY);
+  const vapiAssistantConfigured = configured(process.env.VAPI_ASSISTANT_ID);
+  const vapiSipTrunkConfigured = configured(
+    process.env.VAPI_SIP_TRUNK_CREDENTIAL_ID
+  );
+  const vapiWebhookAuthConfigured = configured(process.env.VAPI_WEBHOOK_TOKEN);
+  const consentedPhoneCount = consentedProviderPhoneCount(
+    process.env.SABI_CONSENTED_PROVIDER_PHONES_JSON
+  );
 
   let databaseReachable = false;
   let requiredTablesReady = false;
@@ -42,11 +77,36 @@ export async function GET(): Promise<Response> {
     }
   }
 
+  const vapiConfigured = Boolean(
+    vapiApiBaseConfigured &&
+      vapiApiKeyConfigured &&
+      vapiAssistantConfigured &&
+      vapiSipTrunkConfigured &&
+      vapiWebhookAuthConfigured
+  );
+
   return Response.json({
     environment: "preview",
     databaseConfigured: Boolean(databaseUrl),
     databaseReachable,
     requiredTablesReady,
-    agentToolAuthConfigured: Boolean(agentToolToken)
+    agentToolAuthConfigured: Boolean(agentToolToken),
+    communicationMode,
+    vapi: {
+      apiBaseConfigured: vapiApiBaseConfigured,
+      apiKeyConfigured: vapiApiKeyConfigured,
+      assistantConfigured: vapiAssistantConfigured,
+      sipTrunkConfigured: vapiSipTrunkConfigured,
+      webhookAuthConfigured: vapiWebhookAuthConfigured,
+      configured: vapiConfigured
+    },
+    consentedProviderPhoneCount: consentedPhoneCount,
+    liveCommunicationReady: Boolean(
+      communicationMode === "vapi-kros" &&
+        vapiConfigured &&
+        consentedPhoneCount > 0 &&
+        databaseReachable &&
+        requiredTablesReady
+    )
   });
 }
