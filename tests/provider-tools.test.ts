@@ -45,6 +45,18 @@ describe("searchProviders", () => {
     expect(providers).toHaveLength(1);
     expect(providers[0].id).toBe("provider-ade-textiles");
   });
+
+  it("ignores unresolved optional Bimpe placeholders", () => {
+    const providers = searchProviders({
+      query: "{{query}}",
+      category: "Fabric",
+      location: "Yaba",
+      language: "{{language}}"
+    });
+
+    expect(providers).toHaveLength(1);
+    expect(providers[0].id).toBe("provider-tola-fabrics");
+  });
 });
 
 describe("getProvider", () => {
