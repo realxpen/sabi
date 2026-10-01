@@ -33,6 +33,9 @@ export function ApprovalCard({
     );
   }
 
+  const selectedProvider = provider;
+  const selectedQuote = quote;
+
   async function approve() {
     if (decision !== "PENDING") return;
 
@@ -46,8 +49,8 @@ export function ApprovalCard({
           "content-type": "application/json"
         },
         body: JSON.stringify({
-          providerId: provider.id,
-          quoteId: quote.id
+          providerId: selectedProvider.id,
+          quoteId: selectedQuote.id
         })
       });
       const result = await response.json().catch(() => null);
@@ -76,10 +79,10 @@ export function ApprovalCard({
         <>
           <h2>Ready for your decision</h2>
           <p>
-            {provider.name} is the current recommendation for{" "}
+            {selectedProvider.name} is the current recommendation for{" "}
             <strong>
-              {quote.total !== undefined
-                ? `₦${quote.total.toLocaleString()}`
+              {selectedQuote.total !== undefined
+                ? `₦${selectedQuote.total.toLocaleString()}`
                 : "an unknown total"}
             </strong>
             .
