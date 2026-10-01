@@ -1,24 +1,24 @@
 import { MissionControl } from "../../../components/MissionControl";
-import { buildDemoMissionSnapshot } from "../../../lib/mission/demo-engine";
+import { getMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
+
+export const dynamic = "force-dynamic";
 
 type MissionPageProps = {
   params: {
     id: string;
   };
-  searchParams?: {
-    request?: string;
-  };
 };
 
-export default function MissionPage({
-  params,
-  searchParams
-}: MissionPageProps) {
-  const request =
-    searchParams?.request ??
-    "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.";
+export default async function MissionPage({ params }: MissionPageProps) {
+  let snapshot = null;
+  let persistenceError = false;
 
-  const snapshot = buildDemoMissionSnapshot(request, params.id);
+  try {
+    snapshot = await getMissionSnapshot(params.id);
+  } catch (error) {
+    console.error("Failed to load persisted mission page", error);
+    persistenceError = true;
+  }
 
   return (
     <main className="shell">
@@ -32,9 +32,30 @@ export default function MissionPage({
         </a>
       </header>
 
-      <p className="missionRequest">{request}</p>
-
-      <MissionControl snapshot={snapshot} />
+      {persistenceError ? (
+        <section className="panel">
+          <div className="eyebrow">Mission state unavailable</div>
+          <h2>SABI could not load the persisted mission.</h2>
+          <p className="lede">
+            The mission database is not ready for this deployment yet. No live
+            provider action was performed.
+          </p>
+        </section>
+      ) : snapshot ? (
+        <>
+          <p className="missionRequest">{snapshot.mission.rawRequest}</p>
+          <MissionControl snapshot={snapshot} />
+        </>
+      ) : (
+        <section className="panel">
+          <div className="eyebrow">Mission not found</div>
+          <h2>This mission does not exist in persisted state.</h2>
+          <p className="lede">
+            Create a new mission so SABI can store it before opening Mission
+            Control.
+          </p>
+        </section>
+      )}
     </main>
   );
 }
