@@ -25,7 +25,7 @@ export function CommunicationActivity({
   if (communications.length === 0) return null;
 
   return (
-    <section className="resultsSection communicationCard">
+    <section className="resultsSection">
       <div className="sectionHeading">
         <div>
           <div className="eyebrow">Communication</div>
@@ -34,28 +34,38 @@ export function CommunicationActivity({
         <span>{communications.length} contact results</span>
       </div>
 
-      <div className="communicationList">
+      <div className="quoteGrid">
         {communications.map((result) => {
           const provider = providers.find(
             (candidate) => candidate.id === result.providerId
           );
 
           return (
-            <article className="communicationItem" key={result.id}>
-              <div>
-                <strong>{provider?.name ?? "Provider"}</strong>
-                <p>
-                  {result.summary ??
-                    `${result.channel.toLowerCase()} result recorded by SABI.`}
-                </p>
-              </div>
-              <div className="communicationMeta">
+            <article className="quoteCard" key={result.id}>
+              <div className="quoteHeader">
+                <div>
+                  <h3>{provider?.name ?? "Provider"}</h3>
+                  <p>
+                    {result.summary ??
+                      `${result.channel.toLowerCase()} result recorded by SABI.`}
+                  </p>
+                </div>
                 <StatusBadge
                   label={result.status.replaceAll("_", " ")}
                   tone={toneFor(result.status)}
                 />
-                <span>{result.channel}</span>
               </div>
+
+              <dl className="quoteFacts">
+                <div>
+                  <dt>Channel</dt>
+                  <dd>{result.channel}</dd>
+                </div>
+                <div>
+                  <dt>Quote evidence</dt>
+                  <dd>{result.observation ? "Captured" : "Not captured"}</dd>
+                </div>
+              </dl>
             </article>
           );
         })}
