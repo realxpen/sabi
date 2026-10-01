@@ -10,17 +10,59 @@ import {
 } from "../schemas";
 import { getProvider } from "./provider-tools";
 
+const bimpeBooleanSchema = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+  }
+
+  return value;
+}, z.boolean());
+
+const optionalBimpeNumberSchema = z.preprocess((value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    return Number(normalized);
+  }
+
+  return value;
+}, z.number().nonnegative().optional());
+
+const optionalBimpeStringSchema = z.preprocess((value) => {
+  if (typeof value === "string" && !value.trim()) {
+    return undefined;
+  }
+
+  return value;
+}, z.string().trim().min(1).optional());
+
 export const recordQuoteInputSchema = z.object({
   missionId: z.string().trim().min(1),
   providerId: z.string().trim().min(1),
-  available: z.boolean(),
-  price: z.number().nonnegative().optional(),
-  deliveryFee: z.number().nonnegative().optional(),
-  total: z.number().nonnegative().optional(),
-  deliveryDate: z.string().trim().min(1).optional(),
-  notes: z.string().trim().min(1).optional(),
+  available: bimpeBooleanSchema,
+  price: optionalBimpeNumberSchema,
+  deliveryFee: optionalBimpeNumberSchema,
+  total: optionalBimpeNumberSchema,
+  deliveryDate: optionalBimpeStringSchema,
+  notes: optionalBimpeStringSchema,
   source: quoteSourceSchema,
-  sourceReference: z.string().trim().min(1).optional()
+  sourceReference: optionalBimpeStringSchema
 });
 
 export type RecordQuoteInput = z.infer<typeof recordQuoteInputSchema>;
