@@ -34,6 +34,8 @@ Consume from:
 
 ```ts
 import {
+  extractQuoteFromCommunication,
+  extractQuotesFromCommunications,
   evaluateCandidate,
   evaluateCandidates,
   rankQualifyingCandidates,
@@ -45,6 +47,110 @@ import {
 ```
 
 The exact import alias depends on the current application path configuration. The canonical source file is `lib/intelligence/index.ts`.
+
+## Communication evidence → Quote extraction
+
+The extraction boundary is implemented in:
+
+```text
+lib/intelligence/quote-extraction.ts
+```
+
+Primary function:
+
+```ts
+extractQuoteFromCommunication(communication, {
+  mission?,
+  quoteId?,
+  createdAt?
+})
+```
+
+Batch helper:
+
+```ts
+extractQuotesFromCommunications(communications, {
+  mission?,
+  createdAt?
+})
+```
+
+### Minimum evidence for Quote creation
+
+A canonical Quote is created only when:
+
+1. `CommunicationResult.status === "COMPLETED"`; and
+2. `CommunicationResult.observation.available` is explicitly represented.
+
+SABI does not parse prices, delivery promises or availability out of `summary`. Lara/transport normalization must place factual provider observations into the structured `observation` lane first.
+
+This means:
+
+```text
+NO_ANSWER / FAILED / INITIATED / IN_PROGRESS
+→ NOT_QUOTABLE
+
+COMPLETED + no structured observation
+→ INCOMPLETE
+
+COMPLETED + observation but no explicit availability
+→ INCOMPLETE
+
+COMPLETED + explicit availability
+→ QUOTE_CREATED
+```
+
+An explicit provider response of `available: false` is decision-useful and may become a canonical unavailable Quote without inventing price, fee, total or delivery date.
+
+### Missing facts remain missing
+
+For an available option, extraction reports missing factual fields separately rather than guessing them:
+
+- `PRICE_UNKNOWN`
+- `DELIVERY_FEE_UNKNOWN`
+- `TOTAL_UNKNOWN`
+- `DELIVERY_DATE_UNKNOWN` when the Mission has a deadline
+- `QUANTITY_CAPACITY_UNREPRESENTED` when the Mission has a quantity under the current shared contracts
+
+These gaps do not necessarily block Quote creation; downstream hard-constraint evaluation decides whether the Quote can support a recommendation.
+
+### Total normalization
+
+`total` is derived only when both factual components are represented:
+
+```text
+price + deliveryFee → total
+```
+
+If `deliveryFee` is missing, it is **not** assumed to be zero and `total` remains unknown.
+
+A provider may explicitly communicate free delivery by normalizing `deliveryFee: 0`.
+
+### Provenance
+
+Every created Quote points back to the SABI communication record:
+
+```text
+sourceReference = communication:<communicationId>
+```
+
+The extraction result separately preserves:
+
+- communication ID
+- mission ID
+- provider ID
+- channel
+- communication status
+- external transport ID when present
+- occurrence timestamp
+
+Channel mapping is intentionally bounded:
+
+```text
+CALL → Quote.source CALL
+SMS  → Quote.source SMS
+MOCK / OTHER → Quote.source OTHER
+```
 
 ## Hard-constraint semantics
 
@@ -63,7 +169,7 @@ Meaning:
 Candidate-level status uses the strict aggregation rule:
 
 ```text
-any FAIL    → FAIL
+any FAIL     → FAIL
 else UNKNOWN → UNKNOWN
 else         → PASS
 ```
@@ -128,7 +234,9 @@ Expected flow:
 
 ```text
 Mission
-→ validated Provider + Quote records
+→ CommunicationResult(s)
+→ extractQuotesFromCommunications(...)
+→ canonical Quote(s) + explicit follow-up gaps
 → recommend(...)
 → READY
    → persist/present selected recommendation
@@ -147,22 +255,25 @@ Do not advance a Mission to `AWAITING_APPROVAL` when decision status is `BLOCKED
 
 ## Lara integration boundary
 
-Lara owns communication transport/runtime.
+Lara owns communication transport/runtime and normalization into `CommunicationResult`.
 
 Communication remains separate from Quote truth:
 
 ```text
-CommunicationResult / transcript
-→ extraction
-→ validation
-→ required factual checks
-→ Quote OR incomplete observation
+transport event / transcript
+→ Lara structured extraction
+→ CommunicationResult.observation
+→ extractQuoteFromCommunication(...)
+→ canonical Quote OR explicit incomplete/not-quotable result
 → recommend(...)
 ```
 
-A no-answer, failed, initiated or incomplete communication must not fabricate Quote fields.
+Lara should not set missing values merely to make a Quote complete. In particular:
 
-The intelligence layer consumes canonical Quote objects only after the communication/extraction boundary has done its validation.
+- no answer does not mean `available: false`;
+- missing delivery fee does not mean `deliveryFee: 0`;
+- a transcript summary containing a number is not sufficient unless the structured observation identifies the factual field;
+- transport `UNAVAILABLE` does not automatically mean the requested product/service is unavailable.
 
 ## Context assembler boundary
 
@@ -237,6 +348,8 @@ Quote.available === true
 
 is not treated as independent proof that exactly `20 yards` are available.
 
+The new extraction layer can still safely create a canonical Quote from the facts that are representable. It reports `QUANTITY_CAPACITY_UNREPRESENTED` so downstream comparison remains `UNKNOWN` rather than fabricating capacity.
+
 For the current canonical Mission the quantity/capacity check is therefore `UNKNOWN` unless the shared contract is intentionally extended.
 
 ### Evaluation-proven contract proposal — team review required
@@ -286,6 +399,18 @@ Recommendation output preserves Quote provenance using:
 Knowledge context separately preserves Knowledge source IDs and paths.
 
 ## Integration rule of thumb
+
+```text
+transport/transcript
+→ structured CommunicationResult observation
+→ evidence-safe Quote extraction
+→ hard constraints
+→ ranking only among PASS candidates
+→ recommendation
+→ human approval
+```
+
+And at every boundary:
 
 ```text
 missing fact → UNKNOWN
