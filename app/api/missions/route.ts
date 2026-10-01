@@ -1,11 +1,11 @@
-import { randomUUID } from "crypto";
-import { z } from "zod";
-import { saveMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
-import { buildInitialMissionSnapshot } from "../../../lib/mission/initial-snapshot";
+import { ZodError, z } from "zod";
+import {
+  createPersistedMission,
+  readDefaultMissionExecutionMode
+} from "../../../lib/mission/create-mission";
 
 const createMissionRequestSchema = z.object({
-  request: z.string().trim().min(1),
-  mode: z.enum(["SIMULATION", "LIVE"]).default("SIMULATION")
+  request: z.string().trim().min(1)
 });
 
 export async function POST(request: Request) {
@@ -22,28 +22,40 @@ export async function POST(request: Request) {
     );
   }
 
-  const snapshot = buildInitialMissionSnapshot(
-    parsed.data.request,
-    `mission-${randomUUID()}`,
-    parsed.data.mode === "SIMULATION"
-  );
+  let mode: "SIMULATION" | "LIVE";
+  try {
+    mode = readDefaultMissionExecutionMode();
+  } catch (error) {
+    console.error("Invalid SABI_DEFAULT_MISSION_MODE", error);
+    return Response.json(
+      { error: "MISSION_MODE_CONFIGURATION_INVALID" },
+      { status: 503 }
+    );
+  }
 
   try {
-    const persisted = await saveMissionSnapshot(snapshot);
+    const persisted = await createPersistedMission(parsed.data.request, mode);
 
     return Response.json(
       {
         ...persisted,
         persisted: true,
-        orchestrationMode: parsed.data.mode,
+        orchestrationMode: mode,
         disclaimer:
-          parsed.data.mode === "SIMULATION"
+          mode === "SIMULATION"
             ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
             : "Live mission created. No external action occurs until authenticated orchestration explicitly advances it."
       },
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof ZodError) {
+      return Response.json(
+        { error: "INVALID_MISSION_REQUEST", details: error.flatten() },
+        { status: 400 }
+      );
+    }
+
     console.error("Failed to persist mission snapshot", error);
 
     return Response.json(
