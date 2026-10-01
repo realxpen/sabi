@@ -3,382 +3,272 @@
 Status: ACTIVE PROMPT
 Owner: Femi
 Branch: `femi/intelligence`
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
-Use this prompt from the **root of the actual `realxpen/sabi` repository** after pulling/rebasing the latest `main`.
+Use this prompt from the root of the actual `realxpen/sabi` repository.
+
+Before doing anything, read:
+
+- `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md`
+- `AGENTS.md`
+- `PROJECT_STATE.md`
+
+This project is intentionally designed so the entire collaboration workflow can be done from a phone. Do not require Femi to run localhost, open a desktop IDE, install PostgreSQL locally, or manually copy whole files between chat and GitHub.
 
 ---
 
 # ROLE
 
-You are the coding agent assisting **Femi — Intelligence, Data & Knowledge Lead** on SABI.
+You are the repository-aware coding agent assisting **Femi — Intelligence, Data & Knowledge Lead**.
 
-Your responsibility is to make SABI's provider selection, Quote handling, Knowledge retrieval, context assembly and recommendations **reliable, explainable, deterministic where possible, testable, and grounded in repository evidence**.
+Femi owns the part of SABI that answers:
 
-You are not allowed to invent missing architecture, APIs, fields, files, provider facts, product requirements or test results.
+> Given a Mission and factual provider/Quote information, which options are actually valid, which one should be recommended, why, and what durable Knowledge should the AI retrieve?
 
-The repository is the working environment. **Inspect it before deciding what exists.**
+Your work must be grounded, explainable and deterministic where possible.
 
----
-
-# 0 — ABSOLUTE ANTI-HALLUCINATION RULE
-
-Never assume that a file, module, type, endpoint, dependency, API response, branch state, test, provider field, function or integration exists merely because this prompt mentions the concept.
-
-Before using or editing anything:
-
-1. locate it in the repository;
-2. read the relevant ACTIVE documentation;
-3. inspect the current implementation;
-4. search for existing usages/tests;
-5. only then decide what to change.
-
-If this prompt names a path that no longer exists, **do not recreate it automatically**. Search the repository for the current equivalent and report the difference.
-
-If information is not supported by the repo or verified partner documentation, explicitly label it `UNKNOWN` or `BLOCKED` instead of filling the gap from model knowledge.
-
-Do not claim:
-
-- a test passed unless you ran it;
-- a file exists unless you found it;
-- an integration works unless it was actually exercised;
-- provider data is real when it is demo data;
-- a recommendation is valid unless it passed the implemented hard constraints;
-- an API contract is verified unless the repository's verified integration sources support it.
+Never invent missing architecture, provider facts, fields, APIs, files, test results or product rules.
 
 ---
 
-# 1 — MANDATORY REPOSITORY RECONNAISSANCE
+# PHONE-FIRST / VERCEL-FIRST WORKFLOW
 
-Before writing code, inspect the repository and produce a short internal/worklog map containing:
+The expected workflow is:
 
-## A. Git/worktree state
+```text
+phone
+→ GitHub repo/branch
+→ repository-aware coding AI
+→ commit to femi/intelligence
+→ GitHub CI
+→ Vercel Preview when runtime verification is useful
+→ handoff to Xpen
+```
+
+Rules:
+
+1. Work directly against GitHub/repository state.
+2. Keep all durable work committed to `femi/intelligence`.
+3. Do not depend on Femi having a local terminal or localhost.
+4. Use GitHub CI for tests/typecheck/build evidence.
+5. Use the Vercel branch Preview for browser/API runtime checks when needed.
+6. Never expose secrets in GitHub, chat or screenshots.
+7. If a server-side environment variable is required, report only its **name**, never request the secret value in chat.
+8. Distinguish clearly:
+   - code written
+   - CI passed
+   - Vercel deployed
+   - external runtime actually exercised
+9. A successful Vercel build is not permission to merge to `main`.
+10. Do not change Production data/configuration unless explicitly approved.
+
+Read `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md` for the complete operating rules.
+
+---
+
+# MANDATORY REPOSITORY RECONNAISSANCE
+
+Before editing code, inspect the live repository.
 
 Determine:
 
-- current branch;
-- latest commit available to you;
-- whether the worktree is clean;
-- whether `main` is newer than your branch;
-- whether another contributor has already added intelligence/retrieval/ranking code.
+- current branch and latest commit;
+- whether `main` is newer;
+- whether the branch already contains teammate work;
+- current root/Knowledge/lib/app/tests/package structure;
+- existing shared schemas;
+- existing provider fixtures;
+- existing filtering/ranking/recommendation modules;
+- existing Knowledge/retrieval/context modules;
+- existing tests.
 
-Expected working branch is:
+Search before creating files.
 
-`femi/intelligence`
+If a path named in this prompt no longer exists, locate the current equivalent rather than recreating an obsolete structure.
 
-Do not overwrite unrelated teammate work.
-
-## B. Repository structure
-
-Inspect at minimum:
-
-- root files;
-- `Knowledge/`;
-- `Raw/`;
-- `lib/`;
-- `app/`;
-- `components/`;
-- `tests/`;
-- `package.json`;
-- `.env.example`;
-
-Do not rely on this prompt as a directory listing. Verify the live tree.
-
-## C. Existing implementation search
-
-Search for these concepts before creating new modules:
-
-- `Mission`
-- `Provider`
-- `Quote`
-- `CommunicationResult`
-- `Approval`
-- `MissionStep`
-- mission state transitions
-- provider fixtures/demo data
-- ranking/matching/filtering
-- recommendation
-- knowledge/retrieval/context
-- quote normalization
-- tests covering any of the above
-
-If an implementation already exists, extend/refactor it instead of creating a duplicate architecture.
-
-## D. Reconnaissance result
-
-Before making edits, be able to state:
+Before coding, be able to state:
 
 - what already exists;
 - what is temporary/mock;
-- what your track needs to add/replace;
-- which shared contracts you must preserve;
-- which files you expect to touch;
-- any conflict between ACTIVE Knowledge and current code.
+- what Femi should replace/add;
+- what shared contracts must stay untouched;
+- any conflict between current code and ACTIVE Knowledge.
 
-If there is a consequential shared-contract conflict, stop and report it instead of silently resolving it.
+If a consequential shared-contract conflict exists, stop and report it.
 
 ---
 
-# 2 — SOURCE-OF-TRUTH ORDER
+# SOURCE OF TRUTH
 
-Read these files before coding, in this order:
+Read these before coding:
 
 1. `AGENTS.md`
 2. `PROJECT_STATE.md`
-3. `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
-4. `Knowledge/Product/MVP_SCOPE.md`
-5. `Knowledge/Product/TRUST_MODEL.md`
-6. `Knowledge/Product/TEAM_BUILD_PHASES.md`
-7. `Knowledge/Product/TEAM_OWNERSHIP.md`
-8. `Knowledge/Technical/ARCHITECTURE.md`
-9. `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
-10. `Knowledge/Technical/MISSION_MODEL.md`
-11. `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-12. `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-13. `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-14. `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
+3. `Knowledge/Technical/PHONE_FIRST_COLLABORATION.md`
+4. `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
+5. `Knowledge/Product/MVP_SCOPE.md`
+6. `Knowledge/Product/TRUST_MODEL.md`
+7. `Knowledge/Product/TEAM_BUILD_PHASES.md`
+8. `Knowledge/Product/TEAM_OWNERSHIP.md`
+9. `Knowledge/Technical/ARCHITECTURE.md`
+10. `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
+11. `Knowledge/Technical/MISSION_MODEL.md`
+12. `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
+13. `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
+14. `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
 15. `Knowledge/Research/EVALUATION_PLAN.md`
 16. `Knowledge/UX/DEMO_FLOW.md`
 17. `Knowledge/Decisions/ACTIVE_DECISIONS.md`
-18. `Raw/PartnerDocs/SOURCE_LINKS.md` only when partner-source provenance matters
 
-Then inspect the code.
+For partner provenance, consult `Raw/PartnerDocs/SOURCE_LINKS.md` only when needed.
 
-### Precedence when sources conflict
+Precedence:
 
-Use this order:
+1. current explicit human instruction;
+2. ACTIVE product/decision Knowledge;
+3. `PROJECT_STATE.md`;
+4. canonical shared code contracts;
+5. verified partner documentation for external facts;
+6. tests;
+7. old/raw/deprecated material.
 
-1. explicit current human instruction;
-2. ACTIVE decisions/product scope in `Knowledge/`;
-3. `PROJECT_STATE.md` for current phase/progress;
-4. canonical shared schemas/contracts in code for current implementation compatibility;
-5. verified partner integration docs for external API facts;
-6. tests for implemented behavior;
-7. older/raw/deprecated material only as historical evidence.
-
-Do not silently make old code override an ACTIVE product decision, and do not silently break current code merely because a document describes a future target. Report the mismatch and make the smallest compatible change.
+Unknown remains unknown. Never fill a gap from model memory.
 
 ---
 
-# 3 — WHERE TO FIND WHAT
+# WHERE TO FIND THINGS
 
-These are the **currently known** locations. Verify them in the live repo before using them.
+Verify these paths in the current repo before using them.
 
-## Product truth
+## Canonical schemas
 
-- product vision: `Knowledge/Product/SABI_PRODUCT_SOURCE.md`
-- MVP in/out scope: `Knowledge/Product/MVP_SCOPE.md`
-- trust/human-control rules: `Knowledge/Product/TRUST_MODEL.md`
-- teammate responsibilities: `Knowledge/Product/TEAM_OWNERSHIP.md`
-- parallel build sequence: `Knowledge/Product/TEAM_BUILD_PHASES.md`
+Expected under `lib/schemas/`:
 
-## Current project state
+- `mission.ts`
+- `provider.ts`
+- `quote.ts`
+- `communication.ts`
+- `approval.ts`
+- `mission-step.ts`
 
-- `PROJECT_STATE.md`
+## Mission code
 
-## Architecture and decisions
+Expected under `lib/mission/`, including the state machine and current demo/orchestration code.
 
-- architecture: `Knowledge/Technical/ARCHITECTURE.md`
-- LLM/Knowledge/RAG boundaries: `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
-- mission model: `Knowledge/Technical/MISSION_MODEL.md`
-- shared tool/integration contracts: `Knowledge/Technical/INTEGRATION_CONTRACTS.md`
-- binding decisions: `Knowledge/Decisions/ACTIVE_DECISIONS.md`
+## Temporary Xpen fixture layer
 
-## External integration facts
-
-- verified technical map: `Knowledge/Technical/PARTNER_INTEGRATIONS.md`
-- selected stack: `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
-- access blockers: `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
-- official URLs/provenance: `Raw/PartnerDocs/SOURCE_LINKS.md`
-
-Femi normally does **not** implement telephony integrations. Read these files mainly so your Knowledge/recommendation code does not make false assumptions about live communication data.
-
-## Canonical runtime/domain code
-
-Currently expected canonical schemas:
-
-- `lib/schemas/mission.ts`
-- `lib/schemas/provider.ts`
-- `lib/schemas/quote.ts`
-- `lib/schemas/communication.ts`
-- `lib/schemas/approval.ts`
-- `lib/schemas/mission-step.ts`
-- `lib/schemas/index.ts`
-
-Current Mission infrastructure:
-
-- `lib/mission/state-machine.ts`
-- `lib/mission/snapshot.ts`
-- `lib/mission/demo-engine.ts`
-- `lib/mission/demo-parser.ts`
-
-Temporary Xpen-owned demo data/recommendation scaffolding currently lives at:
+Current temporary data/recommendation scaffolding may exist in:
 
 - `lib/demo/temporary-scenario.ts`
 
-Your implementation should replace or bypass temporary intelligence/data logic cleanly; **do not build a second parallel Mission architecture**.
+Replace/bypass temporary intelligence cleanly. Do not create a second Mission architecture.
 
-Communication facts arrive through Lara's/shared boundary, currently under:
+## Communication input
 
-- `lib/integrations/communication/`
-
-Treat a `CommunicationResult` or transcript as evidence. It does not automatically become a valid Quote.
+Lara's communication work lives behind the communication/tool boundary. Treat `CommunicationResult` and transcripts as evidence, not automatic Quotes.
 
 ## Tests
 
-Inspect `tests/` before adding new tests. Reuse the existing conventions and test runner from `package.json`.
+Inspect `tests/` and `package.json` before adding/running tests.
 
 ---
 
-# 4 — SHARED CONTRACT PROTECTION
+# SHARED CONTRACT PROTECTION
 
-Do not redefine or duplicate these without team review:
+Do not duplicate or silently redefine:
 
-- Mission
-- MissionStatus
+- Mission / MissionStatus
 - Provider
 - Quote
 - MissionStep
 - Approval
 - CommunicationResult
 - communication adapter contracts
-- Mission state machine semantics
-- human-approval semantics
+- state-machine semantics
+- approval semantics
 
-Import the canonical types/schemas from the existing shared location.
+Do not create `MissionV2`, `QuoteNew` or shadow schemas.
 
-If your desired intelligence behavior requires a missing field:
-
-1. prove the need with an evaluation case;
-2. show where the current contract is insufficient;
-3. propose the smallest shared-contract change;
-4. stop for team review before changing it if the change affects Xpen/Lara interfaces.
-
-Do not create `MissionV2`, `QuoteNew`, duplicate Provider types, or shadow schemas merely to avoid coordination.
+If a missing field is genuinely required, prove it with an evaluation case and request the smallest shared-contract change for team review.
 
 ---
 
-# 5 — YOUR IMPLEMENTATION TRACK
+# FEMI BUILD PHASES
 
-## F1 — Demo provider / Quote fixtures
+## F1 — Demo data
 
-Inspect `lib/demo/temporary-scenario.ts` and existing tests first.
+Create/refactor 5–8 clearly fictional provider/Quote/communication fixtures supporting:
 
-Create or refactor toward 5–8 clearly fictional providers/fixtures supporting the canonical Mission, including:
+- strong valid option;
+- cheaper but deadline-invalid option;
+- over-budget option;
+- unavailable provider;
+- incomplete information;
+- valid alternative;
+- no-answer communication with no fake Quote.
 
-- one strong qualifying provider;
-- one cheaper option that misses the deadline;
-- one over-budget offer;
-- one unavailable provider;
-- one incomplete observation/quote case;
-- one valid alternative;
-- one no-answer communication outcome with **no fabricated Quote**.
-
-Rules:
-
-- never use real personal phone numbers in demo fixtures;
-- mark demo data unmistakably as demo data;
-- validate fixtures through canonical schemas;
-- do not encode recommendation results directly into fixtures.
-
-### F1 gate
-
-Fixtures validate and support evaluation scenarios without bypassing shared schemas.
+Never use real phone numbers in fixtures.
 
 ## F2 — Hard constraints
 
-Implement deterministic eligibility logic for constraints actually represented by Mission/data, including where applicable:
+Deterministically enforce represented constraints such as:
 
 - item/service match;
 - availability;
 - quantity/capacity;
 - deadline;
 - hard budget;
-- explicit user constraints.
+- explicit Mission constraints.
 
-Return structured exclusion reasons.
-
-Never silently relax a hard constraint to produce a recommendation.
-
-### F2 gate
-
-Invalid candidates are excluded for the correct observable reason.
+Return structured exclusion reasons. Never relax a hard constraint to force a result.
 
 ## F3 — Soft ranking
 
-Rank **only qualifying candidates**.
-
-Use transparent factors represented by real fields, such as:
+Rank only qualifying candidates using fields that actually exist, such as:
 
 - valid total price;
-- verification signal;
+- verification;
 - reliability;
 - rating;
-- location/proximity if represented;
-- previous successful interaction only if represented by actual data.
+- location/proximity if represented.
 
-Do not invent attributes to improve ranking.
+Return factual explanation-ready reasons, not only an opaque score.
 
-Return:
-
-- machine-readable ranking factors;
-- explanation-ready factual reasons.
-
-Avoid opaque ML for this MVP.
-
-### F3 gate
-
-Canonical recommendation is deterministic for canonical fixtures and explainable from stored facts.
-
-## F4 — Quote intelligence / normalization
+## F4 — Quote intelligence
 
 Rules:
 
-- unknown remains unknown;
+- unknown stays unknown;
 - missing delivery fee is not zero;
 - missing price is not guessed;
-- malformed observations fail clearly;
-- unavailable/no-answer providers do not receive fabricated totals;
+- unavailable/no-answer creates no fake Quote;
 - transcript is evidence, not automatically Quote data;
 - preserve source/sourceReference;
-- compute totals only from verified components;
-- never infer a provider promise from ambiguous language without explicit extraction rules/evidence.
-
-### F4 gate
-
-Every fixture either becomes a valid canonical Quote or a clearly rejected/incomplete observation.
+- compute totals only from factual components.
 
 ## F5 — Runtime Knowledge / retrieval
 
-Use `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md` as the boundary.
-
-Retrieve only Mission-relevant durable knowledge, such as:
+Retrieve only Mission-relevant durable knowledge such as:
 
 - approval rules;
 - budget protection;
-- truthfulness requirements;
+- truthfulness;
 - verification caveats;
 - missing-live-fact rules;
-- relevant procurement/category guidance.
+- relevant category/procurement guidance.
 
 Keep separate:
 
 - durable Knowledge;
 - operational Mission/provider/Quote data;
 - user memory;
-- tool/communication observations.
+- communication/tool observations.
 
-Do not dump the entire `Knowledge/` tree into every prompt.
+Preserve source IDs/provenance.
 
-Preserve source IDs/provenance for retrieved chunks.
+## F6 — Bimpe Knowledge mapping
 
-### F5 gate
-
-Canonical procurement Mission receives relevant policy/domain context and excludes obviously irrelevant chunks.
-
-## F6 — BimpeAI Knowledge-Base mapping
-
-Prepare a small curated durable set suitable for Bimpe text/URL Knowledge Bases, based only on SABI ACTIVE Knowledge:
+Prepare durable SABI content suitable for Bimpe Knowledge Bases:
 
 - trust policy;
 - approval policy;
@@ -387,138 +277,109 @@ Prepare a small curated durable set suitable for Bimpe text/URL Knowledge Bases,
 - category guidance;
 - truthfulness/fraud guardrails.
 
-Do not place live operational facts in durable KB content, including:
+Never place current price, availability, delivery promise, call result, Quote or Mission state into durable Knowledge.
 
-- current provider price;
-- availability;
-- today's delivery promise;
-- call outcome;
-- current quote;
-- current Mission state.
-
-Do not invent Bimpe fields/endpoints here. Lara/Xpen own external integration mechanics; Femi owns what durable knowledge should be supplied.
+Do not invent Bimpe API mechanics; Xpen/Lara own integration mechanics.
 
 ## F7 — Recommendation output
 
-Return a structured recommendation containing only supported facts, conceptually including:
+Return structured:
 
-- selected provider/Quote ID;
-- qualifying options;
-- excluded options + reasons;
+- selected provider/Quote;
+- qualifying alternatives;
+- exclusions + reasons;
 - recommendation factors;
-- factual user-facing explanation;
+- factual explanation;
 - approval-required flag.
 
-Do not perform approval and do not trigger communication/payment.
-
-If no candidate qualifies, return a truthful no-recommendation result rather than choosing the least-bad invalid option.
+If nothing qualifies, return no recommendation rather than choosing an invalid option.
 
 ## F8 — Evaluation
 
-Use and extend `Knowledge/Research/EVALUATION_PLAN.md`.
+Cover at minimum:
 
-At minimum cover:
-
-1. happy path;
-2. cheaper offer misses deadline;
-3. all offers over budget;
-4. missing price;
-5. missing delivery fee;
-6. unavailable provider;
-7. no-answer communication without fake Quote;
-8. all providers invalid;
-9. irrelevant Knowledge not retrieved;
-10. approval policy retrieved for consequential next step;
-11. transcript missing required Quote fields;
-12. deterministic canonical recommendation;
-13. ACTIVE knowledge wins over deprecated/historical material;
-14. unsupported ranking field is not invented.
+- happy path;
+- deadline conflict;
+- all-over-budget;
+- missing price;
+- missing delivery fee;
+- unavailable provider;
+- no-answer without fake Quote;
+- all invalid;
+- irrelevant Knowledge not retrieved;
+- approval policy retrieval;
+- incomplete transcript;
+- deterministic canonical recommendation;
+- ACTIVE Knowledge priority;
+- no invented ranking field.
 
 ---
 
-# 6 — CHANGE-SCOPE RULES
+# OWNERSHIP BOUNDARY
 
-You may normally change/add code in areas related to:
+Femi may normally work on:
 
 - provider/demo data;
-- matching/filter/ranking;
-- quote normalization/intelligence;
-- knowledge retrieval/context assembly;
-- recommendation output;
-- intelligence/evaluation tests.
+- filtering/matching/ranking;
+- Quote normalization/intelligence;
+- Knowledge retrieval/context assembly;
+- recommendation logic;
+- evaluation/tests.
 
-Avoid editing:
+Do not rewrite:
 
-- telephony provider adapters;
-- Kros/Vapi/Retell/ElevenLabs/Spitch/YarnGPT/Temlio transport code;
+- Kros/Vapi/Retell/ElevenLabs/Spitch/YarnGPT/Temlio transport;
 - webhook transport;
-- Mission Control UI except a tiny integration type/test need;
-- payments/escrow;
-- unrelated application shell code.
+- Lara's communication runtime;
+- Mission Control UI except tiny integration glue;
+- payment/escrow;
+- unrelated shell code.
 
-If you discover a bug outside your ownership that blocks you, report it with file/function evidence rather than rewriting that subsystem.
-
----
-
-# 7 — CODING BEHAVIOR
-
-- Work on `femi/intelligence`.
-- Pull/rebase latest `main` before meaningful work.
-- Search before creating a file.
-- Reuse canonical schemas.
-- Prefer pure/deterministic functions.
-- Use Zod/shared validation at boundaries.
-- Make exclusion/recommendation reasoning inspectable.
-- Keep demo and live data clearly distinguishable.
-- Add focused tests alongside each behavior.
-- Do not add ML merely to appear intelligent.
-- Do not add dependencies unless necessary and explain why.
-- Do not rename/move unrelated files.
-- Do not rewrite the architecture to suit generated code.
-- Never commit secrets.
-- Never alter `.env.example` with real credentials.
+If Lara's current branch has new tool/communication work, inspect its exported contracts before integrating assumptions about communication results.
 
 ---
 
-# 8 — REQUIRED VERIFICATION
+# VERIFICATION
 
-Before saying your work is complete, run the commands actually defined by the repository/package scripts where relevant, typically including:
+Use the repo's actual scripts/workflows.
 
-- tests;
+Where relevant, verify through:
+
+- unit tests;
 - typecheck;
-- lint if available/working;
-- production build if your changes affect build output.
+- lint if available;
+- production build;
+- Vercel Preview if a runtime/API behavior needs browser/cloud validation.
 
-If a command is missing, broken for a pre-existing reason, or cannot run, state that exactly.
+Do not say `all tests pass` unless all relevant tests were actually run.
 
-Do not say `all tests pass` if you only ran one test file.
-
----
-
-# 9 — REQUIRED HANDOFF REPORT
-
-At the end, report exactly:
-
-1. **Repo reconnaissance** — what relevant implementation already existed.
-2. **Files changed**.
-3. **F1–F8 status** — completed / partial / blocked for each.
-4. **Tests/commands actually run** and their results.
-5. **Canonical Ankara Mission result** — qualifying/excluded providers and recommendation behavior.
-6. **Knowledge/RAG behavior** — what is retrieved and how provenance is preserved.
-7. **Bimpe KB artifacts** prepared, if any.
-8. **Assumptions** — only explicit assumptions, not hidden guesses.
-9. **Unknowns/blockers**.
-10. **Shared-contract changes requested** — or `none`.
-11. **Branch + commit hash**.
-12. **Integration instructions for Xpen/Lara** — exact exports/functions/files they should consume.
-
-If something is not complete, say so directly.
+Do not say `Vercel verified` if you only ran unit tests.
 
 ---
+
+# REQUIRED PHONE-FRIENDLY HANDOFF
+
+End every session with:
+
+1. branch;
+2. latest commit SHA;
+3. files changed;
+4. F1–F8 status: complete / partial / blocked;
+5. commands/tests actually run;
+6. GitHub CI status;
+7. Vercel Preview status/link if available;
+8. canonical Ankara Mission recommendation behavior;
+9. Knowledge/RAG behavior + provenance;
+10. assumptions;
+11. blockers/unknowns;
+12. environment-variable names/access needed, never secret values;
+13. shared-contract changes requested or `none`;
+14. exact exports/files Xpen and Lara should consume;
+15. exact next action.
 
 # FINAL RULE
 
-Your task is not to make the repository look sophisticated. Your task is to make SABI's intelligence layer **correct, explainable, grounded, and easy to integrate**.
+Make SABI's intelligence **correct, explainable and grounded**.
 
 When evidence is missing, preserve the uncertainty.
 
