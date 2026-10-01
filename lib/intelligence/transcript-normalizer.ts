@@ -215,7 +215,14 @@ function moneyTokens(text: string, allowBare: boolean): MoneyToken[] {
     /(?:₦|NGN\s*|\bN\s*)(\d[\d,]*(?:\.\d+)?)\s*(k)?\b/gi,
     /\b(\d+(?:\.\d+)?)\s*k\b/gi
   ];
-  if (allowBare) patterns.push(/\b(\d{3,}(?:,\d{3})*(?:\.\d+)?)\b/g);
+
+  // The grouped alternative prevents the parser from seeing the trailing
+  // `000` inside `60,000` as a separate bare amount.
+  if (allowBare) {
+    patterns.push(
+      /\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{3,}(?:\.\d+)?)\b/g
+    );
+  }
 
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) {
@@ -241,10 +248,25 @@ function moneyTokens(text: string, allowBare: boolean): MoneyToken[] {
   return candidates.sort((a, b) => a.start - b.start);
 }
 
-function windowAround(text: string, token: MoneyToken): string {
-  return text
-    .slice(Math.max(0, token.start - 36), Math.min(text.length, token.end + 36))
-    .toLowerCase();
+function clauseAround(text: string, token: MoneyToken): string {
+  const lower = text.toLowerCase();
+  const before = lower.slice(0, token.start);
+  const after = lower.slice(token.end);
+  const leftCandidates = [
+    before.lastIndexOf(","),
+    before.lastIndexOf(";"),
+    before.lastIndexOf("."),
+    before.lastIndexOf(" and ")
+  ];
+  const left = Math.max(...leftCandidates) + 1;
+  const rightCandidates = [",", ";", ".", " and "]
+    .map((separator) => after.indexOf(separator))
+    .filter((index) => index >= 0);
+  const right =
+    rightCandidates.length > 0
+      ? token.end + Math.min(...rightCandidates)
+      : text.length;
+  return lower.slice(left, right).trim();
 }
 
 function dateToken(text: string): string | undefined {
@@ -379,7 +401,7 @@ export function normalizeProviderTranscript(
       context === "PRICE" || context === "DELIVERY_FEE"
     );
     const deliveryTokens = tokens.filter((token) =>
-      /delivery|deliver|dispatch|fee|charge/.test(windowAround(turn.text, token))
+      /delivery|deliver|dispatch|fee|charge/.test(clauseAround(turn.text, token))
     );
     const productTokens = tokens.filter((token) => !deliveryTokens.includes(token));
 
@@ -418,7 +440,7 @@ export function normalizeProviderTranscript(
         used.add(index);
       } else {
         for (const token of productTokens) {
-          if (/price|cost|ankara|fabric|yards?|material/.test(windowAround(turn.text, token))) {
+          if (/price|cost|ankara|fabric|yards?|material/.test(clauseAround(turn.text, token))) {
             addEvidence(evidence, {
               field: "price",
               value: token.value,
