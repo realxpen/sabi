@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildInitialMissionSnapshot } from "../lib/mission/initial-snapshot";
 
 const repositoryMocks = vi.hoisted(() => ({
@@ -16,6 +16,8 @@ import { advanceMissionOrchestration } from "../lib/mission/orchestrator";
 
 describe("mission orchestrator", () => {
   beforeEach(() => {
+    delete process.env.SABI_LIVE_TEST_PROVIDERS_JSON;
+
     repositoryMocks.current = buildInitialMissionSnapshot(
       "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
       "mission-orchestrator",
@@ -31,6 +33,10 @@ describe("mission orchestrator", () => {
       repositoryMocks.current = snapshot;
       return snapshot;
     });
+  });
+
+  afterEach(() => {
+    delete process.env.SABI_LIVE_TEST_PROVIDERS_JSON;
   });
 
   it("advances a clearly labelled simulation to the human approval checkpoint", async () => {
@@ -79,6 +85,50 @@ describe("mission orchestrator", () => {
     expect(searching.outcome).toBe("WAITING");
     expect(searching.reason).toBe("WAITING_FOR_PROVIDER_DISCOVERY");
     expect(searching.snapshot.providers).toEqual([]);
+    expect(searching.snapshot.communications).toEqual([]);
+    expect(searching.snapshot.quotes).toEqual([]);
+  });
+
+  it("discovers only configured matching providers for a live mission", async () => {
+    repositoryMocks.current = buildInitialMissionSnapshot(
+      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "mission-live-configured",
+      false
+    );
+
+    process.env.SABI_LIVE_TEST_PROVIDERS_JSON = JSON.stringify([
+      {
+        id: "provider-consented-fabric",
+        name: "Consented Fabric Test Provider",
+        category: "Fabric",
+        location: "Lagos",
+        languages: ["English"],
+        verified: false,
+        active: true
+      },
+      {
+        id: "provider-unrelated-plumber",
+        name: "Unrelated Plumbing Provider",
+        category: "Plumbing",
+        location: "Lagos",
+        languages: ["English"],
+        verified: false,
+        active: true
+      }
+    ]);
+
+    await advanceMissionOrchestration("mission-live-configured", { mode: "LIVE" });
+    await advanceMissionOrchestration("mission-live-configured", { mode: "LIVE" });
+    const searching = await advanceMissionOrchestration(
+      "mission-live-configured",
+      { mode: "LIVE" }
+    );
+
+    expect(searching.snapshot.mission.status).toBe("SEARCHING");
+    expect(searching.outcome).toBe("ADVANCED");
+    expect(searching.snapshot.providers.map((provider) => provider.id)).toEqual([
+      "provider-consented-fabric"
+    ]);
     expect(searching.snapshot.communications).toEqual([]);
     expect(searching.snapshot.quotes).toEqual([]);
   });
