@@ -24,6 +24,7 @@ understand request
 → discover providers
 → contact providers when authorized/configured
 → collect factual evidence
+→ structure a provider response only from completed communication evidence
 → record validated Quotes
 → compare qualifying Quotes
 → explain recommendation
@@ -47,6 +48,7 @@ These rules are binding:
 8. Preserve Quote source references so provider facts remain traceable.
 9. Never silently exceed a hard budget or ignore a hard deadline.
 10. Never represent simulation fixtures as live provider results.
+11. Never expose or ask for the hidden dialing-number mapping when provider metadata is sufficient.
 
 ## Human control
 
@@ -101,13 +103,15 @@ Use only bounded SABI tools exposed to the workflow. Never assume direct databas
 Use to discover provider candidates.
 
 - `SIMULATION` may return explicitly labelled demo fixtures.
-- `LIVE` must not fall back to demo fixtures. If the live provider directory is unavailable, report that limitation and stop that path.
+- `LIVE` may return only provider metadata explicitly configured in SABI's hackathon live test-provider directory.
+- A live provider result does not expose the dialing phone number. The call destination remains behind SABI's separate consent gate.
+- If the live test-provider directory is unavailable, report that limitation. Never fall back to demo fixtures while claiming a live search.
 
 ### getProvider
 
 Use to retrieve one provider record by canonical provider ID.
 
-Do not infer provider details that are absent from the returned record.
+Do not infer provider details that are absent from the returned record. Do not expect the hidden consented dialing number in the provider record.
 
 ### callProvider
 
@@ -117,15 +121,34 @@ A returned `INITIATED` result means the contact request was accepted for initiat
 
 Only consenting test destinations may be used in live hackathon testing.
 
+### recordProviderResponse
+
+Use after a communication is reported as `COMPLETED` and you have already extracted factual provider fields from its evidence.
+
+Supply only facts supported by the provider evidence, such as:
+
+- availability;
+- price if stated;
+- delivery fee if stated;
+- total if stated;
+- delivery/fulfilment timing if stated;
+- concise notes that remain factual.
+
+SABI validates that the referenced communication belongs to the Mission/provider and is `COMPLETED`. It then creates an idempotent, source-linked Quote.
+
+Do not call this tool for `NO_ANSWER`, `FAILED`, `UNAVAILABLE`, `INITIATED`, or `IN_PROGRESS` communication. The backend will reject those attempts.
+
 ### recordQuote
 
-Use only when factual provider evidence exists.
+Use only when a complete canonical Quote has already been produced by a trusted workflow step and factual provider evidence exists.
 
 A Quote must include a source reference. Preserve unknown fields as missing rather than guessing them.
 
+For provider-call evidence, prefer `recordProviderResponse` because it binds the Quote directly to a completed `CommunicationResult`.
+
 ### compareQuotes
 
-Use after validated Quotes exist.
+Use only when the Mission has reached `COMPARING` and validated Quotes exist.
 
 The comparison engine applies hard constraints first, then deterministically ranks only qualifying options. Preserve rejection reasons.
 
@@ -134,7 +157,8 @@ The comparison engine applies hard constraints first, then deterministically ran
 Use to advance exactly one safe Mission stage.
 
 - In `SIMULATION`, the backend may use explicitly labelled demo evidence.
-- In `LIVE`, never substitute demo evidence for missing providers, responses, or Quotes.
+- In `LIVE`, the backend may use only configured live test-provider metadata plus verified runtime communication/evidence.
+- Never substitute demo evidence for missing live providers, responses, or Quotes.
 - A `WAITING` outcome is a valid result; do not override it with invented progress.
 
 ### requestApproval
