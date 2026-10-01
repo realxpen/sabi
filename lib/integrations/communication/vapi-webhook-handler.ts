@@ -38,14 +38,107 @@ function eventIdForRawBody(rawBody: Uint8Array): string {
   return `vapi-${createHash("sha256").update(rawBody).digest("hex")}`;
 }
 
+function extractVapiCallId(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const message = (payload as { message?: unknown }).message;
+  if (!message || typeof message !== "object") {
+    return undefined;
+  }
+
+  const call = (message as { call?: unknown }).call;
+  if (!call || typeof call !== "object") {
+    return undefined;
+  }
+
+  const id = (call as { id?: unknown }).id;
+  return typeof id === "string" && id.trim() ? id.trim() : undefined;
+}
+
+type VapiCallVerification =
+  | { kind: "VERIFIED"; callId: string }
+  | { kind: "UNKNOWN_CALL"; callId: string }
+  | { kind: "UNAVAILABLE" };
+
+async function verifyVapiCall(
+  payload: unknown,
+  environment: VapiWebhookEnvironment,
+  fetchImpl: VapiKrosFetch
+): Promise<VapiCallVerification> {
+  const callId = extractVapiCallId(payload);
+  const apiBaseUrl = environment.VAPI_API_BASE_URL?.trim();
+  const apiKey = environment.VAPI_API_KEY?.trim();
+  const assistantId = environment.VAPI_ASSISTANT_ID?.trim();
+
+  if (!callId || !apiBaseUrl || !apiKey || !assistantId) {
+    return { kind: "UNAVAILABLE" };
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImpl(
+      `${apiBaseUrl}/call/${encodeURIComponent(callId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json"
+        },
+        cache: "no-store"
+      }
+    );
+  } catch {
+    return { kind: "UNAVAILABLE" };
+  }
+
+  if (response.status === 404) {
+    return { kind: "UNKNOWN_CALL", callId };
+  }
+
+  if (!response.ok) {
+    return { kind: "UNAVAILABLE" };
+  }
+
+  let decoded: unknown;
+  try {
+    decoded = await response.json();
+  } catch {
+    return { kind: "UNAVAILABLE" };
+  }
+
+  if (!decoded || typeof decoded !== "object") {
+    return { kind: "UNAVAILABLE" };
+  }
+
+  const record = decoded as { id?: unknown; assistantId?: unknown };
+  const returnedCallId =
+    typeof record.id === "string" ? record.id.trim() : undefined;
+  const returnedAssistantId =
+    typeof record.assistantId === "string"
+      ? record.assistantId.trim()
+      : undefined;
+
+  if (
+    returnedCallId !== callId ||
+    returnedAssistantId !== assistantId
+  ) {
+    return { kind: "UNKNOWN_CALL", callId };
+  }
+
+  return { kind: "VERIFIED", callId };
+}
+
 /**
  * Authenticated Vapi webhook used for live call lifecycle evidence.
  *
  * Vapi is configured with a saved Bearer-token Custom Credential pointing at
- * this route. The handler never trusts transcript text as Quote data. It only
- * normalizes communication state, validates mission/provider correlation from
- * server-supplied assistantOverrides.variableValues, and deduplicates exact
- * webhook retries in Neon.
+ * this route. The handler never trusts transcript text as Quote data. It
+ * validates the Vapi call ID against Vapi's server API, checks that the call
+ * belongs to the configured SABI assistant, validates mission/provider
+ * correlation from server-supplied assistantOverrides.variableValues, and
+ * deduplicates exact webhook retries in Neon.
  */
 export function createVapiWebhookPostHandler(
   environment: VapiWebhookEnvironment = process.env,
@@ -93,6 +186,31 @@ export function createVapiWebhookPostHandler(
       return Response.json(
         { ok: true, kind: "UNKNOWN_CORRELATION", eventId },
         { status: 202 }
+      );
+    }
+
+    const callVerification = await verifyVapiCall(
+      payload,
+      environment,
+      fetchImpl
+    );
+
+    if (callVerification.kind === "UNKNOWN_CALL") {
+      return Response.json(
+        {
+          ok: true,
+          kind: "UNKNOWN_CALL",
+          eventId,
+          callId: callVerification.callId
+        },
+        { status: 202 }
+      );
+    }
+
+    if (callVerification.kind === "UNAVAILABLE") {
+      return Response.json(
+        { ok: false, error: "VAPI_CALL_VERIFICATION_FAILED" },
+        { status: 503 }
       );
     }
 
