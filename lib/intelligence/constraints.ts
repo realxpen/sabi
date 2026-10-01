@@ -190,11 +190,9 @@ export function evaluateCandidate(
     });
   } else {
     const unit = mission.unit ? ` ${mission.unit}` : "";
-    checks.push({
-      code: "QUANTITY_CAPACITY",
-      status: "PASS",
-      message: `Provider quote marks the requested quantity of ${mission.quantity}${unit} as available.`
-    });
+    const message = `The current Quote contract does not represent provider capacity, so availability of ${mission.quantity}${unit} cannot be independently verified.`;
+    uncertainties.push({ code: "QUANTITY_CAPACITY_UNKNOWN", message });
+    checks.push({ code: "QUANTITY_CAPACITY", status: "UNKNOWN", message });
   }
 
   const status = overallStatus(checks);
