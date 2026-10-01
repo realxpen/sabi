@@ -90,10 +90,22 @@ export async function GET(): Promise<Response> {
       const sql = neon(databaseUrl);
       const rows = await sql`
         select
-          to_regclass('public.quotes') is not null as quotes_ready,
-          to_regclass('public.approvals') is not null as approvals_ready,
-          to_regclass('public.communication_event_claims') is not null as claims_ready,
-          to_regclass('public.communication_correlations') is not null as correlations_ready
+          exists (
+            select 1 from information_schema.tables
+            where table_schema = 'public' and table_name = 'quotes'
+          ) as quotes_ready,
+          exists (
+            select 1 from information_schema.tables
+            where table_schema = 'public' and table_name = 'approvals'
+          ) as approvals_ready,
+          exists (
+            select 1 from information_schema.tables
+            where table_schema = 'public' and table_name = 'communication_event_claims'
+          ) as claims_ready,
+          exists (
+            select 1 from information_schema.tables
+            where table_schema = 'public' and table_name = 'communication_correlations'
+          ) as correlations_ready
       `;
 
       databaseReachable = true;
