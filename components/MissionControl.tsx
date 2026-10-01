@@ -1,5 +1,6 @@
 import type { MissionSnapshot } from "../lib/mission/snapshot";
 import { ApprovalCard } from "./ApprovalCard";
+import { CommunicationActivity } from "./CommunicationActivity";
 import { MissionSummary } from "./MissionSummary";
 import { MissionTimeline } from "./MissionTimeline";
 import { QuoteCard } from "./QuoteCard";
@@ -22,18 +23,29 @@ export function MissionControl({ snapshot }: MissionControlProps) {
       )
     : undefined;
 
+  const communicationLabel = snapshot.communications.every(
+    (result) => result.channel === "MOCK"
+  )
+    ? "mock contacts"
+    : "provider contacts";
+
   return (
     <div className="missionLayout">
       <div className="demoBanner">
-        <strong>Phase 1 mock mode</strong>
+        <strong>Integration-safe demo mode</strong>
         <span>
-          Provider responses on this screen are controlled demo fixtures, not
-          live vendor responses.
+          The screen now consumes the same normalized communication shape Lara's
+          live adapter produces. Current provider responses are still demo
+          fixtures until the live branch is integrated.
         </span>
       </div>
 
       <MissionSummary mission={snapshot.mission} />
       <MissionTimeline steps={snapshot.steps} />
+      <CommunicationActivity
+        communications={snapshot.communications}
+        providers={snapshot.providers}
+      />
 
       <section className="resultsSection">
         <div className="sectionHeading">
@@ -41,7 +53,10 @@ export function MissionControl({ snapshot }: MissionControlProps) {
             <div className="eyebrow">Results</div>
             <h2>Provider responses</h2>
           </div>
-          <span>{snapshot.quotes.length} mock responses</span>
+          <span>
+            {snapshot.quotes.length} responses · {snapshot.communications.length}{" "}
+            {communicationLabel}
+          </span>
         </div>
 
         <div className="quoteGrid">
