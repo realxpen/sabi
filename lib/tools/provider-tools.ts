@@ -13,11 +13,25 @@ import type {
 } from "../integrations/communication/types";
 import { temporaryDemoProviders } from "../demo/temporary-scenario";
 
+const optionalBimpeSearchStringSchema = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim();
+
+    if (!normalized || /^\{\{[^{}]+\}\}$/.test(normalized)) {
+      return undefined;
+    }
+
+    return normalized;
+  }
+
+  return value;
+}, z.string().min(1).optional());
+
 export const searchProvidersInputSchema = z.object({
-  query: z.string().trim().optional(),
-  category: z.string().trim().optional(),
-  location: z.string().trim().optional(),
-  language: z.string().trim().optional(),
+  query: optionalBimpeSearchStringSchema,
+  category: optionalBimpeSearchStringSchema,
+  location: optionalBimpeSearchStringSchema,
+  language: optionalBimpeSearchStringSchema,
   verified: z.boolean().optional(),
   active: z.boolean().optional()
 });
