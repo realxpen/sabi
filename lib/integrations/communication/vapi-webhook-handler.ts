@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { CommunicationResult } from "../../schemas";
 import {
   createNeonCommunicationEventDeduplicatorFromEnvironment,
   type NeonCommunicationEventDedupeSql
@@ -13,6 +14,16 @@ import {
 } from "./vapi-kros";
 
 export type VapiWebhookEnvironment = VapiKrosEnvironment;
+
+type ProcessedCommunicationSink = (
+  communication: CommunicationResult
+) => Promise<void>;
+
+const persistProcessedCommunication: ProcessedCommunicationSink = async (
+  communication
+) => {
+  await persistCommunicationResultToMission(communication);
+};
 
 function safeSecretEquals(actual: string, expected: string): boolean {
   const actualBytes = Buffer.from(actual);
@@ -107,7 +118,7 @@ export function createVapiWebhookPostHandler(
   environment: VapiWebhookEnvironment = process.env,
   fetchImpl: VapiKrosFetch = fetch,
   sql?: NeonCommunicationEventDedupeSql,
-  onProcessed = persistCommunicationResultToMission
+  onProcessed: ProcessedCommunicationSink = persistProcessedCommunication
 ) {
   return async function post(request: Request): Promise<Response> {
     if (environment.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros") {
