@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import { saveMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
 import { buildDemoMissionSnapshot } from "../../../lib/mission/demo-engine";
 
 const createMissionRequestSchema = z.object({
@@ -25,12 +26,28 @@ export async function POST(request: Request) {
     `mission-${randomUUID()}`
   );
 
-  return Response.json(
-    {
-      ...snapshot,
-      disclaimer:
-        "Phase 1 mock mode. No real provider contact or transaction occurred."
-    },
-    { status: 201 }
-  );
+  try {
+    const persisted = await saveMissionSnapshot(snapshot);
+
+    return Response.json(
+      {
+        ...persisted,
+        persisted: true,
+        disclaimer:
+          "Demo provider evidence is still mocked, but this mission state is durably persisted."
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Failed to persist mission snapshot", error);
+
+    return Response.json(
+      {
+        error: "MISSION_PERSISTENCE_UNAVAILABLE",
+        message:
+          "SABI could structure the mission but could not persist it. No mission was created."
+      },
+      { status: 503 }
+    );
+  }
 }
