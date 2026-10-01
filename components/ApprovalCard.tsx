@@ -10,7 +10,12 @@ type ApprovalCardProps = {
   quote?: Quote;
 };
 
-type Decision = "PENDING" | "APPROVING" | "APPROVED" | "CANCELLED";
+type Decision =
+  | "PENDING"
+  | "APPROVING"
+  | "CANCELLING"
+  | "APPROVED"
+  | "CANCELLED";
 
 export function ApprovalCard({
   mission,
@@ -19,7 +24,11 @@ export function ApprovalCard({
 }: ApprovalCardProps) {
   const router = useRouter();
   const [decision, setDecision] = useState<Decision>(
-    mission.status === "APPROVED" ? "APPROVED" : "PENDING"
+    mission.status === "APPROVED"
+      ? "APPROVED"
+      : mission.status === "CANCELLED"
+        ? "CANCELLED"
+        : "PENDING"
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -71,11 +80,41 @@ export function ApprovalCard({
     }
   }
 
+  async function cancelMission() {
+    if (decision !== "PENDING") return;
+
+    setDecision("CANCELLING");
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/missions/${mission.id}/cancel`, {
+        method: "POST"
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || result?.missionStatus !== "CANCELLED") {
+        throw new Error("SABI could not persist this cancellation.");
+      }
+
+      setDecision("CANCELLED");
+      router.refresh();
+    } catch (caught) {
+      setDecision("PENDING");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "SABI could not persist this cancellation."
+      );
+    }
+  }
+
   return (
     <section className="approvalCard">
       <div className="eyebrow">Human approval</div>
 
-      {decision === "PENDING" || decision === "APPROVING" ? (
+      {decision === "PENDING" ||
+      decision === "APPROVING" ||
+      decision === "CANCELLING" ? (
         <>
           <h2>Ready for your decision</h2>
           <p>
@@ -93,24 +132,24 @@ export function ApprovalCard({
               className="primaryAction"
               type="button"
               onClick={approve}
-              disabled={decision === "APPROVING"}
+              disabled={decision !== "PENDING"}
             >
               {decision === "APPROVING" ? "Saving approval…" : "Approve choice"}
             </button>
             <button
               className="secondaryAction"
               type="button"
-              onClick={() => setDecision("CANCELLED")}
-              disabled={decision === "APPROVING"}
+              onClick={cancelMission}
+              disabled={decision !== "PENDING"}
             >
-              Cancel
+              {decision === "CANCELLING" ? "Cancelling…" : "Cancel mission"}
             </button>
           </div>
 
           {error ? <p className="formError">{error}</p> : null}
           <p className="safetyNote">
-            Approval updates the persisted mission state only. No purchase,
-            booking, transfer, or payment is performed.
+            Approval or cancellation updates the persisted mission state only.
+            No purchase, booking, transfer, or payment is performed.
           </p>
         </>
       ) : decision === "APPROVED" ? (
@@ -127,8 +166,11 @@ export function ApprovalCard({
         </>
       ) : (
         <>
-          <h2>Mission stopped locally</h2>
-          <p>No external or financial action was taken.</p>
+          <h2>Mission cancelled</h2>
+          <p>The human cancellation is persisted.</p>
+          <p className="safetyNote">
+            No external or financial action was taken after cancellation.
+          </p>
         </>
       )}
     </section>
