@@ -10,6 +10,8 @@ import {
   searchProvidersForAgent,
   searchProvidersToolInputSchema
 } from "../../../../lib/integrations/bimpe/tools";
+import { createConfiguredCommunicationAdapter } from "../../../../lib/integrations/communication/live-runtime";
+import { advanceMissionOrchestration } from "../../../../lib/mission/orchestrator";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,7 @@ const toolSchema = z.enum([
   "get-provider",
   "record-quote",
   "compare-quotes",
+  "orchestrate-mission",
   "request-approval"
 ]);
 
@@ -28,6 +31,11 @@ const getProviderInputSchema = z.object({
 
 const missionIdInputSchema = z.object({
   missionId: z.string().trim().min(1)
+});
+
+const orchestrateMissionInputSchema = z.object({
+  missionId: z.string().trim().min(1),
+  mode: z.enum(["SIMULATION", "LIVE"]).default("SIMULATION")
 });
 
 function errorResponse(error: unknown): Response {
@@ -58,9 +66,14 @@ function errorResponse(error: unknown): Response {
   if (
     message === "QUOTE_PROVIDER_MISMATCH" ||
     message === "RECOMMENDATION_NOT_READY" ||
-    message === "MISSION_NOT_READY_FOR_APPROVAL_REQUEST"
+    message === "MISSION_NOT_READY_FOR_APPROVAL_REQUEST" ||
+    message === "SIMULATION_NOT_ALLOWED_FOR_LIVE_MISSION"
   ) {
     return Response.json({ error: message }, { status: 409 });
+  }
+
+  if (message === "LIVE_COMMUNICATION_ADAPTER_REQUIRED") {
+    return Response.json({ error: message }, { status: 503 });
   }
 
   return Response.json({ error: "AGENT_TOOL_FAILED", message }, { status: 500 });
@@ -135,6 +148,46 @@ export async function POST(
           meta: {
             persisted: true,
             consequentialActionPerformed: false
+          }
+        });
+      }
+
+      case "orchestrate-mission": {
+        const input = orchestrateMissionInputSchema.parse(body);
+
+        if (
+          input.mode === "LIVE" &&
+          process.env.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros"
+        ) {
+          return Response.json(
+            {
+              error: "LIVE_COMMUNICATION_NOT_ENABLED",
+              message:
+                "Live orchestration is disabled. No provider was contacted."
+            },
+            { status: 503 }
+          );
+        }
+
+        const result = await advanceMissionOrchestration(input.missionId, {
+          mode: input.mode,
+          communicationAdapter:
+            input.mode === "LIVE"
+              ? createConfiguredCommunicationAdapter()
+              : undefined
+        });
+
+        return Response.json({
+          tool: "orchestrateMission",
+          data: {
+            missionId: input.missionId,
+            status: result.snapshot.mission.status,
+            outcome: result.outcome,
+            reason: result.reason
+          },
+          meta: {
+            persisted: true,
+            transactionPerformed: false
           }
         });
       }

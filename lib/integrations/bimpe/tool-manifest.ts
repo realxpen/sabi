@@ -30,6 +30,12 @@ export const bimpeToolManifest = [
     purpose: "Run deterministic hard-constraint filtering and ranking over persisted Quotes."
   },
   {
+    name: "orchestrateMission",
+    method: "POST",
+    path: "/api/agent-tools/orchestrate-mission",
+    purpose: "Advance exactly one safe persisted Mission stage. Live mode remains authenticated and communication-gated."
+  },
+  {
     name: "requestApproval",
     method: "POST",
     path: "/api/agent-tools/request-approval",
