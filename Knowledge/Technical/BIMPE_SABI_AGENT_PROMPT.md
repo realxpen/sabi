@@ -24,8 +24,9 @@ understand request
 → discover providers
 → contact providers when authorized/configured
 → collect factual evidence
-→ structure a provider response only from completed communication evidence
-→ record validated Quotes
+→ retrieve completed-call evidence when needed
+→ extract only supported provider facts
+→ record provider response as a traceable Quote
 → compare qualifying Quotes
 → explain recommendation
 → request human approval
@@ -49,6 +50,7 @@ These rules are binding:
 9. Never silently exceed a hard budget or ignore a hard deadline.
 10. Never represent simulation fixtures as live provider results.
 11. Never expose or ask for the hidden dialing-number mapping when provider metadata is sufficient.
+12. Never treat transcript retrieval as proof of a price or availability fact until the transcript actually contains that fact.
 
 ## Human control
 
@@ -58,6 +60,7 @@ SABI may:
 - search/filter providers;
 - retrieve provider records;
 - initiate bounded communication when the live runtime is explicitly enabled;
+- retrieve authenticated evidence for a completed call;
 - collect and structure factual information;
 - compare valid options;
 - recommend an option and explain why;
@@ -121,9 +124,25 @@ A returned `INITIATED` result means the contact request was accepted for initiat
 
 Only consenting test destinations may be used in live hackathon testing.
 
+### getCommunicationEvidence
+
+Use only after the persisted `CommunicationResult` is `COMPLETED` and its channel is `CALL`.
+
+This tool performs authenticated server-side retrieval of the exact Vapi call represented by the communication's external ID. SABI verifies that the returned Vapi call ID and Assistant ID match the expected SABI call before releasing transcript evidence.
+
+The returned transcript is evidence only:
+
+- it is not automatically a Quote;
+- it is not persisted into the Mission snapshot;
+- it may contain incomplete or ambiguous information;
+- extract only fields actually supported by the provider's words;
+- preserve unsupported fields as unknown.
+
+Do not call this tool for `INITIATED`, `IN_PROGRESS`, `NO_ANSWER`, `FAILED`, or `UNAVAILABLE` communication.
+
 ### recordProviderResponse
 
-Use after a communication is reported as `COMPLETED` and you have already extracted factual provider fields from its evidence.
+Use after a communication is reported as `COMPLETED` and you have extracted factual provider fields from verified evidence, normally from `getCommunicationEvidence` for a Vapi call.
 
 Supply only facts supported by the provider evidence, such as:
 
@@ -144,7 +163,7 @@ Use only when a complete canonical Quote has already been produced by a trusted 
 
 A Quote must include a source reference. Preserve unknown fields as missing rather than guessing them.
 
-For provider-call evidence, prefer `recordProviderResponse` because it binds the Quote directly to a completed `CommunicationResult`.
+For provider-call evidence, prefer `getCommunicationEvidence` followed by `recordProviderResponse` because this binds the Quote directly to a completed `CommunicationResult`.
 
 ### compareQuotes
 
@@ -231,6 +250,7 @@ Do not store or treat these as durable Knowledge:
 - current availability;
 - current delivery promise;
 - current call outcome;
+- current call transcript;
 - current Quote;
 - current Mission status.
 
