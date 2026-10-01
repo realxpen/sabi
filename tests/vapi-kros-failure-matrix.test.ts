@@ -12,6 +12,13 @@ const environment = {
   DATABASE_URL: "postgresql://test:test@localhost/neondb"
 };
 
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
 function vapiEvent(overrides: Record<string, unknown> = {}) {
   return {
     message: {
@@ -104,6 +111,51 @@ describe("Vapi/Kros failure matrix", () => {
     expect(payload.kind).toBe("UNKNOWN_CORRELATION");
     expect(payload.eventId).toMatch(/^vapi-/);
     expect(payload.quoteCreated).toBeUndefined();
+  });
+
+  it("rejects a correlated webhook when Vapi does not recognize the call ID", async () => {
+    const fetchStub = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      expect(url).toBe("https://api.vapi.ai/call/vapi-call-known");
+      return jsonResponse({ message: "not found" }, 404);
+    }) as typeof fetch;
+    const handler = createVapiWebhookPostHandler(
+      environment,
+      fetchStub
+    );
+    const response = await handler(
+      webhookRequest(JSON.stringify(vapiEvent()))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(payload).toMatchObject({
+      ok: true,
+      kind: "UNKNOWN_CALL",
+      callId: "vapi-call-known"
+    });
+    expect(payload.eventId).toMatch(/^vapi-/);
+    expect(payload.quoteCreated).toBeUndefined();
+  });
+
+  it("rejects a Vapi call ID that belongs to a different assistant", async () => {
+    const fetchStub = (async () =>
+      jsonResponse({
+        id: "vapi-call-known",
+        assistantId: "assistant-other"
+      })) as typeof fetch;
+    const handler = createVapiWebhookPostHandler(
+      environment,
+      fetchStub
+    );
+    const response = await handler(
+      webhookRequest(JSON.stringify(vapiEvent()))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(payload.kind).toBe("UNKNOWN_CALL");
+    expect(payload.callId).toBe("vapi-call-known");
   });
 
   it("fails closed when live webhook processing is not explicitly enabled", async () => {
