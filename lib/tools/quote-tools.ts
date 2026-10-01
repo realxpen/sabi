@@ -10,6 +10,10 @@ import {
 } from "../schemas";
 import { getProvider } from "./provider-tools";
 
+function isUnresolvedBimpePlaceholder(value: string): boolean {
+  return /^\{\{[^{}]+\}\}$/.test(value.trim());
+}
+
 const bimpeBooleanSchema = z.preprocess((value) => {
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
@@ -34,7 +38,7 @@ const optionalBimpeNumberSchema = z.preprocess((value) => {
   if (typeof value === "string") {
     const normalized = value.trim();
 
-    if (!normalized) {
+    if (!normalized || isUnresolvedBimpePlaceholder(normalized)) {
       return undefined;
     }
 
@@ -45,8 +49,12 @@ const optionalBimpeNumberSchema = z.preprocess((value) => {
 }, z.number().nonnegative().optional());
 
 const optionalBimpeStringSchema = z.preprocess((value) => {
-  if (typeof value === "string" && !value.trim()) {
-    return undefined;
+  if (typeof value === "string") {
+    const normalized = value.trim();
+
+    if (!normalized || isUnresolvedBimpePlaceholder(normalized)) {
+      return undefined;
+    }
   }
 
   return value;
