@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { missionSchema } from "../lib/schemas";
 import {
   buildIntelligenceDemoQuotes,
+  intelligenceDemoCommunications,
   intelligenceDemoProviders,
   recommend,
   retrieveKnowledge
@@ -75,6 +76,16 @@ describe("SABI intelligence recommendation", () => {
     expect(missing?.reasons.map((reason) => reason.code)).toContain("TOTAL_UNKNOWN");
   });
 
+  it("keeps no-answer communication separate from Quote data", () => {
+    expect(intelligenceDemoCommunications).toHaveLength(1);
+    expect(intelligenceDemoCommunications[0].status).toBe("NO_ANSWER");
+    expect(
+      buildIntelligenceDemoQuotes(mission).some(
+        (quote) => quote.id === "communication-no-answer"
+      )
+    ).toBe(false);
+  });
+
   it("returns no recommendation when every candidate is invalid", () => {
     const quotes = buildIntelligenceDemoQuotes(mission).map((quote) => ({
       ...quote,
@@ -100,6 +111,11 @@ describe("SABI Knowledge retrieval", () => {
     );
     expect(knowledge.every((entry) => entry.status === "ACTIVE")).toBe(true);
     expect(knowledge.every((entry) => entry.source.length > 0)).toBe(true);
+  });
+
+  it("does not retrieve unrelated trust guidance for the canonical mission", () => {
+    const knowledge = retrieveKnowledge(mission);
+    expect(knowledge.map((entry) => entry.topic)).not.toContain("TRUST");
   });
 
   it("does not turn live provider facts into durable Knowledge", () => {
