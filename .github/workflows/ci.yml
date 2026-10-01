@@ -7,6 +7,7 @@ on:
       - "xpen/**"
       - "femi/**"
       - "lara/**"
+      - "integration/**"
     paths:
       - "app/**"
       - "components/**"
