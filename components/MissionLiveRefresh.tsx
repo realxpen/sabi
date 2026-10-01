@@ -14,25 +14,53 @@ const STOP_REFRESHING: ReadonlySet<MissionStatus> = new Set([
 ]);
 
 type MissionLiveRefreshProps = {
+  missionId: string;
   status: MissionStatus;
+  demoMode: boolean;
   intervalMs?: number;
 };
 
 export function MissionLiveRefresh({
+  missionId,
   status,
-  intervalMs = 3000
+  demoMode,
+  intervalMs = 1400
 }: MissionLiveRefreshProps) {
   const router = useRouter();
 
   useEffect(() => {
     if (STOP_REFRESHING.has(status)) return;
 
-    const interval = window.setInterval(() => {
-      router.refresh();
-    }, intervalMs);
+    let cancelled = false;
+    let inFlight = false;
 
-    return () => window.clearInterval(interval);
-  }, [intervalMs, router, status]);
+    async function tick() {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+
+      try {
+        if (demoMode) {
+          await fetch(`/api/missions/${encodeURIComponent(missionId)}/orchestrate`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ mode: "SIMULATION" })
+          });
+        }
+
+        if (!cancelled) router.refresh();
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    void tick();
+    const interval = window.setInterval(() => void tick(), intervalMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [demoMode, intervalMs, missionId, router, status]);
 
   return null;
 }

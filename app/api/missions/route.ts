@@ -1,10 +1,11 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { saveMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
-import { buildDemoMissionSnapshot } from "../../../lib/mission/demo-engine";
+import { buildInitialMissionSnapshot } from "../../../lib/mission/initial-snapshot";
 
 const createMissionRequestSchema = z.object({
-  request: z.string().trim().min(1)
+  request: z.string().trim().min(1),
+  mode: z.enum(["SIMULATION", "LIVE"]).default("SIMULATION")
 });
 
 export async function POST(request: Request) {
@@ -21,9 +22,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const snapshot = buildDemoMissionSnapshot(
+  const snapshot = buildInitialMissionSnapshot(
     parsed.data.request,
-    `mission-${randomUUID()}`
+    `mission-${randomUUID()}`,
+    parsed.data.mode === "SIMULATION"
   );
 
   try {
@@ -33,8 +35,11 @@ export async function POST(request: Request) {
       {
         ...persisted,
         persisted: true,
+        orchestrationMode: parsed.data.mode,
         disclaimer:
-          "Demo provider evidence is still mocked, but this mission state is durably persisted."
+          parsed.data.mode === "SIMULATION"
+            ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
+            : "Live mission created. No external action occurs until authenticated orchestration explicitly advances it."
       },
       { status: 201 }
     );

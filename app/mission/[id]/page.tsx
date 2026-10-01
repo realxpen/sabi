@@ -45,7 +45,11 @@ export default async function MissionPage({ params }: MissionPageProps) {
         </section>
       ) : snapshot ? (
         <>
-          <MissionLiveRefresh status={snapshot.mission.status} />
+          <MissionLiveRefresh
+            missionId={snapshot.mission.id}
+            status={snapshot.mission.status}
+            demoMode={snapshot.demoMode}
+          />
           <p className="missionRequest">{snapshot.mission.rawRequest}</p>
           <MissionControl snapshot={snapshot} />
         </>
