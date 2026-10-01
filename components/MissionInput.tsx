@@ -9,18 +9,44 @@ const CANONICAL_REQUEST =
 export function MissionInput() {
   const router = useRouter();
   const [request, setRequest] = useState(CANONICAL_REQUEST);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmed = request.trim();
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed || submitting) return;
 
-    router.push(
-      `/mission/demo?request=${encodeURIComponent(trimmed)}`
-    );
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/missions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ request: trimmed })
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.mission?.id) {
+        throw new Error(
+          result?.message ?? "SABI could not create this mission right now."
+        );
+      }
+
+      router.push(`/mission/${encodeURIComponent(result.mission.id)}`);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "SABI could not create this mission right now."
+      );
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -32,8 +58,12 @@ export function MissionInput() {
         onChange={(event) => setRequest(event.target.value)}
         rows={5}
         placeholder="Tell SABI what you need, your budget, location, and deadline."
+        disabled={submitting}
       />
-      <button type="submit">Create mission</button>
+      <button type="submit" disabled={submitting}>
+        {submitting ? "Creating mission…" : "Create mission"}
+      </button>
+      {error ? <p className="formError">{error}</p> : null}
     </form>
   );
 }
