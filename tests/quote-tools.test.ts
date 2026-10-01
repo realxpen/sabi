@@ -54,6 +54,27 @@ describe("recordQuote", () => {
     expect(quote.total).toBeUndefined();
   });
 
+  it("normalizes Bimpe JSON-template scalar strings safely", () => {
+    const quote = recordQuote({
+      missionId: "mission-bimpe",
+      providerId: "provider-ade-textiles",
+      available: "false" as unknown as boolean,
+      price: "60000" as unknown as number,
+      deliveryFee: "" as unknown as number,
+      total: "" as unknown as number,
+      deliveryDate: "" as unknown as string,
+      notes: "Bimpe template input",
+      source: "MANUAL",
+      sourceReference: "bimpe-template-test"
+    });
+
+    expect(quote.available).toBe(false);
+    expect(quote.price).toBe(60000);
+    expect(quote.deliveryFee).toBeUndefined();
+    expect(quote.total).toBeUndefined();
+    expect(quote.deliveryDate).toBeUndefined();
+  });
+
   it("rejects an unknown provider", () => {
     expect(() =>
       recordQuote({
