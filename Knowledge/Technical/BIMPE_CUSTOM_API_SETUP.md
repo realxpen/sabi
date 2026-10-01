@@ -27,6 +27,35 @@ Content-Type: application/json
 
 Store the token in Bimpe/deployment secret configuration. Do not paste the real token into GitHub, screenshots, chat, or Knowledge documents.
 
+## Live test-provider configuration
+
+The hackathon live path uses two separate server-side variables:
+
+```text
+SABI_LIVE_TEST_PROVIDERS_JSON
+SABI_CONSENTED_PROVIDER_PHONES_JSON
+```
+
+`SABI_LIVE_TEST_PROVIDERS_JSON` contains only canonical provider metadata and deliberately forbids phone numbers.
+
+Example shape:
+
+```json
+[
+  {
+    "id": "provider-consented-fabric",
+    "name": "Consented Fabric Test Provider",
+    "category": "Fabric",
+    "location": "Lagos",
+    "languages": ["English"],
+    "verified": false,
+    "active": true
+  }
+]
+```
+
+The actual consenting E.164 dialing number remains only in `SABI_CONSENTED_PROVIDER_PHONES_JSON`, keyed by the same provider ID. Bimpe never needs that phone value.
+
 ## 1. Search Providers
 
 ```text
@@ -51,8 +80,11 @@ All filter fields except `mode` are optional. `mode` defaults to `SIMULATION`.
 Current behavior:
 
 - `SIMULATION` returns explicitly labelled demo provider fixtures.
-- `LIVE` returns `LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED` until a verified live provider directory is implemented.
-- The backend never silently returns demo providers as live providers.
+- `LIVE` returns only metadata from `SABI_LIVE_TEST_PROVIDERS_JSON`.
+- if no live metadata directory is configured, `LIVE` returns `LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED`;
+- live provider responses are labelled `configured-live-test-provider-metadata`;
+- dialing numbers are never returned;
+- the backend never silently returns demo providers as live providers.
 
 ## 2. Get Provider
 
@@ -69,7 +101,7 @@ Request:
 }
 ```
 
-Current behavior follows the same simulation/live boundary as provider search.
+Current behavior follows the same simulation/live boundary as provider search. A configured live provider record contains metadata only, not the dialing number.
 
 ## 3. Call Provider
 
@@ -89,15 +121,54 @@ Request:
 
 Important semantics:
 
-- The configured SABI communication adapter decides whether this is mock or live.
-- Live mode requires the Vapi/Kros configuration and explicit consented-provider mapping.
-- `INITIATED` is initiation evidence only.
-- The returned result is persisted to Mission Control.
-- This action does not create a Quote.
+- the configured SABI communication adapter decides whether this is mock or live;
+- live mode requires the Vapi/Kros configuration and explicit consented-provider mapping;
+- `INITIATED` is initiation evidence only;
+- the returned result is persisted to Mission Control;
+- this action does not create a Quote.
 
 Until the Kros number/runtime is ready, keep live communication disabled.
 
-## 4. Record Quote
+## 4. Record Provider Response
+
+Preferred boundary for provider-call evidence:
+
+```text
+POST /api/agent-tools/record-provider-response
+```
+
+Request:
+
+```json
+{
+  "missionId": "mission-...",
+  "communicationId": "communication-...",
+  "available": true,
+  "price": 60000,
+  "deliveryFee": 3000,
+  "total": 63000,
+  "deliveryDate": "tomorrow",
+  "notes": "Structured factual fields extracted from the provider evidence."
+}
+```
+
+Only `missionId`, `communicationId`, and `available` are always required. Optional facts should be omitted when unknown.
+
+Rules enforced by SABI:
+
+- Mission must be at a quote-collection/comparison stage;
+- referenced communication must exist in the same Mission;
+- communication must be `COMPLETED`;
+- provider must exist in the Mission;
+- a live Mission rejects `MOCK` communication evidence;
+- Quote source/sourceReference are derived from the correlated communication;
+- the same communication produces the same Quote ID, making retries idempotent;
+- the structured facts are also attached to the communication observation;
+- no recommendation is changed automatically.
+
+This tool does not parse the transcript itself. The caller must supply only factual fields supported by the communication evidence.
+
+## 5. Record Quote
 
 ```text
 POST /api/agent-tools/record-quote
@@ -127,12 +198,15 @@ Request shape:
 Rules enforced by SABI:
 
 - canonical Quote schema validation;
+- Mission must be at an appropriate Quote stage;
 - Quote must belong to an existing provider in that Mission snapshot;
 - agent-recorded Quote requires `sourceReference` evidence;
 - missing optional facts remain missing;
 - recording a Quote does not automatically change the recommendation.
 
-## 5. Compare Quotes
+For provider communication, prefer `recordProviderResponse` because it binds the Quote directly to a completed communication.
+
+## 6. Compare Quotes
 
 ```text
 POST /api/agent-tools/compare-quotes
@@ -148,6 +222,8 @@ Request:
 
 Behavior:
 
+- Mission must be at `COMPARING`;
+- validated Quotes must exist;
 - loads persisted Mission, Providers, and Quotes;
 - applies Femi's hard constraints;
 - ranks only qualifying options;
@@ -155,7 +231,7 @@ Behavior:
 - returns exclusions/reasons through the intelligence result;
 - performs no consequential action.
 
-## 6. Orchestrate Mission
+## 7. Orchestrate Mission
 
 ```text
 POST /api/agent-tools/orchestrate-mission
@@ -175,10 +251,12 @@ Behavior:
 - advances at most one canonical Mission stage per call;
 - returns `ADVANCED`, `WAITING`, or `CHECKPOINT`;
 - `SIMULATION` can only operate on a Mission created with `demoMode: true`;
-- `LIVE` requires `SABI_COMMUNICATION_MODE=vapi-kros` and never borrows simulation data;
+- `LIVE` requires `SABI_COMMUNICATION_MODE=vapi-kros` before external communication;
+- during live planning SABI may load only matching metadata from `SABI_LIVE_TEST_PROVIDERS_JSON`;
+- live mode never borrows simulation providers, communication results, or Quotes;
 - a waiting result is truthful and should not be overridden by the agent.
 
-Typical simulation sequence:
+Typical sequence:
 
 ```text
 CREATED
@@ -193,7 +271,7 @@ CREATED
 
 Bimpe may call this action again when the returned state indicates another safe stage can be advanced. Stop when the backend returns a waiting state or human checkpoint.
 
-## 7. Request Approval
+## 8. Request Approval
 
 ```text
 POST /api/agent-tools/request-approval
@@ -223,6 +301,7 @@ Register actions with these logical names so the agent prompt and backend termin
 searchProviders
 getProvider
 callProvider
+recordProviderResponse
 recordQuote
 compareQuotes
 orchestrateMission
@@ -243,9 +322,10 @@ These can be configured now:
 2. Add the runtime prompt from `BIMPE_SABI_AGENT_PROMPT.md`.
 3. Upload/add the durable Knowledge from `BIMPE_KNOWLEDGE_BASE.md`.
 4. Configure the shared bearer secret for SABI Custom API actions.
-5. Register simulation-safe actions: `searchProviders`, `getProvider`, `recordQuote`, `compareQuotes`, `orchestrateMission`, `requestApproval`.
+5. Register simulation-safe actions: `searchProviders`, `getProvider`, `recordProviderResponse`, `recordQuote`, `compareQuotes`, `orchestrateMission`, `requestApproval`.
 6. Exercise one simulation mission and confirm tool responses remain labelled.
 7. Configure `callProvider` as an action, but keep SABI live communication disabled until the Kros/Vapi runtime is ready.
+8. Prepare the real consenting test-provider metadata for `SABI_LIVE_TEST_PROVIDERS_JSON` without including the phone number.
 
 ## Configuration after the Kros number arrives
 
@@ -253,12 +333,14 @@ Only after the live phone/SIP/runtime configuration is verified:
 
 1. Configure the Kros number in the Vapi BYO/SIP path.
 2. Add Vapi runtime secrets to the intended Preview environment.
-3. Add the one explicitly consenting test destination to `SABI_CONSENTED_PROVIDER_PHONES_JSON`.
-4. Set `SABI_COMMUNICATION_MODE=vapi-kros` only on the intended test Preview.
-5. Configure the Vapi webhook to SABI.
-6. Test `callProvider` for the consented test provider.
-7. Verify the phone rings and webhook returns into the same Mission.
-8. Keep production disabled until the hackathon team explicitly decides otherwise.
+3. Add real test-provider metadata to `SABI_LIVE_TEST_PROVIDERS_JSON`.
+4. Add the same provider ID → explicitly consenting E.164 destination to `SABI_CONSENTED_PROVIDER_PHONES_JSON`.
+5. Set `SABI_COMMUNICATION_MODE=vapi-kros` only on the intended test Preview.
+6. Configure the Vapi webhook to SABI.
+7. Test `callProvider` for the consented test provider.
+8. Verify the phone rings and webhook returns into the same Mission.
+9. Use the completed communication evidence to test `recordProviderResponse`.
+10. Keep production disabled until the hackathon team explicitly decides otherwise.
 
 ## Required truth check before demo freeze
 
