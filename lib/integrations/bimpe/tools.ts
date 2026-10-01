@@ -6,6 +6,11 @@ import {
   saveMissionSnapshot
 } from "../neon/mission-snapshot-repository";
 import {
+  getLiveTestProvider,
+  readLiveTestProviders,
+  searchLiveTestProviders
+} from "../providers/live-test-directory";
+import {
   missionStepSchema,
   providerSchema,
   quoteSchema
@@ -30,7 +35,11 @@ export function searchProvidersForAgent(
   const parsed = searchProvidersToolInputSchema.parse(input);
 
   if (parsed.mode === "LIVE") {
-    throw new Error("LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED");
+    const providers = searchLiveTestProviders(parsed);
+    if (!providers) {
+      throw new Error("LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED");
+    }
+    return providers;
   }
 
   const query = parsed.query?.toLowerCase();
@@ -84,7 +93,10 @@ export function getProviderForAgent(
   mode: "SIMULATION" | "LIVE"
 ) {
   if (mode === "LIVE") {
-    throw new Error("LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED");
+    if (!readLiveTestProviders()) {
+      throw new Error("LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED");
+    }
+    return getLiveTestProvider(providerId);
   }
 
   const provider = temporaryDemoProviders.find(
