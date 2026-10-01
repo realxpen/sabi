@@ -34,7 +34,7 @@ export function MissionControl({ snapshot }: MissionControlProps) {
       <div className="demoBanner">
         <strong>Integration-safe demo mode</strong>
         <span>
-          The screen now consumes the same normalized communication shape Lara's
+          The screen now consumes the same normalized communication shape Lara’s
           live adapter produces. Current provider responses are still demo
           fixtures until the live branch is integrated.
         </span>
