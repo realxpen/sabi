@@ -5,3 +5,4 @@ export * from "./knowledge";
 export * from "./context";
 export * from "./fixtures";
 export * from "./quote-extraction";
+export * from "./transcript-normalizer";
