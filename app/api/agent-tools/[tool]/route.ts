@@ -4,6 +4,8 @@ import {
   agentProviderModeSchema,
   compareQuotesForAgent,
   getProviderForAgent,
+  recordProviderResponseForAgent,
+  recordProviderResponseToolInputSchema,
   recordQuoteForAgent,
   recordQuoteToolInputSchema,
   requestHumanApprovalForAgent,
@@ -18,6 +20,7 @@ export const runtime = "nodejs";
 const toolSchema = z.enum([
   "search-providers",
   "get-provider",
+  "record-provider-response",
   "record-quote",
   "compare-quotes",
   "orchestrate-mission",
@@ -48,7 +51,10 @@ function errorResponse(error: unknown): Response {
 
   const message = error instanceof Error ? error.message : "AGENT_TOOL_FAILED";
 
-  if (message === "MISSION_NOT_FOUND") {
+  if (
+    message === "MISSION_NOT_FOUND" ||
+    message === "COMMUNICATION_NOT_FOUND"
+  ) {
     return Response.json({ error: message }, { status: 404 });
   }
 
@@ -70,7 +76,11 @@ function errorResponse(error: unknown): Response {
     message === "MISSION_NOT_READY_FOR_QUOTE_RECORDING" ||
     message === "MISSION_NOT_READY_FOR_COMPARISON" ||
     message === "QUOTES_NOT_READY" ||
-    message === "SIMULATION_NOT_ALLOWED_FOR_LIVE_MISSION"
+    message === "SIMULATION_NOT_ALLOWED_FOR_LIVE_MISSION" ||
+    message === "COMMUNICATION_MISSION_MISMATCH" ||
+    message === "COMMUNICATION_NOT_COMPLETED" ||
+    message === "COMMUNICATION_PROVIDER_MISMATCH" ||
+    message === "MOCK_EVIDENCE_NOT_ALLOWED_FOR_LIVE_MISSION"
   ) {
     return Response.json({ error: message }, { status: 409 });
   }
@@ -123,6 +133,21 @@ export async function POST(
           meta: {
             source: "explicit-simulation-provider-fixtures",
             liveDirectory: false
+          }
+        });
+      }
+
+      case "record-provider-response": {
+        const input = recordProviderResponseToolInputSchema.parse(body);
+        const result = await recordProviderResponseForAgent(input);
+        return Response.json({
+          tool: "recordProviderResponse",
+          data: result.quote,
+          meta: {
+            persisted: true,
+            communicationId: input.communicationId,
+            evidenceSourceReference: result.quote.sourceReference,
+            recommendationChanged: false
           }
         });
       }
