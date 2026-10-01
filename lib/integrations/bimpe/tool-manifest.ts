@@ -18,6 +18,12 @@ export const bimpeToolManifest = [
     purpose: "Initiate bounded provider communication through the configured communication adapter."
   },
   {
+    name: "getCommunicationEvidence",
+    method: "POST",
+    path: "/api/agent-tools/get-communication-evidence",
+    purpose: "Retrieve authenticated transcript evidence for one completed correlated Vapi call without persisting the transcript or creating a Quote."
+  },
+  {
     name: "recordProviderResponse",
     method: "POST",
     path: "/api/agent-tools/record-provider-response",
