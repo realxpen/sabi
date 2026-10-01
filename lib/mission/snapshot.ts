@@ -19,5 +19,5 @@ export type MissionSnapshot = {
   communications: CommunicationResult[];
   quotes: Quote[];
   recommendation?: MissionRecommendation;
-  demoMode: true;
+  demoMode: boolean;
 };
