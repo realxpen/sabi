@@ -18,6 +18,12 @@ export const bimpeToolManifest = [
     purpose: "Initiate bounded provider communication through the configured communication adapter."
   },
   {
+    name: "recordProviderResponse",
+    method: "POST",
+    path: "/api/agent-tools/record-provider-response",
+    purpose: "Convert already-extracted factual fields from one completed correlated communication into a traceable Quote."
+  },
+  {
     name: "recordQuote",
     method: "POST",
     path: "/api/agent-tools/record-quote",
