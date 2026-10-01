@@ -19,7 +19,7 @@ type StepDefinition = {
   message: string;
 };
 
-const demoSteps: StepDefinition[] = [
+const comparisonSteps: StepDefinition[] = [
   {
     status: "UNDERSTANDING",
     type: "UNDERSTAND_REQUEST",
@@ -49,11 +49,6 @@ const demoSteps: StepDefinition[] = [
     status: "COMPARING",
     type: "COMPARE_QUOTES",
     message: "Hard constraints applied before deterministic soft ranking."
-  },
-  {
-    status: "AWAITING_APPROVAL",
-    type: "REQUEST_APPROVAL",
-    message: "Recommendation ready. Waiting for human approval."
   }
 ];
 
@@ -61,13 +56,13 @@ function makeStep(
   mission: Mission,
   definition: StepDefinition,
   index: number,
-  isLast: boolean
+  status: MissionStep["status"] = "COMPLETED"
 ): MissionStep {
   return missionStepSchema.parse({
     id: `${mission.id}-step-${index + 1}`,
     missionId: mission.id,
     type: definition.type,
-    status: isLast ? "RUNNING" : "COMPLETED",
+    status,
     message: definition.message,
     createdAt: new Date().toISOString()
   });
@@ -80,34 +75,55 @@ export function buildDemoMissionSnapshot(
   let mission = parseDemoMissionRequest(rawRequest, id);
   const steps: MissionStep[] = [];
 
-  demoSteps.forEach((definition, index) => {
+  comparisonSteps.forEach((definition, index) => {
     mission = transitionMission(mission, definition.status);
-    steps.push(
-      makeStep(
-        mission,
-        definition,
-        index,
-        index === demoSteps.length - 1
-      )
-    );
+    steps.push(makeStep(mission, definition, index));
   });
 
   const quotes = buildIntelligenceDemoQuotes(mission);
   const result = recommend(mission, intelligenceDemoProviders, quotes);
-  const selected = result.selected;
+
+  if (result.decisionStatus === "READY" && result.selected) {
+    mission = transitionMission(mission, "AWAITING_APPROVAL");
+    steps.push(
+      makeStep(
+        mission,
+        {
+          status: "AWAITING_APPROVAL",
+          type: "REQUEST_APPROVAL",
+          message: "Recommendation ready. Waiting for human approval."
+        },
+        steps.length,
+        "RUNNING"
+      )
+    );
+  } else {
+    const last = steps.at(-1);
+    if (last) {
+      steps[steps.length - 1] = missionStepSchema.parse({
+        ...last,
+        status: "RUNNING",
+        message:
+          result.decisionStatus === "BLOCKED_UNKNOWN"
+            ? `Comparison is blocked until missing hard-constraint facts are verified: ${result.requiredFacts.join(" | ")}`
+            : "Comparison found no valid option under the represented hard constraints."
+      });
+    }
+  }
 
   return {
     mission,
     steps,
     providers: intelligenceDemoProviders,
     quotes,
-    recommendation: selected
-      ? {
-          providerId: selected.provider.id,
-          quoteId: selected.quote.id,
-          reasons: result.recommendationFactors
-        }
-      : undefined,
+    recommendation:
+      result.decisionStatus === "READY" && result.selected
+        ? {
+            providerId: result.selected.provider.id,
+            quoteId: result.selected.quote.id,
+            reasons: result.recommendationFactors
+          }
+        : undefined,
     demoMode: true
   };
 }
