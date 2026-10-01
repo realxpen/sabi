@@ -5,7 +5,11 @@ import {
   getMissionSnapshot,
   saveMissionSnapshot
 } from "../neon/mission-snapshot-repository";
-import { missionStepSchema, providerSchema, quoteSchema } from "../../schemas";
+import {
+  missionStepSchema,
+  providerSchema,
+  quoteSchema
+} from "../../schemas";
 import { runMissionIntelligence } from "../../mission/intelligence-runtime";
 import { transitionMission } from "../../mission/state-machine";
 
@@ -75,7 +79,10 @@ export function searchProvidersForAgent(
     .map((provider) => providerSchema.parse(provider));
 }
 
-export function getProviderForAgent(providerId: string, mode: "SIMULATION" | "LIVE") {
+export function getProviderForAgent(
+  providerId: string,
+  mode: "SIMULATION" | "LIVE"
+) {
   if (mode === "LIVE") {
     throw new Error("LIVE_PROVIDER_DIRECTORY_NOT_CONFIGURED");
   }
@@ -93,6 +100,12 @@ export const recordQuoteToolInputSchema = z.object({
   })
 });
 
+function assertQuoteRecordingStage(status: string) {
+  if (!["CONTACTING", "COLLECTING_QUOTES", "COMPARING"].includes(status)) {
+    throw new Error("MISSION_NOT_READY_FOR_QUOTE_RECORDING");
+  }
+}
+
 export async function recordQuoteForAgent(
   input: z.infer<typeof recordQuoteToolInputSchema>
 ) {
@@ -100,14 +113,7 @@ export async function recordQuoteForAgent(
   const snapshot = await getMissionSnapshot(quote.missionId);
 
   if (!snapshot) throw new Error("MISSION_NOT_FOUND");
-
-  if (
-    !["CONTACTING", "COLLECTING_QUOTES", "COMPARING"].includes(
-      snapshot.mission.status
-    )
-  ) {
-    throw new Error("MISSION_NOT_READY_FOR_QUOTE_RECORDING");
-  }
+  assertQuoteRecordingStage(snapshot.mission.status);
 
   if (!snapshot.providers.some((provider) => provider.id === quote.providerId)) {
     throw new Error("QUOTE_PROVIDER_MISMATCH");
@@ -122,6 +128,107 @@ export async function recordQuoteForAgent(
         );
 
   return saveMissionSnapshot({ ...snapshot, quotes });
+}
+
+export const recordProviderResponseToolInputSchema = z.object({
+  missionId: z.string().trim().min(1),
+  communicationId: z.string().trim().min(1),
+  available: z.boolean(),
+  price: z.number().nonnegative().optional(),
+  deliveryFee: z.number().nonnegative().optional(),
+  total: z.number().nonnegative().optional(),
+  deliveryDate: z.string().trim().min(1).optional(),
+  notes: z.string().trim().min(1).optional()
+});
+
+/**
+ * Controlled evidence → Quote boundary.
+ *
+ * The caller supplies already-extracted factual fields. SABI does not parse or
+ * invent transcript content here. A Quote is created only when the referenced
+ * CommunicationResult is COMPLETED, belongs to the same persisted Mission and
+ * provider, and the Mission is at a valid quote-collection stage.
+ *
+ * Repeating the same extraction is idempotent because the Quote ID is derived
+ * from the communication ID.
+ */
+export async function recordProviderResponseForAgent(
+  input: z.infer<typeof recordProviderResponseToolInputSchema>
+) {
+  const facts = recordProviderResponseToolInputSchema.parse(input);
+  const snapshot = await getMissionSnapshot(facts.missionId);
+
+  if (!snapshot) throw new Error("MISSION_NOT_FOUND");
+  assertQuoteRecordingStage(snapshot.mission.status);
+
+  const communication = snapshot.communications.find(
+    (candidate) => candidate.id === facts.communicationId
+  );
+
+  if (!communication) throw new Error("COMMUNICATION_NOT_FOUND");
+  if (communication.missionId !== snapshot.mission.id) {
+    throw new Error("COMMUNICATION_MISSION_MISMATCH");
+  }
+  if (communication.status !== "COMPLETED") {
+    throw new Error("COMMUNICATION_NOT_COMPLETED");
+  }
+  if (!snapshot.providers.some((provider) => provider.id === communication.providerId)) {
+    throw new Error("COMMUNICATION_PROVIDER_MISMATCH");
+  }
+  if (!snapshot.demoMode && communication.channel === "MOCK") {
+    throw new Error("MOCK_EVIDENCE_NOT_ALLOWED_FOR_LIVE_MISSION");
+  }
+
+  const source =
+    communication.channel === "CALL"
+      ? "CALL"
+      : communication.channel === "SMS"
+        ? "SMS"
+        : "OTHER";
+
+  const quote = quoteSchema.parse({
+    id: `quote-${communication.id}`,
+    missionId: snapshot.mission.id,
+    providerId: communication.providerId,
+    available: facts.available,
+    price: facts.price,
+    deliveryFee: facts.deliveryFee,
+    total: facts.total,
+    deliveryDate: facts.deliveryDate,
+    notes: facts.notes,
+    source,
+    sourceReference: communication.externalId ?? communication.id,
+    createdAt: new Date().toISOString()
+  });
+
+  const quotes = snapshot.quotes.some((candidate) => candidate.id === quote.id)
+    ? snapshot.quotes.map((candidate) =>
+        candidate.id === quote.id ? quote : candidate
+      )
+    : [...snapshot.quotes, quote];
+
+  const communications = snapshot.communications.map((candidate) =>
+    candidate.id === communication.id
+      ? {
+          ...candidate,
+          observation: {
+            available: facts.available,
+            price: facts.price,
+            deliveryFee: facts.deliveryFee,
+            deliveryDate: facts.deliveryDate,
+            notes: facts.notes
+          }
+        }
+      : candidate
+  );
+
+  const persisted = await saveMissionSnapshot({
+    ...snapshot,
+    communications,
+    quotes
+  });
+
+  return { quote, snapshot: persisted };
 }
 
 export async function compareQuotesForAgent(missionId: string) {
