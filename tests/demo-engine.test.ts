@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
 
 describe("buildDemoMissionSnapshot", () => {
-  it("reaches the human approval checkpoint with explicit mock data", () => {
+  it("reaches the human approval checkpoint using the intelligence layer", () => {
     const snapshot = buildDemoMissionSnapshot(
       "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
       "mission-demo"
@@ -14,10 +14,11 @@ describe("buildDemoMissionSnapshot", () => {
     expect(snapshot.recommendation?.providerId).toBe(
       "provider-ade-textiles"
     );
-    expect(snapshot.quotes).toHaveLength(3);
+    expect(snapshot.recommendation?.quoteId).toBe("quote-ade-textiles");
+    expect(snapshot.quotes).toHaveLength(7);
     expect(
-      snapshot.quotes.every(
-        (quote) => quote.sourceReference === "phase1-mock-scenario"
+      snapshot.quotes.some(
+        (quote) => quote.sourceReference === "demo-call-bola-late"
       )
     ).toBe(true);
   });
