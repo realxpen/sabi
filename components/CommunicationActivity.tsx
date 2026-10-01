@@ -25,7 +25,7 @@ export function CommunicationActivity({
   if (communications.length === 0) return null;
 
   return (
-    <section className="communicationCard">
+    <section className="resultsSection communicationCard">
       <div className="sectionHeading">
         <div>
           <div className="eyebrow">Communication</div>
