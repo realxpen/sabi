@@ -39,6 +39,24 @@ describe("SABI intelligence recommendation", () => {
     expect(result.approvalRequired).toBe(true);
   });
 
+  it("treats quote availability as the evidence for the requested quantity", () => {
+    const result = recommend(
+      mission,
+      intelligenceDemoProviders,
+      buildIntelligenceDemoQuotes(mission)
+    );
+
+    const selectedQuantityCheck = result.selected?.checks.find(
+      (check) => check.code === "QUANTITY_CAPACITY"
+    );
+    expect(selectedQuantityCheck?.status).toBe("PASS");
+    expect(selectedQuantityCheck?.message).toContain("20 yards");
+    expect(result.exclusions.find((item) => item.quoteId === "quote-mariam-fabrics")?.reasons)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ code: "QUOTE_UNAVAILABLE" })
+      ]));
+  });
+
   it("excludes the cheaper quote when its deadline fails", () => {
     const result = recommend(
       mission,
@@ -70,7 +88,7 @@ describe("SABI intelligence recommendation", () => {
       buildIntelligenceDemoQuotes(mission)
     );
 
-    const missing = result.exclusions.find(
+    const missing = result.uncertainties.find(
       (item) => item.quoteId === "quote-missing-delivery-fee"
     );
     expect(missing?.reasons.map((reason) => reason.code)).toContain("TOTAL_UNKNOWN");
@@ -109,7 +127,7 @@ describe("SABI Knowledge retrieval", () => {
     expect(knowledge.map((entry) => entry.id)).toContain(
       "knowledge.procurement.active"
     );
-    expect(knowledge.every((entry) => entry.status === "ACTIVE")).toBe(true);
+    expect(knowledge.every((entry) => entry.lifecycle === "ACTIVE")).toBe(true);
     expect(knowledge.every((entry) => entry.source.length > 0)).toBe(true);
   });
 
