@@ -201,7 +201,12 @@ function statusForEndedReason(endedReason: string | undefined): CommunicationSta
   if (
     endedReason.includes("error-") ||
     endedReason.includes("failed") ||
-    endedReason === "worker-shutdown"
+    endedReason.endsWith("-worker-died") ||
+    endedReason === "worker-shutdown" ||
+    endedReason === "phone-call-provider-closed-websocket" ||
+    endedReason === "phone-call-provider-bypass-enabled-but-no-call-received" ||
+    endedReason.startsWith("assistant-not-") ||
+    endedReason.startsWith("assistant-request-")
   ) {
     return "FAILED";
   }
@@ -326,7 +331,7 @@ export class VapiKrosCommunicationAdapter implements CommunicationAdapter {
 
     const phoneNumberId = await this.getConfiguredPhoneNumberId(configuration);
     const communicationId = `communication-${randomUUID()}`;
-    const response = await this.fetchImpl(`${configuration.apiBaseUrl}/call/phone`, {
+    const response = await this.fetchImpl(`${configuration.apiBaseUrl}/call`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${configuration.apiKey}`,
