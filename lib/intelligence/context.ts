@@ -61,8 +61,12 @@ export function assembleMissionContext(
   mission: Mission,
   providers: Provider[],
   quotes: Quote[],
-  options: AssembleMissionContextOptions = {}
+  optionsOrTopics: AssembleMissionContextOptions | KnowledgeTopic[] = {}
 ): MissionIntelligenceContext {
+  const options: AssembleMissionContextOptions = Array.isArray(optionsOrTopics)
+    ? { topics: optionsOrTopics }
+    : optionsOrTopics;
+
   const durableKnowledge = retrieveKnowledge(mission, options.topics);
   const userMemory = options.userMemory ?? [];
   const communicationObservations = options.communicationObservations ?? [];
