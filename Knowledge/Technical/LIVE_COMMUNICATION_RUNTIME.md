@@ -1,7 +1,7 @@
 # Live Communication Runtime
 
-Status: IMPLEMENTED / ACCOUNT CONFIGURATION REQUIRED
-Last updated: 2026-10-01
+Status: IMPLEMENTED / VAPI PRECONFIGURED / KROS LIVE RESOURCES REQUIRED
+Last updated: 2026-10-02
 
 ## Purpose
 
@@ -56,6 +56,8 @@ VAPI_ASSISTANT_ID
 VAPI_SIP_TRUNK_CREDENTIAL_ID
 VAPI_WEBHOOK_TOKEN
 ```
+
+As of 2026-10-02, the SABI Provider Caller assistant, authenticated Preview webhook, private Vapi API key, assistant ID, API base URL, and webhook Bearer token have been configured in the Vapi/Vercel Preview setup. `VAPI_SIP_TRUNK_CREDENTIAL_ID` is intentionally left unset until Kros provides the SIP credentials/number for the live test.
 
 The live adapter first retrieves Vapi phone-number resources and requires a `byo-phone-number` attached to the configured SIP trunk credential. It then calls Vapi's outbound phone-call endpoint with:
 
@@ -114,11 +116,10 @@ Before a live test:
 2. provision/identify a Kros phone number with outbound calling enabled
 3. configure its SIP credentials in Vapi
 4. import the Kros number into Vapi as a BYO SIP trunk number
-5. confirm the Vapi assistant and SIP trunk credential IDs
-6. configure the SABI Vapi webhook URL and saved Bearer credential
-7. add one explicitly consenting test destination to `SABI_CONSENTED_PROVIDER_PHONES_JSON`
-8. set `SABI_COMMUNICATION_MODE=vapi-kros` only in the intended Preview environment
-9. make one consented call and verify initiation, ringing/answer/end state, webhook correlation, and transcript/result
+5. record the Vapi SIP trunk credential ID in Preview as `VAPI_SIP_TRUNK_CREDENTIAL_ID`
+6. add one explicitly consenting test destination to `SABI_CONSENTED_PROVIDER_PHONES_JSON`
+7. set `SABI_COMMUNICATION_MODE=vapi-kros` only in the intended Preview environment
+8. make one consented call and verify initiation, ringing/answer/end state, webhook correlation, and transcript/result
 
 Do not enable production or call an unconsenting/fictional destination.
 
@@ -136,4 +137,4 @@ Regression coverage includes:
 - webhook Bearer authentication
 - durable duplicate webhook suppression through Neon
 
-GitHub CI passed the code/test commit before this documentation update, and the Preview deployment built successfully.
+GitHub CI and Vercel Preview are the authoritative verification signals for this branch. The Vapi account-side configuration is complete except for the Kros-dependent SIP trunk/number and the later consented live-call proof.
