@@ -123,14 +123,20 @@ function replaceQuote(quotes: Quote[], next: Quote): Quote[] {
 }
 
 /**
- * Reconcile only explicit structured CommunicationResult observations into
- * canonical Quotes. Transcript/summary text is never parsed here. A completed
- * call without an explicit observation remains communication evidence only.
+ * Reconcile only explicit structured live CommunicationResult observations into
+ * canonical Quotes. Simulation already owns explicit fixture Quotes, so MOCK
+ * communications are never materialized again here. Transcript/summary text is
+ * never parsed. A completed live call without an explicit observation remains
+ * communication evidence only.
  */
 function reconcileCommunicationQuotes(snapshot: MissionSnapshot): MissionSnapshot {
   let quotes = snapshot.quotes;
 
   for (const communication of snapshot.communications) {
+    if (communication.channel === "MOCK") {
+      continue;
+    }
+
     if (
       !snapshot.providers.some(
         (provider) => provider.id === communication.providerId
