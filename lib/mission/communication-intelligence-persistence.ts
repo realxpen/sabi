@@ -78,9 +78,10 @@ function missionRecommendationFrom(
  * Mission state, request approval, or execute a transaction. It only:
  * 1. loads the existing Mission snapshot,
  * 2. applies transcript normalization when evidence is present,
- * 3. extracts a canonical Quote when the represented facts permit one,
- * 4. recomputes the deterministic recommendation across all stored Quotes,
- * 5. writes communication + Quote(s) + READY recommendation in one snapshot.
+ * 3. carries exact provider-confirmed quantity evidence into Quote when present,
+ * 4. extracts a canonical Quote when the represented facts permit one,
+ * 5. recomputes the deterministic recommendation across all stored Quotes,
+ * 6. writes communication + Quote(s) + READY recommendation in one snapshot.
  *
  * BLOCKED_UNKNOWN and NO_VALID_OPTIONS deliberately persist with no selected
  * MissionRecommendation. The underlying communications and Quotes remain in
@@ -112,11 +113,19 @@ export async function persistCommunicationIntelligence({
     : undefined;
   const normalizedCommunication =
     normalization?.communication ?? communication;
+  const quantityEvidence =
+    normalization?.normalization.unrepresentedQuantityEvidence;
 
   const extraction = extractQuoteFromCommunication(normalizedCommunication, {
     mission: snapshot.mission,
     quoteId: `quote-${normalizedCommunication.id}`,
-    createdAt: normalizedCommunication.occurredAt
+    createdAt: normalizedCommunication.occurredAt,
+    confirmedQuantity: quantityEvidence
+      ? {
+          quantity: quantityEvidence.quantity,
+          unit: quantityEvidence.unit
+        }
+      : undefined
   });
 
   const communications = replaceById(
