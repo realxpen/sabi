@@ -1,11 +1,12 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { CommunicationResult } from "../../schemas";
+import type { PersistCommunicationIntelligenceResult } from "../../mission/communication-intelligence-persistence";
 import {
   createNeonCommunicationEventDeduplicatorFromEnvironment,
   type NeonCommunicationEventDedupeSql
 } from "../neon/communication-event-deduplicator";
-import { persistCommunicationResultToMission } from "../../mission/communication-runtime-sink";
 import { processCommunicationEvent } from "./event-processor";
+import { persistVerifiedVapiEventIntelligence } from "./vapi-intelligence-persistence";
 import {
   extractVapiEventCorrelation,
   VapiKrosCommunicationAdapter,
@@ -19,11 +20,10 @@ type ProcessedCommunicationSink = (
   communication: CommunicationResult
 ) => Promise<void>;
 
-const persistProcessedCommunication: ProcessedCommunicationSink = async (
-  communication
-) => {
-  await persistCommunicationResultToMission(communication);
-};
+type VapiProcessedEventPersistence = (input: {
+  payload: unknown;
+  communication: CommunicationResult;
+}) => Promise<PersistCommunicationIntelligenceResult>;
 
 function safeSecretEquals(actual: string, expected: string): boolean {
   const actualBytes = Buffer.from(actual);
@@ -109,16 +109,23 @@ async function verifyVapiCall(
 /**
  * Authenticated Vapi webhook for live call evidence.
  *
- * A PROCESSED result is not acknowledged until it has also been written into
- * Xpen's persisted Mission state. If persistence fails, event-processor releases
- * the Neon idempotency claim and this endpoint returns 500, allowing a provider
- * retry to safely re-attempt the Mission Control update.
+ * Production processing happens inside the durable dedupe window. After Vapi
+ * authentication, call verification, correlation and normalization, the
+ * verified event is passed through Femi's transcript/Quote intelligence and
+ * written to Xpen's Mission snapshot before the event claim is considered
+ * successful. If that persistence fails, the event processor releases the
+ * claim so a Vapi retry can safely re-attempt the update.
+ *
+ * Tests may inject the legacy communication-only sink as the fourth argument;
+ * production defaults to the quantity-aware intelligence persistence path.
  */
 export function createVapiWebhookPostHandler(
   environment: VapiWebhookEnvironment = process.env,
   fetchImpl: VapiKrosFetch = fetch,
   sql?: NeonCommunicationEventDedupeSql,
-  onProcessed: ProcessedCommunicationSink = persistProcessedCommunication
+  onProcessed?: ProcessedCommunicationSink,
+  persistProcessedEvent: VapiProcessedEventPersistence =
+    persistVerifiedVapiEventIntelligence
 ) {
   return async function post(request: Request): Promise<Response> {
     if (environment.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros") {
@@ -206,13 +213,21 @@ export function createVapiWebhookPostHandler(
     }
 
     try {
+      let intelligence: PersistCommunicationIntelligenceResult | undefined;
+
       const result = await processCommunicationEvent({
         eventId,
         payload,
         adapter: new VapiKrosCommunicationAdapter(environment, fetchImpl),
         correlation,
         deduplicator,
-        onProcessed
+        onProcessed: async (communication) => {
+          if (onProcessed) {
+            await onProcessed(communication);
+            return;
+          }
+          intelligence = await persistProcessedEvent({ payload, communication });
+        }
       });
 
       switch (result.kind) {
@@ -232,9 +247,12 @@ export function createVapiWebhookPostHandler(
               ok: true,
               kind: result.kind,
               eventId: result.eventId,
-              communication: result.communication,
+              communication:
+                intelligence?.normalizedCommunication ?? result.communication,
               missionPersisted: true,
-              quoteCreated: false
+              quoteCreated: Boolean(intelligence?.extraction.quote),
+              decisionStatus: intelligence?.recommendation.decisionStatus,
+              requiredFacts: intelligence?.recommendation.requiredFacts ?? []
             },
             { status: 200 }
           );
