@@ -4,7 +4,8 @@ import {
   missionStepSchema,
   type CommunicationResult,
   type MissionStatus,
-  type Provider
+  type Provider,
+  type Quote
 } from "../schemas";
 import {
   buildTemporaryDemoQuotes,
@@ -17,6 +18,7 @@ import {
 } from "../integrations/neon/mission-snapshot-repository";
 import { discoverLiveTestProvidersForMission } from "../integrations/providers/live-test-directory";
 import type { CommunicationAdapter } from "../integrations/communication/types";
+import { quoteFromCommunicationEvidence } from "./quote-evidence";
 import type { MissionSnapshot } from "./snapshot";
 import { transitionMission } from "./state-machine";
 
@@ -110,6 +112,39 @@ function buildSimulationCommunications(
       occurredAt: new Date().toISOString()
     });
   });
+}
+
+function replaceQuote(quotes: Quote[], next: Quote): Quote[] {
+  const index = quotes.findIndex((quote) => quote.id === next.id);
+  if (index === -1) return [...quotes, next];
+  return quotes.map((quote, candidateIndex) =>
+    candidateIndex === index ? next : quote
+  );
+}
+
+/**
+ * Reconcile only explicit structured CommunicationResult observations into
+ * canonical Quotes. Transcript/summary text is never parsed here. A completed
+ * call without an explicit observation remains communication evidence only.
+ */
+function reconcileCommunicationQuotes(snapshot: MissionSnapshot): MissionSnapshot {
+  let quotes = snapshot.quotes;
+
+  for (const communication of snapshot.communications) {
+    if (
+      !snapshot.providers.some(
+        (provider) => provider.id === communication.providerId
+      )
+    ) {
+      continue;
+    }
+
+    const derived = quoteFromCommunicationEvidence(communication);
+    if (!derived) continue;
+    quotes = replaceQuote(quotes, derived);
+  }
+
+  return { ...snapshot, quotes };
 }
 
 async function contactLiveProviders(
@@ -271,19 +306,22 @@ export async function advanceMissionOrchestration(
     }
 
     case "COLLECTING_QUOTES": {
-      if (snapshot.quotes.length === 0) {
+      const reconciled = reconcileCommunicationQuotes(snapshot);
+
+      if (reconciled.quotes.length === 0) {
+        if (reconciled !== snapshot) await saveMissionSnapshot(reconciled);
         return {
-          snapshot,
+          snapshot: reconciled,
           outcome: "WAITING",
           reason: "WAITING_FOR_VALIDATED_QUOTES"
         };
       }
 
       const next = await persistTransition(
-        snapshot,
+        reconciled,
         "COMPARING",
         "COMPARE_QUOTES",
-        "Validated Quotes are ready for deterministic constraint filtering and ranking."
+        "Validated source-traceable Quotes are ready for deterministic constraint filtering and ranking."
       );
       return { snapshot: next, outcome: "ADVANCED", reason: "Quotes ready for comparison." };
     }
