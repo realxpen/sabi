@@ -1,3 +1,4 @@
+import { BimpePreflight } from "../../components/BimpePreflight";
 import { RuntimeReadiness } from "../../components/RuntimeReadiness";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export default function ReadinessPage() {
       </p>
 
       <RuntimeReadiness />
+      <div style={{ height: 18 }} />
+      <BimpePreflight />
     </main>
   );
 }
