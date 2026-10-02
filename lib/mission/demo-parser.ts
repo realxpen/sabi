@@ -13,6 +13,9 @@ function parseMoney(raw: string): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
+const UNIT_PATTERN =
+  "yards?|pieces?|pcs?|units?|bottles?|packs?|boxes?";
+
 export function parseDemoMissionRequest(
   rawRequest: string,
   id = "demo-mission"
@@ -20,7 +23,7 @@ export function parseDemoMissionRequest(
   const normalized = rawRequest.trim();
 
   const quantityMatch = normalized.match(
-    /(?:need|find me|buy)?\s*(\d+)\s*(yards?|pieces?|pcs?|units?)/i
+    new RegExp(`(?:need|find me|buy)?\\s*(\\d+)\\s*(${UNIT_PATTERN})`, "i")
   );
 
   const budgetMatch =
@@ -39,10 +42,16 @@ export function parseDemoMissionRequest(
 
   const itemMatch =
     normalized.match(
-      /\d+\s*(?:yards?|pieces?|pcs?|units?)\s+of\s+(.+?)(?=\s+(?:delivered?|delivery|under|below|maximum|max|budget)\b|[,.]|$)/i
+      new RegExp(
+        `\\d+\\s*(?:${UNIT_PATTERN})\\s+of\\s+(.+?)(?=\\s+(?:delivered?|delivery|under|below|maximum|max|budget)\\b|[,.]|$)`,
+        "i"
+      )
     ) ??
     normalized.match(
-      /(?:need|find me|buy)\s+(?:\d+\s*(?:yards?|pieces?|pcs?|units?)\s+)?(.+?)(?=\s+(?:delivered?|delivery|under|below|maximum|max|budget)\b|[,.]|$)/i
+      new RegExp(
+        `(?:need|find me|buy)\\s+(?:\\d+\\s*(?:${UNIT_PATTERN})\\s+)?(.+?)(?=\\s+(?:delivered?|delivery|under|below|maximum|max|budget)\\b|[,.]|$)`,
+        "i"
+      )
     );
 
   const deadline =
