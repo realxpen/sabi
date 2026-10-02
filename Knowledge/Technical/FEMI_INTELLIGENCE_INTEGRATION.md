@@ -2,11 +2,11 @@
 
 Status: WORKING CONTRACT — `femi/intelligence`
 Owner: Femi
-Last updated: 2026-10-01
+Last updated: 2026-10-02
 
 This document describes how Xpen and Lara should consume the intelligence layer without depending on its internal ranking implementation.
 
-It does **not** redefine Mission, Provider, Quote, CommunicationResult, MissionStep or Approval.
+It does **not** redefine Mission, Provider, CommunicationResult, MissionStep or Approval. The coordinated Quote quantity extension is recorded by `ACTIVE_DECISIONS.md` D-028.
 
 ## Source-of-truth alignment
 
@@ -24,9 +24,10 @@ Relevant binding rules:
 2. hard constraints are applied before soft ranking;
 3. only fully qualifying candidates can become a final recommendation;
 4. transcripts/communication observations are evidence, not automatically Quotes;
-5. durable Knowledge is separate from live operational data and memory;
-6. consequential actions still require explicit human approval;
-7. SABI remains the system of record.
+5. provider-confirmed quantity may be represented on Quote only when factual provider evidence exists;
+6. durable Knowledge is separate from live operational data and memory;
+7. consequential actions still require explicit human approval;
+8. SABI remains the system of record.
 
 ## Public exports
 
@@ -62,18 +63,17 @@ Primary function:
 extractQuoteFromCommunication(communication, {
   mission?,
   quoteId?,
-  createdAt?
+  createdAt?,
+  confirmedQuantity?: {
+    quantity: number;
+    unit?: string;
+  }
 })
 ```
 
-Batch helper:
+`confirmedQuantity` must only be supplied when the caller holds factual provider evidence for that amount/unit. It must never be populated by copying `Mission.quantity` merely because the Mission requested that amount.
 
-```ts
-extractQuotesFromCommunications(communications, {
-  mission?,
-  createdAt?
-})
-```
+Batch extraction intentionally does not accept one shared `confirmedQuantity` value because quantity evidence is communication/provider-specific.
 
 ### Minimum evidence for Quote creation
 
@@ -82,9 +82,7 @@ A canonical Quote is created only when:
 1. `CommunicationResult.status === "COMPLETED"`; and
 2. `CommunicationResult.observation.available` is explicitly represented.
 
-SABI does not parse prices, delivery promises or availability out of `summary`. Lara/transport normalization must place factual provider observations into the structured `observation` lane first.
-
-This means:
+SABI does not parse prices, delivery promises or availability out of `summary`. Transcript normalization must first produce structured factual evidence.
 
 ```text
 NO_ANSWER / FAILED / INITIATED / IN_PROGRESS
@@ -100,7 +98,7 @@ COMPLETED + explicit availability
 → QUOTE_CREATED
 ```
 
-An explicit provider response of `available: false` is decision-useful and may become a canonical unavailable Quote without inventing price, fee, total or delivery date.
+An explicit provider response of `available: false` is decision-useful and may become a canonical unavailable Quote without inventing price, fee, total, delivery date or capacity.
 
 ### Missing facts remain missing
 
@@ -110,7 +108,7 @@ For an available option, extraction reports missing factual fields separately ra
 - `DELIVERY_FEE_UNKNOWN`
 - `TOTAL_UNKNOWN`
 - `DELIVERY_DATE_UNKNOWN` when the Mission has a deadline
-- `QUANTITY_CAPACITY_UNREPRESENTED` when the Mission has a quantity under the current shared contracts
+- `QUANTITY_CAPACITY_UNREPRESENTED` when the Mission has a hard quantity but factual provider-confirmed quantity evidence was not supplied, or when a required unit is still missing
 
 These gaps do not necessarily block Quote creation; downstream hard-constraint evaluation decides whether the Quote can support a recommendation.
 
@@ -122,9 +120,42 @@ These gaps do not necessarily block Quote creation; downstream hard-constraint e
 price + deliveryFee → total
 ```
 
-If `deliveryFee` is missing, it is **not** assumed to be zero and `total` remains unknown.
+If `deliveryFee` is missing, it is **not** assumed to be zero and `total` remains unknown. Explicit free delivery remains representable as `deliveryFee: 0`.
 
-A provider may explicitly communicate free delivery by normalizing `deliveryFee: 0`.
+### Quantity/capacity normalization
+
+D-028 extends canonical Quote with optional:
+
+```ts
+quantity?: number;
+unit?: string;
+```
+
+These fields mean **provider-confirmed/quoted quantity evidence**.
+
+Rules:
+
+```text
+Mission has no quantity constraint
+→ quantity check PASS
+
+Mission requires quantity, Quote.quantity missing
+→ UNKNOWN
+
+Mission requires a unit, Quote.quantity exists but Quote.unit missing
+→ UNKNOWN
+
+Quote quantity below required amount
+→ FAIL / QUANTITY_CAPACITY_INSUFFICIENT
+
+Quote unit incompatible with Mission unit
+→ FAIL / QUANTITY_UNIT_MISMATCH
+
+Provider-confirmed quantity >= required amount with compatible unit
+→ PASS
+```
+
+Simple singular/plural unit forms such as `yard` / `yards` compare as compatible. More complex unit conversion is intentionally not invented.
 
 ### Provenance
 
@@ -134,23 +165,7 @@ Every created Quote points back to the SABI communication record:
 sourceReference = communication:<communicationId>
 ```
 
-The extraction result separately preserves:
-
-- communication ID
-- mission ID
-- provider ID
-- channel
-- communication status
-- external transport ID when present
-- occurrence timestamp
-
-Channel mapping is intentionally bounded:
-
-```text
-CALL → Quote.source CALL
-SMS  → Quote.source SMS
-MOCK / OTHER → Quote.source OTHER
-```
+The extraction result separately preserves communication ID, mission ID, provider ID, channel, communication status, external transport ID when present, and occurrence timestamp.
 
 ## Hard-constraint semantics
 
@@ -160,12 +175,6 @@ Every represented hard constraint resolves to one of:
 type ConstraintStatus = "PASS" | "FAIL" | "UNKNOWN";
 ```
 
-Meaning:
-
-- `PASS` — factual data is represented and satisfies the constraint;
-- `FAIL` — factual data is represented and violates the constraint;
-- `UNKNOWN` — the required fact is not represented strongly enough to verify the constraint.
-
 Candidate-level status uses the strict aggregation rule:
 
 ```text
@@ -174,15 +183,11 @@ else UNKNOWN → UNKNOWN
 else         → PASS
 ```
 
-`qualifies === true` only when candidate status is `PASS`.
-
-`UNKNOWN` must never be silently converted into `PASS` to force a recommendation.
+`qualifies === true` only when candidate status is `PASS`. `UNKNOWN` is never silently converted into `PASS`.
 
 ## Recommendation contract
 
-`recommend(mission, providers, quotes)` returns a structured `RecommendationResult`.
-
-Important fields:
+`recommend(mission, providers, quotes)` returns:
 
 ```ts
 type RecommendationDecisionStatus =
@@ -193,50 +198,28 @@ type RecommendationDecisionStatus =
 
 ### READY
 
-At least one candidate passed every represented hard constraint.
-
-Consumers may use:
-
-- `selected`
-- `alternatives`
-- `recommendationFactors`
-- `exclusions`
-- `uncertainties`
-- `provenance`
-- `approvalRequired`
+At least one candidate passed every represented hard constraint. Consumers may use `selected`, `alternatives`, `recommendationFactors`, `exclusions`, `uncertainties`, `provenance`, and `approvalRequired`.
 
 A `READY` recommendation is still not authorization to transact.
 
 ### BLOCKED_UNKNOWN
 
-No final recommendation is produced because at least one otherwise viable candidate still has an unknown hard fact.
-
-Consumers should use:
-
-- `pendingEvidence` — deterministic follow-up priority only;
-- `requiredFacts` — factual gaps to resolve;
-- `uncertainties` — candidate-specific unknown reasons;
-- `provenance` — existing Quote evidence/source references.
-
-`pendingEvidence[0]` is **not** a recommendation. It is simply the first candidate to investigate next.
+No final recommendation is produced because otherwise viable candidates still have an unknown hard fact. `pendingEvidence[0]` is follow-up priority, not a recommendation.
 
 ### NO_VALID_OPTIONS
 
-Every candidate fails at least one represented hard constraint.
-
-Consumers should surface the exclusions and avoid requesting approval for an invalid option.
+Every candidate fails at least one represented hard constraint. Consumers should surface exclusions and avoid requesting approval for an invalid option.
 
 ## Xpen integration boundary
-
-Xpen/Mission orchestration should call `recommend()` after validated Quotes have been collected.
 
 Expected flow:
 
 ```text
 Mission
 → CommunicationResult(s)
-→ extractQuotesFromCommunications(...)
-→ canonical Quote(s) + explicit follow-up gaps
+→ factual transcript/observation normalization
+→ extractQuoteFromCommunication(...)
+→ canonical Quote(s)
 → recommend(...)
 → READY
    → persist/present selected recommendation
@@ -255,25 +238,68 @@ Do not advance a Mission to `AWAITING_APPROVAL` when decision status is `BLOCKED
 
 ## Lara integration boundary
 
-Lara owns communication transport/runtime and normalization into `CommunicationResult`.
+Lara owns communication transport/runtime, webhook authenticity, correlation and lifecycle normalization. Communication remains separate from Quote truth.
 
-Communication remains separate from Quote truth:
+The reviewed seam is:
 
 ```text
-transport event / transcript
-→ Lara structured extraction
-→ CommunicationResult.observation
-→ extractQuoteFromCommunication(...)
-→ canonical Quote OR explicit incomplete/not-quotable result
+verified transport event / transcript
+→ CommunicationResult lifecycle record
+→ normalizeCommunicationTranscript(...)
+→ CommunicationResult.observation + field-level transcript evidence
+→ provider-confirmed quantity evidence when explicitly supported by transcript
+→ extractQuoteFromCommunication(..., { confirmedQuantity })
+→ canonical Quote
 → recommend(...)
 ```
+
+The transcript normalizer still exposes its quantity sidecar under the historical name `unrepresentedQuantityEvidence`. That means the quantity is not stored in `CommunicationResult.observation`; after D-028, callers may explicitly promote that factual sidecar into `Quote.quantity` / `Quote.unit` through `confirmedQuantity`.
 
 Lara should not set missing values merely to make a Quote complete. In particular:
 
 - no answer does not mean `available: false`;
 - missing delivery fee does not mean `deliveryFee: 0`;
-- a transcript summary containing a number is not sufficient unless the structured observation identifies the factual field;
-- transport `UNAVAILABLE` does not automatically mean the requested product/service is unavailable.
+- a transcript summary containing a number is not sufficient unless structured evidence identifies the factual field;
+- transport `UNAVAILABLE` does not automatically mean the requested product/service is unavailable;
+- `Mission.quantity` is never copied into Quote without provider evidence.
+
+## Canonical Ankara behavior
+
+Mission:
+
+```text
+20 yards black Ankara
+Yaba
+tomorrow
+budget ≤ ₦70,000
+```
+
+With explicit provider confirmation:
+
+```text
+Provider confirms 20 yards
+price ₦60,000
+delivery ₦3,000
+delivery tomorrow
+→ Quote.quantity = 20
+→ Quote.unit = yards
+→ Quote.total = ₦63,000
+→ quantity PASS
+→ budget PASS
+→ deadline PASS
+→ recommendation READY
+```
+
+Without provider-confirmed quantity:
+
+```text
+available = true
+quantity absent
+→ quantity UNKNOWN
+→ otherwise viable candidate remains BLOCKED_UNKNOWN unless another PASS candidate exists
+```
+
+This preserves the original unknown-is-unknown rule while allowing explicit evidence to satisfy the hard quantity constraint.
 
 ## Context assembler boundary
 
@@ -292,117 +318,31 @@ approvalState
 provenance
 ```
 
-Compatibility aliases (`knowledge`, `providers`, `quotes`) remain temporarily available for current consumers, but new integrations should prefer the explicit lanes.
-
-Live price, live availability, delivery promises, Mission state and call outcomes must remain outside `durableKnowledge`.
+Live price, live availability, delivery promises, provider-confirmed quantity, Mission state and call outcomes remain outside `durableKnowledge`.
 
 ## Knowledge retrieval
 
-`retrieveKnowledge(...)` only returns `ACTIVE` durable entries by default.
-
-Default procurement context retrieves the cross-cutting rules needed for:
-
-- approval;
-- procurement;
-- truthfulness.
-
-Other topics such as communication/trust may be explicitly requested when needed.
-
-Each entry carries:
-
-- stable Knowledge entry ID;
-- stable `sourceId`;
-- source file path;
-- lifecycle;
-- topic.
-
-## Current quantity/capacity gap
-
-The canonical Ankara Mission contains:
-
-```text
-quantity = 20
-unit = yards
-```
-
-The canonical Quote schema currently contains:
-
-```text
-available: boolean
-price?
-deliveryFee?
-total?
-deliveryDate?
-notes?
-source
-sourceReference?
-```
-
-It does **not** represent the exact quantity/capacity the provider confirmed.
-
-Therefore:
-
-```text
-Quote.available === true
-```
-
-is not treated as independent proof that exactly `20 yards` are available.
-
-The new extraction layer can still safely create a canonical Quote from the facts that are representable. It reports `QUANTITY_CAPACITY_UNREPRESENTED` so downstream comparison remains `UNKNOWN` rather than fabricating capacity.
-
-For the current canonical Mission the quantity/capacity check is therefore `UNKNOWN` unless the shared contract is intentionally extended.
-
-### Evaluation-proven contract proposal — team review required
-
-The smallest useful shared-contract change appears to be explicit factual quantity evidence on Quote, for example:
-
-```ts
-quantity?: number;
-unit?: string;
-```
-
-A final naming decision should be reviewed by Xpen/Femi/Lara because this is a shared domain contract.
-
-No shared schema change has been made on this branch.
+`retrieveKnowledge(...)` only returns `ACTIVE` durable entries by default. Default procurement context retrieves approval, procurement and truthfulness guidance. Each entry carries a stable Knowledge entry ID, source ID/path, lifecycle and topic.
 
 ## Approval rule
 
-A recommendation may be comparison-ready while still requiring human approval.
-
-`approvalRequired` comes from Mission and is preserved by the intelligence layer; the intelligence layer does not invent or relax approval semantics.
+`approvalRequired` comes from Mission and is preserved by the intelligence layer. A `READY` recommendation still requires explicit human approval whenever the Mission says approval is required.
 
 ## Ranking rule
 
-Soft ranking occurs only after hard-constraint status is determined.
+Soft ranking occurs only after hard-constraint status is determined. Current documented factors are factual total price, provider verification, represented reliability score, represented rating, then deterministic IDs as final tie-breakers.
 
-Current documented soft factors are:
-
-1. factual total price;
-2. provider verification flag;
-3. represented reliability score;
-4. represented rating;
-5. deterministic IDs only as final tie-breakers.
-
-No hidden field or model-generated score is used.
-
-Evidence-pending candidates may be ordered using the same transparent factors **only for follow-up priority**. That ordering does not make them qualifying candidates.
+Evidence-pending candidates may be ordered using the same factors only for follow-up priority; that does not make them qualifying candidates.
 
 ## Provenance rule
 
-Recommendation output preserves Quote provenance using:
-
-- `quoteId`
-- `providerId`
-- `source`
-- `sourceReference` when represented.
-
-Knowledge context separately preserves Knowledge source IDs and paths.
+Recommendation output preserves Quote provenance through `quoteId`, `providerId`, `source`, and `sourceReference` when represented. Knowledge context separately preserves Knowledge source IDs and paths.
 
 ## Integration rule of thumb
 
 ```text
 transport/transcript
-→ structured CommunicationResult observation
+→ structured provider evidence
 → evidence-safe Quote extraction
 → hard constraints
 → ranking only among PASS candidates
@@ -410,7 +350,7 @@ transport/transcript
 → human approval
 ```
 
-And at every boundary:
+At every boundary:
 
 ```text
 missing fact → UNKNOWN
