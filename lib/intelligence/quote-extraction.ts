@@ -24,6 +24,8 @@ export type QuoteEvidenceGap = {
 
 export type QuoteObservedFactCode =
   | "AVAILABILITY"
+  | "QUANTITY"
+  | "UNIT"
   | "PRICE"
   | "DELIVERY_FEE"
   | "TOTAL"
@@ -58,10 +60,16 @@ export type QuoteExtractionResult = {
   };
 };
 
+export type ConfirmedQuantityEvidence = {
+  quantity: number;
+  unit?: string;
+};
+
 export type QuoteExtractionOptions = {
   mission?: Mission;
   quoteId?: string;
   createdAt?: string;
+  confirmedQuantity?: ConfirmedQuantityEvidence;
 };
 
 function quoteSourceFromChannel(
@@ -101,6 +109,10 @@ function provenance(
  * Minimum evidence required to create a Quote is an explicit completed
  * communication plus observation.available. Other absent facts remain absent
  * on Quote and are returned as explicit follow-up gaps.
+ *
+ * Quantity is supplied separately because CommunicationObservation intentionally
+ * remains transport-neutral. Callers may pass confirmedQuantity only when they
+ * hold factual provider evidence for that exact amount/unit.
  */
 export function extractQuoteFromCommunication(
   communication: CommunicationResult,
@@ -215,6 +227,20 @@ export function extractQuoteFromCommunication(
     value: observation.available
   });
 
+  const confirmedQuantity = observation.available
+    ? options.confirmedQuantity
+    : undefined;
+
+  if (confirmedQuantity !== undefined) {
+    observedFacts.push({
+      code: "QUANTITY",
+      value: confirmedQuantity.quantity
+    });
+    if (confirmedQuantity.unit !== undefined) {
+      observedFacts.push({ code: "UNIT", value: confirmedQuantity.unit });
+    }
+  }
+
   if (observation.price !== undefined) {
     observedFacts.push({ code: "PRICE", value: observation.price });
   }
@@ -252,6 +278,8 @@ export function extractQuoteFromCommunication(
     missionId: communication.missionId,
     providerId: communication.providerId,
     available: observation.available,
+    quantity: confirmedQuantity?.quantity,
+    unit: confirmedQuantity?.unit,
     price: observation.price,
     deliveryFee: observation.deliveryFee,
     total,
@@ -263,7 +291,7 @@ export function extractQuoteFromCommunication(
   });
 
   // An explicit unavailable response is already decision-useful. Do not invent
-  // pricing or delivery requirements for an option the provider said is absent.
+  // pricing, delivery, or quantity requirements for an absent option.
   if (observation.available) {
     if (observation.price === undefined) {
       missingFacts.push(
@@ -310,13 +338,26 @@ export function extractQuoteFromCommunication(
 
     if (options.mission?.quantity !== undefined) {
       const unit = options.mission.unit ? ` ${options.mission.unit}` : "";
-      missingFacts.push(
-        gap(
-          "QUANTITY_CAPACITY_UNREPRESENTED",
-          `The current shared CommunicationResult/Quote contracts cannot represent factual confirmation of ${options.mission.quantity}${unit} capacity.`,
-          false
-        )
-      );
+      if (confirmedQuantity === undefined) {
+        missingFacts.push(
+          gap(
+            "QUANTITY_CAPACITY_UNREPRESENTED",
+            `Provider-confirmed quantity for ${options.mission.quantity}${unit} is not represented in this Quote.`,
+            false
+          )
+        );
+      } else if (
+        options.mission.unit !== undefined &&
+        confirmedQuantity.unit === undefined
+      ) {
+        missingFacts.push(
+          gap(
+            "QUANTITY_CAPACITY_UNREPRESENTED",
+            `Provider-confirmed quantity ${confirmedQuantity.quantity} has no represented unit, so ${options.mission.quantity} ${options.mission.unit} cannot be checked safely.`,
+            false
+          )
+        );
+      }
     }
   }
 
@@ -332,7 +373,7 @@ export function extractQuoteFromCommunication(
 
 export function extractQuotesFromCommunications(
   communications: CommunicationResult[],
-  options: Omit<QuoteExtractionOptions, "quoteId"> = {}
+  options: Omit<QuoteExtractionOptions, "quoteId" | "confirmedQuantity"> = {}
 ): {
   results: QuoteExtractionResult[];
   quotes: Quote[];
