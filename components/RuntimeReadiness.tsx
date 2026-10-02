@@ -119,6 +119,23 @@ export function RuntimeReadiness() {
       </section>
 
       <section className="panel">
+        <div className="eyebrow">Bimpe orchestration</div>
+        <h2>Agent tool surface</h2>
+        <div className="summaryGrid">
+          <Flag ok={status.bimpe.toolAuthConfigured} label="Tool authentication" />
+          <Flag ok={status.bimpe.apiKeyConfigured} label="Bimpe API key" />
+          <Flag ok={status.bimpe.agentConfigured} label="Agent ID" />
+          <Flag ok={status.bimpe.workflowConfigured} label="Workflow ID" />
+        </div>
+        <p className="safetyNote">
+          <a href="/api/internal/tool-manifest" target="_blank" rel="noreferrer">
+            Open the Preview Bimpe tool manifest
+          </a>{" "}
+          to inspect the bounded SABI endpoints and purposes. Tokens are never included.
+        </p>
+      </section>
+
+      <section className="panel">
         <div className="eyebrow">Live communication gate</div>
         <h2>What is still needed for the real call</h2>
         <div className="summaryGrid">
