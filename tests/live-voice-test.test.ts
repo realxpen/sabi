@@ -29,6 +29,7 @@ vi.mock("../lib/mission/orchestrator", () => ({
 }));
 
 import {
+  refreshLiveVoiceTestCommunication,
   startLiveVoiceTestCall
 } from "../lib/mission/live-voice-test";
 import { POST as liveVoiceTestRoute } from "../app/api/missions/[id]/live-voice-test/route";
@@ -60,7 +61,7 @@ function liveContactingSnapshot() {
   };
 }
 
-describe("Bimpe Live Voice Test", () => {
+describe("Live Voice Test", () => {
   beforeEach(() => {
     process.env.SABI_COMMUNICATION_MODE = "bimpe";
     process.env.SABI_OPERATOR_TOKEN = "operator-test-token";
@@ -78,45 +79,81 @@ describe("Bimpe Live Voice Test", () => {
     delete process.env.SABI_OPERATOR_TOKEN;
   });
 
-  it("calls only the explicitly selected provider and moves into evidence collection", async () => {
+  it.each(["bimpe", "vapi-kros"] as const)(
+    "calls only the explicitly selected provider in %s mode and moves into evidence collection",
+    async (mode) => {
+      process.env.SABI_COMMUNICATION_MODE = mode;
+      const before = liveContactingSnapshot();
+      const communication = communicationResultSchema.parse({
+        id: `communication-${mode}-test`,
+        missionId: before.mission.id,
+        providerId: provider.id,
+        channel: "CALL",
+        status: "INITIATED",
+        externalId: mode === "bimpe" ? "bimpe:call-test-123" : "call-vapi-123",
+        summary: "Live test call initiated.",
+        occurredAt: "2026-10-02T13:00:00.000Z"
+      });
+      const afterCall = { ...before, communications: [communication] };
+
+      repositoryMocks.getMissionSnapshot.mockResolvedValue(before);
+      runtimeMocks.callProviderForAgent.mockResolvedValue({
+        communication,
+        snapshot: afterCall,
+        reusedExistingActiveCommunication: false
+      });
+
+      const result = await startLiveVoiceTestCall(
+        before.mission.id,
+        provider.id
+      );
+
+      expect(runtimeMocks.callProviderForAgent).toHaveBeenCalledTimes(1);
+      expect(runtimeMocks.callProviderForAgent).toHaveBeenCalledWith({
+        missionId: before.mission.id,
+        providerId: provider.id
+      });
+      expect(repositoryMocks.saveMissionSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mission: expect.objectContaining({ status: "COLLECTING_QUOTES" }),
+          communications: [communication]
+        })
+      );
+      expect(result.snapshot.mission.status).toBe("COLLECTING_QUOTES");
+      expect(result.externalActionAttempted).toBe(true);
+      expect(result.transactionPerformed).toBe(false);
+    }
+  );
+
+  it("uses persisted webhook state for Vapi/Kros refresh without transport polling", async () => {
+    process.env.SABI_COMMUNICATION_MODE = "vapi-kros";
     const before = liveContactingSnapshot();
     const communication = communicationResultSchema.parse({
-      id: "communication-bimpe-test",
+      id: "communication-vapi-active",
       missionId: before.mission.id,
       providerId: provider.id,
       channel: "CALL",
-      status: "INITIATED",
-      externalId: "bimpe:call-test-123",
-      summary: "BimpeAI test call initiated.",
-      occurredAt: "2026-10-02T13:00:00.000Z"
+      status: "IN_PROGRESS",
+      externalId: "call-vapi-active",
+      summary: "Authenticated Vapi webhook marked the call in progress.",
+      occurredAt: "2026-10-02T13:01:00.000Z"
     });
-    const afterCall = { ...before, communications: [communication] };
+    const snapshot = {
+      ...before,
+      mission: { ...before.mission, status: "COLLECTING_QUOTES" as const },
+      communications: [communication]
+    };
 
-    repositoryMocks.getMissionSnapshot.mockResolvedValue(before);
-    runtimeMocks.callProviderForAgent.mockResolvedValue({
-      communication,
-      snapshot: afterCall,
-      reusedExistingActiveCommunication: false
-    });
+    repositoryMocks.getMissionSnapshot.mockResolvedValue(snapshot);
 
-    const result = await startLiveVoiceTestCall(
-      before.mission.id,
-      provider.id
+    const result = await refreshLiveVoiceTestCommunication(
+      snapshot.mission.id,
+      communication.id
     );
 
-    expect(runtimeMocks.callProviderForAgent).toHaveBeenCalledTimes(1);
-    expect(runtimeMocks.callProviderForAgent).toHaveBeenCalledWith({
-      missionId: before.mission.id,
-      providerId: provider.id
-    });
-    expect(repositoryMocks.saveMissionSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mission: expect.objectContaining({ status: "COLLECTING_QUOTES" }),
-        communications: [communication]
-      })
-    );
-    expect(result.snapshot.mission.status).toBe("COLLECTING_QUOTES");
-    expect(result.externalActionAttempted).toBe(true);
+    expect(runtimeMocks.refreshCommunicationForAgent).not.toHaveBeenCalled();
+    expect(result.communication).toEqual(communication);
+    expect(result.refreshSource).toBe("persisted-webhook-state");
     expect(result.transactionPerformed).toBe(false);
   });
 

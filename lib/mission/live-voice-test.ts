@@ -12,10 +12,12 @@ import { getCommunicationEvidenceForAgent } from "../integrations/bimpe/communic
 import { advanceMissionOrchestration } from "./orchestrator";
 import { transitionMission } from "./state-machine";
 
-function assertBimpeLiveTestConfigured() {
-  if (process.env.SABI_COMMUNICATION_MODE?.trim() !== "bimpe") {
-    throw new Error("BIMPE_LIVE_TEST_NOT_ENABLED");
-  }
+type LiveVoiceTransport = "bimpe" | "vapi-kros";
+
+function assertLiveVoiceTestConfigured(): LiveVoiceTransport {
+  const mode = process.env.SABI_COMMUNICATION_MODE?.trim();
+  if (mode === "bimpe" || mode === "vapi-kros") return mode;
+  throw new Error("BIMPE_LIVE_TEST_NOT_ENABLED");
 }
 
 async function requireLiveMission(missionId: string) {
@@ -32,7 +34,7 @@ async function requireLiveMission(missionId: string) {
  * this helper deliberately stops before any communication adapter is invoked.
  */
 export async function prepareLiveVoiceTestMission(missionId: string) {
-  assertBimpeLiveTestConfigured();
+  assertLiveVoiceTestConfigured();
   let snapshot = await requireLiveMission(missionId);
 
   for (let index = 0; index < 5; index += 1) {
@@ -82,20 +84,21 @@ export async function prepareLiveVoiceTestMission(missionId: string) {
 
   return {
     snapshot,
-    readyToCall: snapshot.mission.status === "CONTACTING" && snapshot.providers.length > 0,
+    readyToCall:
+      snapshot.mission.status === "CONTACTING" && snapshot.providers.length > 0,
     reason: snapshot.mission.status
   };
 }
 
 /**
- * Initiate exactly one operator-selected, consent-gated Bimpe call, then move
+ * Initiate exactly one operator-selected, consent-gated live call, then move
  * the mission into evidence collection. No other provider is contacted.
  */
 export async function startLiveVoiceTestCall(
   missionId: string,
   providerId: string
 ) {
-  assertBimpeLiveTestConfigured();
+  const transport = assertLiveVoiceTestConfigured();
   const before = await requireLiveMission(missionId);
 
   if (before.mission.status !== "CONTACTING") {
@@ -113,7 +116,9 @@ export async function startLiveVoiceTestCall(
       type: "COLLECT_QUOTES",
       status: "RUNNING",
       message:
-        "One operator-selected consenting provider call was initiated through BimpeAI. Waiting for the call outcome and factual evidence.",
+        transport === "vapi-kros"
+          ? "One operator-selected consenting provider call was initiated through Vapi over the configured Kros BYO SIP transport. Waiting for authenticated call events and factual evidence."
+          : "One operator-selected consenting provider call was initiated through BimpeAI. Waiting for the call outcome and factual evidence.",
       createdAt: new Date().toISOString()
     });
 
@@ -138,8 +143,28 @@ export async function refreshLiveVoiceTestCommunication(
   missionId: string,
   communicationId: string
 ) {
-  assertBimpeLiveTestConfigured();
-  await requireLiveMission(missionId);
+  const transport = assertLiveVoiceTestConfigured();
+  const snapshot = await requireLiveMission(missionId);
+
+  const communication = snapshot.communications.find(
+    (candidate) => candidate.id === communicationId
+  );
+  if (!communication) throw new Error("COMMUNICATION_NOT_FOUND");
+  if (communication.missionId !== snapshot.mission.id) {
+    throw new Error("COMMUNICATION_MISSION_MISMATCH");
+  }
+
+  // Vapi/Kros lifecycle state is pushed into SABI through authenticated Vapi
+  // webhooks. For that transport, "refresh" means rereading the persisted
+  // Mission snapshot; it must not create a second provider-side polling path.
+  if (transport === "vapi-kros") {
+    return {
+      communication,
+      snapshot,
+      refreshSource: "persisted-webhook-state" as const,
+      transactionPerformed: false
+    };
+  }
 
   const result = await refreshCommunicationForAgent({
     missionId,
@@ -148,6 +173,7 @@ export async function refreshLiveVoiceTestCommunication(
 
   return {
     ...result,
+    refreshSource: "transport-poll" as const,
     transactionPerformed: false
   };
 }
@@ -156,7 +182,7 @@ export async function getLiveVoiceTestEvidence(
   missionId: string,
   communicationId: string
 ) {
-  assertBimpeLiveTestConfigured();
+  assertLiveVoiceTestConfigured();
   await requireLiveMission(missionId);
 
   const evidence = await getCommunicationEvidenceForAgent({
