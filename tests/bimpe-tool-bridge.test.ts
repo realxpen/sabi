@@ -140,6 +140,7 @@ describe("Bimpe bounded agent tool bridge", () => {
 
     expect(response.status).toBe(200);
     expect(payload.data.channel).toBe("MOCK");
+    expect(payload.meta.missionId).toBe("mission-demo");
     expect(payload.meta.liveCommunication).toBe(false);
     expect(payload.data.summary).toContain("No real provider was contacted");
   });
@@ -180,6 +181,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(payload.data.channel).toBe("SMS");
     expect(payload.data.status).toBe("UNAVAILABLE");
     expect(payload.data.summary).toContain("no message was sent");
+    expect(payload.meta.missionId).toBe("mission-demo");
     expect(payload.meta.transportConfigured).toBe(false);
     expect(payload.meta.externalMessageAccepted).toBe(false);
     expect(payload.meta.quoteCreated).toBe(false);
@@ -225,6 +227,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(payload.data.price).toBe(62000);
     expect(payload.data.deliveryFee).toBeUndefined();
     expect(payload.data.total).toBeUndefined();
+    expect(payload.meta.missionId).toBe("mission-demo");
     expect(payload.meta.persisted).toBe(true);
     expect(await quoteRepository.getById(payload.data.id)).toEqual(payload.data);
   });
@@ -305,6 +308,7 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(response.status).toBe(200);
     expect(payload.data.status).toBe("PENDING");
     expect(payload.data.action).toBe("SELECT_PROVIDER");
+    expect(payload.meta.missionId).toBe("mission-demo");
     expect(payload.meta.quoteLoadedFromRepository).toBe(true);
     expect(payload.meta.approvalPersisted).toBe(true);
     expect(payload.meta.approvalStorage).toBe("neon-postgres");
@@ -340,6 +344,7 @@ describe("Bimpe bounded agent tool bridge", () => {
 
     expect(response.status).toBe(200);
     expect(payload.data.status).toBe("PENDING");
+    expect(payload.meta.missionId).toBe("mission-demo");
     expect(payload.meta.approvalPersisted).toBe(false);
     expect(payload.meta.transactionCommitted).toBe(false);
   });
