@@ -41,7 +41,7 @@ describe("bounded agent HTTP route", () => {
 
   it("returns explicitly labelled simulation providers", async () => {
     const response = await POST(
-      request({ mode: "SIMULATION", category: "Fabric" }),
+      request({ mode: "SIMULATION", category: "Perfume" }),
       { params: { tool: "search-providers" } }
     );
     const body = await response.json();
