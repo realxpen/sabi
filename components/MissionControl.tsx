@@ -54,6 +54,7 @@ export function MissionControl({ snapshot }: MissionControlProps) {
       <CommunicationActivity
         communications={snapshot.communications}
         providers={snapshot.providers}
+        quotes={snapshot.quotes}
       />
 
       <section className="resultsSection">
