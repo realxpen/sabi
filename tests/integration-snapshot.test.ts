@@ -5,7 +5,7 @@ import { buildIntegratedMissionSnapshot } from "../lib/mission/integration-snaps
 describe("buildIntegratedMissionSnapshot", () => {
   it("assembles teammate outputs into a non-demo Mission Control snapshot", () => {
     const demo = buildDemoMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
       "mission-integration"
     );
 
@@ -21,13 +21,13 @@ describe("buildIntegratedMissionSnapshot", () => {
     expect(integrated.demoMode).toBe(false);
     expect(integrated.communications).toHaveLength(3);
     expect(integrated.recommendation?.providerId).toBe(
-      "provider-ade-textiles"
+      "provider-scenthub-yaba"
     );
   });
 
   it("rejects communication results from a different mission", () => {
     const demo = buildDemoMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "I need 12 bottles of 50ml perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
       "mission-integration"
     );
 
