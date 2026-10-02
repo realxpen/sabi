@@ -5,7 +5,7 @@ import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
 describe("approveDemoRecommendation", () => {
   it("records human approval without performing a transaction", () => {
     const snapshot = buildDemoMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
       "mission-approval"
     );
 
@@ -18,7 +18,7 @@ describe("approveDemoRecommendation", () => {
 
   it("cannot approve when no qualifying recommendation exists", () => {
     const snapshot = buildDemoMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦50,000.",
+      "I need 12 bottles of 50ml perfume delivered to Yaba tomorrow. My budget is ₦90,000.",
       "mission-no-recommendation"
     );
 
