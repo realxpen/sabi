@@ -7,45 +7,48 @@ import {
 } from "../schemas";
 
 /**
- * Temporary Phase 1 fixtures owned by the Xpen orchestration track.
- * Femi's intelligence/data track will replace these with the canonical
- * demo dataset and matching/recommendation implementation.
+ * Canonical hackathon simulation fixtures.
+ *
+ * These providers and Quotes are deliberately labelled Demo/Manual so the
+ * simulation never looks like evidence from real businesses. They are chosen
+ * to exercise SABI's hard constraints visibly: one option qualifies, one
+ * misses the deadline, and one exceeds the budget.
  */
 export const temporaryDemoProviders: Provider[] = [
   providerSchema.parse({
-    id: "provider-ade-textiles",
-    name: "Ade Textiles (Demo)",
-    category: "Fabric",
-    location: "Surulere",
+    id: "provider-scenthub-yaba",
+    name: "ScentHub Yaba (Demo)",
+    category: "Perfume",
+    location: "Yaba",
     languages: ["English", "Pidgin"],
     verified: true,
     rating: 4.8,
-    completedTransactions: 31,
-    reliabilityScore: 0.94,
+    completedTransactions: 42,
+    reliabilityScore: 0.95,
     active: true
   }),
   providerSchema.parse({
-    id: "provider-tola-fabrics",
-    name: "Tola Fabrics (Demo)",
-    category: "Fabric",
-    location: "Yaba",
+    id: "provider-luxe-aroma",
+    name: "Luxe Aroma Surulere (Demo)",
+    category: "Perfume",
+    location: "Surulere",
     languages: ["English", "Yoruba"],
     verified: true,
-    rating: 4.5,
-    completedTransactions: 18,
-    reliabilityScore: 0.88,
+    rating: 4.7,
+    completedTransactions: 27,
+    reliabilityScore: 0.91,
     active: true
   }),
   providerSchema.parse({
-    id: "provider-mariam-fabrics",
-    name: "Mariam Fabrics (Demo)",
-    category: "Fabric",
+    id: "provider-mira-scents",
+    name: "Mira Scents (Demo)",
+    category: "Perfume",
     location: "Lagos Island",
     languages: ["English", "Yoruba"],
-    verified: false,
-    rating: 4.2,
-    completedTransactions: 9,
-    reliabilityScore: 0.8,
+    verified: true,
+    rating: 4.6,
+    completedTransactions: 19,
+    reliabilityScore: 0.89,
     active: true
   })
 ];
@@ -55,41 +58,48 @@ export function buildTemporaryDemoQuotes(mission: Mission): Quote[] {
 
   return [
     quoteSchema.parse({
-      id: "quote-ade-textiles",
+      id: "quote-scenthub-yaba",
       missionId: mission.id,
-      providerId: "provider-ade-textiles",
+      providerId: "provider-scenthub-yaba",
       available: true,
-      price: 60000,
-      deliveryFee: 3000,
-      total: 63000,
+      price: 96000,
+      deliveryFee: 5000,
+      total: 101000,
       deliveryDate: "tomorrow",
-      notes: "Phase 1 mock response; no real provider was contacted.",
+      notes:
+        "Simulation fixture: 12 bottles of 50ml long-lasting unisex perfume available. No real provider was contacted.",
       source: "MANUAL",
-      sourceReference: "phase1-mock-scenario",
+      sourceReference: "hackathon-perfume-simulation",
       createdAt: now
     }),
     quoteSchema.parse({
-      id: "quote-tola-fabrics",
+      id: "quote-luxe-aroma",
       missionId: mission.id,
-      providerId: "provider-tola-fabrics",
+      providerId: "provider-luxe-aroma",
       available: true,
-      price: 64000,
-      deliveryFee: 3000,
-      total: 67000,
-      deliveryDate: "tomorrow",
-      notes: "Phase 1 mock response; no real provider was contacted.",
+      price: 105000,
+      deliveryFee: 5000,
+      total: 110000,
+      deliveryDate: "2 days",
+      notes:
+        "Simulation fixture: within budget but cannot meet tomorrow's deadline. No real provider was contacted.",
       source: "MANUAL",
-      sourceReference: "phase1-mock-scenario",
+      sourceReference: "hackathon-perfume-simulation",
       createdAt: now
     }),
     quoteSchema.parse({
-      id: "quote-mariam-fabrics",
+      id: "quote-mira-scents",
       missionId: mission.id,
-      providerId: "provider-mariam-fabrics",
-      available: false,
-      notes: "Phase 1 mock response: requested quantity unavailable.",
+      providerId: "provider-mira-scents",
+      available: true,
+      price: 118000,
+      deliveryFee: 6000,
+      total: 124000,
+      deliveryDate: "tomorrow",
+      notes:
+        "Simulation fixture: can meet the deadline but exceeds the hard budget. No real provider was contacted.",
       source: "MANUAL",
-      sourceReference: "phase1-mock-scenario",
+      sourceReference: "hackathon-perfume-simulation",
       createdAt: now
     })
   ];
@@ -106,6 +116,12 @@ export function selectTemporaryRecommendation(
       (quote) =>
         mission.budget === undefined ||
         (quote.total !== undefined && quote.total <= mission.budget)
+    )
+    .filter(
+      (quote) =>
+        mission.deadline === undefined ||
+        quote.deliveryDate?.trim().toLowerCase() ===
+          mission.deadline.trim().toLowerCase()
     )
     .sort((a, b) => (a.total ?? Infinity) - (b.total ?? Infinity))[0];
 }
