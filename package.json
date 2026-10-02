@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "hacknight:secrets": "node scripts/generate-hack-night-secrets.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
