@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { getMissionSnapshot } from "../neon/mission-snapshot-repository";
+import { fromBimpeExternalId } from "../communication/bimpe-ai";
+import { getBimpeCallEvidence } from "../voice-runtime/bimpe-evidence";
 import {
   getVapiCallEvidence,
   type VapiEvidenceEnvironment,
@@ -46,11 +48,17 @@ export async function getCommunicationEvidenceForAgent(
     throw new Error("COMMUNICATION_EXTERNAL_ID_MISSING");
   }
 
-  const evidence = await getVapiCallEvidence(
-    communication.externalId,
-    environment,
-    fetchImpl
-  );
+  const evidence = fromBimpeExternalId(communication.externalId)
+    ? await getBimpeCallEvidence(
+        communication.externalId,
+        environment,
+        fetchImpl
+      )
+    : await getVapiCallEvidence(
+        communication.externalId,
+        environment,
+        fetchImpl
+      );
 
   return {
     missionId: snapshot.mission.id,
