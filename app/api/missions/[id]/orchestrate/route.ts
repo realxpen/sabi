@@ -35,12 +35,13 @@ function authorizeLiveRequest(request: Request): Response | undefined {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  if (process.env.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros") {
+  const communicationMode = process.env.SABI_COMMUNICATION_MODE?.trim();
+  if (communicationMode !== "bimpe" && communicationMode !== "vapi-kros") {
     return Response.json(
       {
         error: "LIVE_COMMUNICATION_NOT_ENABLED",
         message:
-          "Live orchestration requires SABI_COMMUNICATION_MODE=vapi-kros. No provider was contacted."
+          "Live orchestration requires SABI_COMMUNICATION_MODE=bimpe or vapi-kros. No provider was contacted."
       },
       { status: 503 }
     );
