@@ -1,11 +1,13 @@
 import { ZodError, z } from "zod";
 import {
   createPersistedMission,
+  missionExecutionModeSchema,
   readDefaultMissionExecutionMode
 } from "../../../lib/mission/create-mission";
 
 const createMissionRequestSchema = z.object({
-  request: z.string().trim().min(1)
+  request: z.string().trim().min(1),
+  mode: missionExecutionModeSchema.optional()
 });
 
 export async function POST(request: Request) {
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
 
   let mode: "SIMULATION" | "LIVE";
   try {
-    mode = readDefaultMissionExecutionMode();
+    mode = parsed.data.mode ?? readDefaultMissionExecutionMode();
   } catch (error) {
     console.error("Invalid SABI_DEFAULT_MISSION_MODE", error);
     return Response.json(
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
         disclaimer:
           mode === "SIMULATION"
             ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
-            : "Live mission created. No external action occurs until authenticated orchestration explicitly advances it."
+            : "Live mission created. No external action occurs until an authenticated operator explicitly starts the Live Voice Test."
       },
       { status: 201 }
     );
