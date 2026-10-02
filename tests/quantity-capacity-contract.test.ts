@@ -76,20 +76,20 @@ describe("Quote quantity/capacity contract", () => {
     );
   });
 
-  it("stays unknown when no provider-confirmed quantity is represented", () => {
-    const evaluation = evaluateCandidate(
-      mission,
-      provider,
-      withQuote({ quantity: undefined, unit: undefined })
-    );
+  it("never infers the Mission quantity when provider-confirmed quantity is absent", () => {
+    const quote = withQuote({ quantity: undefined, unit: undefined });
+    const evaluation = evaluateCandidate(mission, provider, quote);
+    const recommendation = recommend(mission, [provider], [quote]);
+
+    expect(quote.quantity).toBeUndefined();
     expect(evaluation.status).toBe("UNKNOWN");
     expect(evaluation.uncertainties.map((reason) => reason.code)).toContain(
       "QUANTITY_CAPACITY_UNKNOWN"
     );
-    expect(
-      recommend(mission, [provider], [withQuote({ quantity: undefined, unit: undefined })])
-        .decisionStatus
-    ).toBe("BLOCKED_UNKNOWN");
+    expect(recommendation.decisionStatus).toBe("BLOCKED_UNKNOWN");
+    expect(recommendation.requiredFacts.join(" ")).toContain(
+      "Provider-confirmed quantity is unknown"
+    );
   });
 
   it("stays unknown when quantity has no unit but the Mission requires one", () => {
