@@ -6,3 +6,4 @@ export * from "./context";
 export * from "./fixtures";
 export * from "./quote-extraction";
 export * from "./transcript-normalizer";
+export * from "./vapi-kros-integration-fixture";
