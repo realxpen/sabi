@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Preview-only readiness reporting must remain side-effect-free.
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
 }
