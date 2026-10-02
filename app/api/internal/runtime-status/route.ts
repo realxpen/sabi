@@ -89,11 +89,25 @@ export async function GET(): Promise<Response> {
   const vapiConfigured = Object.values(vapi).every(Boolean);
 
   const bimpe = {
+    apiBaseConfigured: configured(process.env.BIMPEAI_BASE_URL),
     apiKeyConfigured: configured(process.env.BIMPEAI_API_KEY),
     agentConfigured: configured(process.env.BIMPEAI_AGENT_ID),
     workflowConfigured: configured(process.env.BIMPEAI_WORKFLOW_ID),
-    toolAuthConfigured: configured(process.env.SABI_AGENT_TOOL_TOKEN)
+    toolAuthConfigured: configured(process.env.SABI_AGENT_TOOL_TOKEN),
+    testCallsEnabled:
+      process.env.BIMPEAI_TEST_CALLS?.trim().toLowerCase() !== "false"
   };
+
+  const bimpeVoiceConfigured = Boolean(
+    bimpe.apiBaseConfigured && bimpe.apiKeyConfigured && bimpe.agentConfigured
+  );
+
+  const selectedTransportConfigured =
+    communicationMode === "bimpe"
+      ? bimpeVoiceConfigured
+      : communicationMode === "vapi-kros"
+        ? vapiConfigured
+        : false;
 
   return Response.json({
     environment: "preview",
@@ -111,15 +125,18 @@ export async function GET(): Promise<Response> {
     communication: {
       mode: communicationMode,
       consentedProviderPhoneCount,
+      bimpe: {
+        ...bimpe,
+        voiceConfigured: bimpeVoiceConfigured
+      },
       vapi: { ...vapi, configured: vapiConfigured },
       liveReady: Boolean(
-        communicationMode === "vapi-kros" &&
-          vapiConfigured &&
+        (communicationMode === "bimpe" || communicationMode === "vapi-kros") &&
+          selectedTransportConfigured &&
           consentedProviderPhoneCount > 0 &&
           liveProviderCount > 0 &&
           databaseReachable &&
-          missionSnapshotsReady &&
-          communicationClaimsReady
+          missionSnapshotsReady
       )
     },
     supervisedEvidence: {
@@ -129,7 +146,8 @@ export async function GET(): Promise<Response> {
     },
     bimpe: {
       ...bimpe,
-      configured: Boolean(bimpe.toolAuthConfigured)
+      voiceConfigured: bimpeVoiceConfigured,
+      configured: Boolean(bimpe.toolAuthConfigured && bimpeVoiceConfigured)
     },
     truthGuards: {
       humanApprovalRequired: true,
