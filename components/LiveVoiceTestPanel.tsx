@@ -186,6 +186,7 @@ export function LiveVoiceTestPanel({
 
   useEffect(() => {
     if (!activeCommunicationId || !operatorToken.trim()) return;
+    const communicationId = activeCommunicationId;
 
     let cancelled = false;
 
@@ -195,7 +196,7 @@ export function LiveVoiceTestPanel({
       try {
         await performAction(
           "refresh",
-          { communicationId: activeCommunicationId },
+          { communicationId },
           { quiet: true }
         );
       } finally {
