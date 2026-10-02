@@ -103,8 +103,11 @@ function buildSimulationCommunications(
       observation: quote
         ? {
             available: quote.available,
+            quantity: quote.quantity,
+            unit: quote.unit,
             price: quote.price,
             deliveryFee: quote.deliveryFee,
+            total: quote.total,
             deliveryDate: quote.deliveryDate,
             notes: quote.notes
           }
@@ -184,7 +187,7 @@ async function contactLiveProviders(
     throw new Error("LIVE_COMMUNICATION_ADAPTER_REQUIRED");
   }
 
-  const objective = `Confirm availability, factual total cost and delivery timing for: ${snapshot.mission.rawRequest}`;
+  const objective = `Confirm whether the provider can fulfil the full requested quantity/capacity, whether it is available, the factual item/service price, delivery fee, explicit total if given, and delivery/fulfilment timing for: ${snapshot.mission.rawRequest}`;
   const results: CommunicationResult[] = [];
 
   for (const provider of snapshot.providers) {

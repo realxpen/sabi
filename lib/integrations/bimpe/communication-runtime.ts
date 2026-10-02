@@ -56,7 +56,7 @@ export async function callProviderForAgent(
   const communication = await adapter.initiateContact({
     missionId: snapshot.mission.id,
     providerId: parsed.providerId,
-    objective: `Confirm availability, total price, delivery fee and delivery timing for: ${snapshot.mission.rawRequest}`
+    objective: `Confirm whether the provider can fulfil the full requested quantity/capacity, whether it is available, the factual item/service price, delivery fee, explicit total if given, and delivery/fulfilment timing for: ${snapshot.mission.rawRequest}`
   });
 
   const persisted = await recordCommunicationInMission({
