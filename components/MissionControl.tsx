@@ -1,6 +1,8 @@
+import { recommend } from "../lib/intelligence";
 import type { MissionSnapshot } from "../lib/mission/snapshot";
 import { ApprovalCard } from "./ApprovalCard";
 import { CommunicationActivity } from "./CommunicationActivity";
+import { DecisionTrace } from "./DecisionTrace";
 import { MissionSummary } from "./MissionSummary";
 import { MissionTimeline } from "./MissionTimeline";
 import { QuoteCard } from "./QuoteCard";
@@ -28,6 +30,11 @@ export function MissionControl({ snapshot }: MissionControlProps) {
   )
     ? "mock contacts"
     : "provider contacts";
+
+  const intelligence =
+    snapshot.providers.length > 0 && snapshot.quotes.length > 0
+      ? recommend(snapshot.mission, snapshot.providers, snapshot.quotes)
+      : undefined;
 
   return (
     <div className="missionLayout">
@@ -74,6 +81,10 @@ export function MissionControl({ snapshot }: MissionControlProps) {
           ))}
         </div>
       </section>
+
+      {intelligence ? (
+        <DecisionTrace intelligence={intelligence} providers={snapshot.providers} />
+      ) : null}
 
       {snapshot.recommendation ? (
         <section className="recommendationCard">
