@@ -3,6 +3,7 @@ import type { MissionSnapshot } from "../lib/mission/snapshot";
 import { ApprovalCard } from "./ApprovalCard";
 import { CommunicationActivity } from "./CommunicationActivity";
 import { DecisionTrace } from "./DecisionTrace";
+import { MissionRecoveryControls } from "./MissionRecoveryControls";
 import { MissionSummary } from "./MissionSummary";
 import { MissionTimeline } from "./MissionTimeline";
 import { QuoteCard } from "./QuoteCard";
@@ -36,6 +37,24 @@ export function MissionControl({ snapshot }: MissionControlProps) {
       ? recommend(snapshot.mission, snapshot.providers, snapshot.quotes)
       : undefined;
 
+  const failedContactCount = snapshot.communications.filter((result) =>
+    ["FAILED", "NO_ANSWER", "UNAVAILABLE"].includes(result.status)
+  ).length;
+  const unsettledContactCount = snapshot.communications.filter((result) =>
+    ["INITIATED", "IN_PROGRESS"].includes(result.status)
+  ).length;
+  const completedWithoutEvidenceCount = snapshot.communications.filter(
+    (result) =>
+      result.channel !== "MOCK" &&
+      result.status === "COMPLETED" &&
+      !snapshot.quotes.some((quote) => quote.providerId === result.providerId)
+  ).length;
+  const noQualifyingProvider = Boolean(
+    snapshot.mission.status === "COMPARING" &&
+      intelligence &&
+      !intelligence.selected
+  );
+
   return (
     <div className="missionLayout">
       <div className="demoBanner">
@@ -55,6 +74,19 @@ export function MissionControl({ snapshot }: MissionControlProps) {
         communications={snapshot.communications}
         providers={snapshot.providers}
         quotes={snapshot.quotes}
+      />
+
+      <MissionRecoveryControls
+        missionId={snapshot.mission.id}
+        demoMode={snapshot.demoMode}
+        status={snapshot.mission.status}
+        failedContactCount={failedContactCount}
+        unsettledContactCount={unsettledContactCount}
+        completedWithoutEvidenceCount={completedWithoutEvidenceCount}
+        quoteCount={snapshot.quotes.length}
+        noQualifyingProvider={noQualifyingProvider}
+        budget={snapshot.mission.budget}
+        deadline={snapshot.mission.deadline}
       />
 
       <section className="resultsSection">
