@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && node --check scripts/generate-hack-night-secrets.mjs && node --check scripts/bimpe-preflight.mjs",
     "test": "vitest run",
     "hacknight:secrets": "node scripts/generate-hack-night-secrets.mjs",
     "hacknight:preflight": "node scripts/bimpe-preflight.mjs"
