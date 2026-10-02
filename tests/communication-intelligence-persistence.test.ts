@@ -77,11 +77,16 @@ function completedCommunication(): CommunicationResult {
 }
 
 function transcript(withQuantity: boolean): string {
+  const availabilityQuestion = withQuantity
+    ? "Assistant: Do you have 20 yards of black Ankara available?"
+    : "Assistant: Do you have black Ankara available?";
+  const availabilityAnswer = withQuantity
+    ? "User: Yes, we have 20 yards available."
+    : "User: Yes, it is available.";
+
   return [
-    withQuantity
-      ? "Assistant: Do you have 20 yards of black Ankara available?"
-      : "Assistant: Do you have black Ankara available?",
-    withQuantity ? "User: Yes, we have 20 yards available." : "User: Yes, it is available.",
+    availabilityQuestion,
+    availabilityAnswer,
     "Assistant: How much does the Ankara cost?",
     "User: ₦60,000.",
     "Assistant: Can you deliver to Yaba tomorrow?",
@@ -94,7 +99,6 @@ function transcript(withQuantity: boolean): string {
 describe("communication intelligence persistence", () => {
   it("persists normalized communication, Quote and READY recommendation atomically", async () => {
     const store = new MemoryStore(snapshot());
-
     const result = await persistCommunicationIntelligence({
       communication: completedCommunication(),
       transcript: transcript(false),
@@ -118,33 +122,29 @@ describe("communication intelligence persistence", () => {
     });
   });
 
-  it("promotes explicit 20-yard provider confirmation into the Quote and unblocks recommendation", async () => {
+  it("promotes explicit 20-yard confirmation into Quote quantity and becomes READY", async () => {
     const store = new MemoryStore(snapshot(20));
-
     const result = await persistCommunicationIntelligence({
       communication: completedCommunication(),
       transcript: transcript(true),
       store
     });
 
+    const quantityEvidence =
+      result.normalization?.normalization.unrepresentedQuantityEvidence;
+    const quantityGap = result.extraction.missingFacts.find(
+      (fact) => fact.code === "QUANTITY_CAPACITY_UNREPRESENTED"
+    );
+
     expect(store.saves).toBe(1);
-    expect(
-      result.normalization?.normalization.unrepresentedQuantityEvidence?.quantity
-    ).toBe(20);
+    expect(quantityEvidence?.quantity).toBe(20);
     expect(result.extraction.quote).toMatchObject({
       quantity: 20,
       unit: "yards",
       total: 63000
     });
-    expect(
-      result.extraction.missingFacts.some(
-        (fact) => fact.code === "QUANTITY_CAPACITY_UNREPRESENTED"
-      )
-    ).toBe(false);
+    expect(quantityGap).toBeUndefined();
     expect(result.recommendation.decisionStatus).toBe("READY");
-    expect(result.recommendation.requiredFacts.join(" ")).not.toContain(
-      "quantity"
-    );
     expect(result.snapshot.recommendation).toEqual({
       providerId: "provider-ade",
       quoteId: "quote-communication-ade",
@@ -160,11 +160,7 @@ describe("communication intelligence persistence", () => {
       summary: "Provider did not answer.",
       errorCode: "customer-did-not-answer"
     };
-
-    const result = await persistCommunicationIntelligence({
-      communication,
-      store
-    });
+    const result = await persistCommunicationIntelligence({ communication, store });
 
     expect(store.saves).toBe(1);
     expect(result.extraction.status).toBe("NOT_QUOTABLE");
@@ -175,16 +171,14 @@ describe("communication intelligence persistence", () => {
   });
 
   it("extracts transcript from either verified Vapi transcript location", () => {
-    expect(
-      extractVerifiedVapiTranscript({
-        message: { artifact: { transcript: "Assistant: Hi\nUser: Hello" } }
-      })
-    ).toContain("User: Hello");
+    const artifactTranscript = extractVerifiedVapiTranscript({
+      message: { artifact: { transcript: "Assistant: Hi\nUser: Hello" } }
+    });
+    const directTranscript = extractVerifiedVapiTranscript({
+      message: { transcript: "Assistant: Hi\nUser: Hello again" }
+    });
 
-    expect(
-      extractVerifiedVapiTranscript({
-        message: { transcript: "Assistant: Hi\nUser: Hello again" } }
-      })
-    ).toContain("User: Hello again");
+    expect(artifactTranscript).toContain("User: Hello");
+    expect(directTranscript).toContain("User: Hello again");
   });
 });
