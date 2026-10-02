@@ -118,7 +118,7 @@ describe("communication intelligence persistence", () => {
     });
   });
 
-  it("persists truthful Quote evidence but no selected recommendation when quantity remains unrepresented", async () => {
+  it("promotes explicit 20-yard provider confirmation into the Quote and unblocks recommendation", async () => {
     const store = new MemoryStore(snapshot(20));
 
     const result = await persistCommunicationIntelligence({
@@ -128,15 +128,28 @@ describe("communication intelligence persistence", () => {
     });
 
     expect(store.saves).toBe(1);
-    expect(result.extraction.quote?.total).toBe(63000);
     expect(
       result.normalization?.normalization.unrepresentedQuantityEvidence?.quantity
     ).toBe(20);
-    expect(result.recommendation.decisionStatus).toBe("BLOCKED_UNKNOWN");
-    expect(result.recommendation.requiredFacts.join(" ")).toContain(
-      "cannot be independently verified"
+    expect(result.extraction.quote).toMatchObject({
+      quantity: 20,
+      unit: "yards",
+      total: 63000
+    });
+    expect(
+      result.extraction.missingFacts.some(
+        (fact) => fact.code === "QUANTITY_CAPACITY_UNREPRESENTED"
+      )
+    ).toBe(false);
+    expect(result.recommendation.decisionStatus).toBe("READY");
+    expect(result.recommendation.requiredFacts.join(" ")).not.toContain(
+      "quantity"
     );
-    expect(result.snapshot.recommendation).toBeUndefined();
+    expect(result.snapshot.recommendation).toEqual({
+      providerId: "provider-ade",
+      quoteId: "quote-communication-ade",
+      reasons: expect.any(Array)
+    });
   });
 
   it("persists no-answer lifecycle evidence without fabricating a Quote", async () => {
@@ -170,7 +183,7 @@ describe("communication intelligence persistence", () => {
 
     expect(
       extractVerifiedVapiTranscript({
-        message: { transcript: "Assistant: Hi\nUser: Hello again" }
+        message: { transcript: "Assistant: Hi\nUser: Hello again" } }
       })
     ).toContain("User: Hello again");
   });
