@@ -7,7 +7,9 @@ export type ExclusionCode =
   | "ITEM_CATEGORY_MISMATCH"
   | "QUOTE_UNAVAILABLE"
   | "OVER_BUDGET"
-  | "DEADLINE_MISMATCH";
+  | "DEADLINE_MISMATCH"
+  | "QUANTITY_CAPACITY_INSUFFICIENT"
+  | "QUANTITY_UNIT_MISMATCH";
 
 export type UncertaintyCode =
   | "TOTAL_UNKNOWN"
@@ -51,6 +53,13 @@ const aliases: Record<string, string[]> = {
 };
 
 const norm = (value: string) => value.trim().toLowerCase();
+
+function normalizeUnit(value: string): string {
+  const normalized = norm(value).replace(/\./g, "");
+  return normalized.endsWith("s") && normalized.length > 1
+    ? normalized.slice(0, -1)
+    : normalized;
+}
 
 export function providerMatchesMissionItem(mission: Mission, provider: Provider): boolean {
   const item = norm(mission.item);
@@ -188,11 +197,35 @@ export function evaluateCandidate(
       status: "FAIL",
       message: "The option is unavailable, so the requested quantity cannot be fulfilled."
     });
-  } else {
+  } else if (quote.quantity === undefined) {
     const unit = mission.unit ? ` ${mission.unit}` : "";
-    const message = `The current Quote contract does not represent provider capacity, so availability of ${mission.quantity}${unit} cannot be independently verified.`;
+    const message = `Provider-confirmed quantity is unknown, so availability of ${mission.quantity}${unit} cannot be verified.`;
     uncertainties.push({ code: "QUANTITY_CAPACITY_UNKNOWN", message });
     checks.push({ code: "QUANTITY_CAPACITY", status: "UNKNOWN", message });
+  } else if (mission.unit !== undefined && quote.unit === undefined) {
+    const message = `Quoted quantity ${quote.quantity} has no represented unit, so it cannot be safely compared with ${mission.quantity} ${mission.unit}.`;
+    uncertainties.push({ code: "QUANTITY_CAPACITY_UNKNOWN", message });
+    checks.push({ code: "QUANTITY_CAPACITY", status: "UNKNOWN", message });
+  } else if (
+    mission.unit !== undefined &&
+    quote.unit !== undefined &&
+    normalizeUnit(mission.unit) !== normalizeUnit(quote.unit)
+  ) {
+    const message = `Quoted quantity unit "${quote.unit}" does not match the mission unit "${mission.unit}".`;
+    exclusions.push({ code: "QUANTITY_UNIT_MISMATCH", message });
+    checks.push({ code: "QUANTITY_CAPACITY", status: "FAIL", message });
+  } else if (quote.quantity < mission.quantity) {
+    const unit = quote.unit ?? mission.unit ?? "units";
+    const message = `Provider confirmed ${quote.quantity} ${unit}, below the required ${mission.quantity} ${mission.unit ?? unit}.`;
+    exclusions.push({ code: "QUANTITY_CAPACITY_INSUFFICIENT", message });
+    checks.push({ code: "QUANTITY_CAPACITY", status: "FAIL", message });
+  } else {
+    const unit = quote.unit ?? mission.unit;
+    checks.push({
+      code: "QUANTITY_CAPACITY",
+      status: "PASS",
+      message: `Provider-confirmed quantity ${quote.quantity}${unit ? ` ${unit}` : ""} satisfies the requested ${mission.quantity}${mission.unit ? ` ${mission.unit}` : ""}.`
+    });
   }
 
   const status = overallStatus(checks);
