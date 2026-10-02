@@ -11,6 +11,10 @@ import {
   refreshCommunicationToolInputSchema
 } from "../../../../lib/integrations/bimpe/communication-runtime";
 import {
+  startMissionForAgent,
+  startMissionToolInputSchema
+} from "../../../../lib/integrations/bimpe/mission-start";
+import {
   agentProviderModeSchema,
   compareQuotesForAgent,
   getProviderForAgent,
@@ -37,6 +41,7 @@ import { advanceMissionOrchestration } from "../../../../lib/mission/orchestrato
 export const runtime = "nodejs";
 
 const toolSchema = z.enum([
+  "start-mission",
   "search-providers",
   "get-provider",
   "call-provider",
@@ -167,6 +172,33 @@ export async function POST(
 
   try {
     switch (tool.data) {
+      case "start-mission": {
+        const input = startMissionToolInputSchema.parse(body);
+        const result = await startMissionForAgent(input);
+        const missionId = result.snapshot.mission.id;
+
+        return Response.json({
+          tool: "startMission",
+          data: {
+            missionId,
+            status: result.snapshot.mission.status,
+            providers: result.snapshot.providers,
+            readyForProviderCall: result.readyForProviderCall,
+            outcome: result.outcome,
+            reason: result.reason
+          },
+          meta: {
+            missionId,
+            persisted: true,
+            mode: "LIVE",
+            communicationInitiated: false,
+            transactionPerformed: false,
+            missionIdPolicy:
+              "Reuse this missionId for every stateful SABI action in the current sourcing mission."
+          }
+        });
+      }
+
       case "search-providers": {
         const input = searchProvidersToolInputSchema.parse(body);
         const providers = searchProvidersForAgent(input);

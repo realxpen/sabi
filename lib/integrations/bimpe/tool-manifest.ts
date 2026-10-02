@@ -1,5 +1,11 @@
 export const bimpeToolManifest = [
   {
+    name: "startMission",
+    method: "POST",
+    path: "/api/agent-tools/start-mission",
+    purpose: "Persist the full sourcing request as a live Mission, attach matching configured provider metadata, stop safely at CONTACTING, and return the missionId without initiating communication."
+  },
+  {
     name: "searchProviders",
     method: "POST",
     path: "/api/agent-tools/search-providers",

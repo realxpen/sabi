@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildDemoMissionSnapshot } from "../lib/mission/demo-engine";
 import { buildInitialMissionSnapshot } from "../lib/mission/initial-snapshot";
 import { buildTemporaryDemoQuotes } from "../lib/demo/temporary-scenario";
@@ -16,6 +16,7 @@ vi.mock("../lib/integrations/neon/mission-snapshot-repository", () => ({
   saveMissionSnapshot: repositoryMocks.saveMissionSnapshot
 }));
 
+import { startMissionForAgent } from "../lib/integrations/bimpe/mission-start";
 import {
   compareQuotesForAgent,
   recordProviderResponseForAgent,
@@ -29,6 +30,7 @@ const PERFUME_REQUEST =
 
 describe("Bimpe-facing SABI tools", () => {
   beforeEach(() => {
+    repositoryMocks.current = undefined;
     repositoryMocks.getMissionSnapshot.mockReset();
     repositoryMocks.saveMissionSnapshot.mockReset();
     repositoryMocks.getMissionSnapshot.mockImplementation(async () =>
@@ -40,8 +42,13 @@ describe("Bimpe-facing SABI tools", () => {
     });
   });
 
+  afterEach(() => {
+    delete process.env.SABI_LIVE_TEST_PROVIDERS_JSON;
+  });
+
   it("exposes the bounded golden-path tool manifest", () => {
     expect(bimpeToolManifest.map((tool) => tool.name)).toEqual([
+      "startMission",
       "searchProviders",
       "getProvider",
       "callProvider",
@@ -53,6 +60,35 @@ describe("Bimpe-facing SABI tools", () => {
       "orchestrateMission",
       "requestApproval"
     ]);
+  });
+
+  it("starts a persisted live Bimpe mission and stops before provider contact", async () => {
+    process.env.SABI_LIVE_TEST_PROVIDERS_JSON = JSON.stringify([
+      {
+        id: "provider-perfume-test",
+        name: "Consenting Perfume Test Provider",
+        category: "Perfume",
+        location: "Lagos",
+        languages: ["English"],
+        verified: false,
+        active: true
+      }
+    ]);
+
+    const result = await startMissionForAgent({ request: PERFUME_REQUEST });
+
+    expect(result.snapshot.mission.id).toMatch(/^mission-bimpe-/);
+    expect(result.snapshot.mission.status).toBe("CONTACTING");
+    expect(result.snapshot.mission.rawRequest).toBe(PERFUME_REQUEST);
+    expect(result.snapshot.mission.quantity).toBe(12);
+    expect(result.snapshot.mission.budget).toBe(120000);
+    expect(result.snapshot.demoMode).toBe(false);
+    expect(result.snapshot.providers.map((provider) => provider.id)).toEqual([
+      "provider-perfume-test"
+    ]);
+    expect(result.snapshot.communications).toEqual([]);
+    expect(result.snapshot.quotes).toEqual([]);
+    expect(result.readyForProviderCall).toBe(true);
   });
 
   it("returns explicit simulation providers but refuses to fake a live directory", () => {
