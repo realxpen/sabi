@@ -16,17 +16,24 @@ describe("approveDemoRecommendation", () => {
     expect(result.transactionPerformed).toBe(false);
   });
 
-  it("cannot approve the canonical mission while quantity capacity is unknown", () => {
+  it("requires explicit human approval for the canonical 20-yard recommendation", () => {
     const snapshot = buildDemoMissionSnapshot(
       "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
-      "mission-capacity-unknown"
+      "mission-canonical-approval"
     );
 
-    expect(snapshot.mission.status).toBe("COMPARING");
-    expect(snapshot.recommendation).toBeUndefined();
-    expect(() => approveDemoRecommendation(snapshot)).toThrow(
-      "Mission is not awaiting approval."
+    expect(snapshot.mission.status).toBe("AWAITING_APPROVAL");
+    expect(snapshot.recommendation).toEqual(
+      expect.objectContaining({
+        providerId: "provider-ade-textiles",
+        quoteId: "quote-ade-textiles"
+      })
     );
+
+    const result = approveDemoRecommendation(snapshot);
+    expect(result.approval.status).toBe("APPROVED");
+    expect(result.mission.status).toBe("APPROVED");
+    expect(result.transactionPerformed).toBe(false);
   });
 
   it("cannot approve when no qualifying recommendation exists", () => {
