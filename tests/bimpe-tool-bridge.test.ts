@@ -82,21 +82,35 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(payload).not.toContain("bridge-test-secret");
   });
 
-  it("exposes provider search as an explicitly temporary demo source", async () => {
-    const response = await handleBimpeToolRequest(
+  it("exposes provider search as an explicitly temporary demo source with a fresh mission ID", async () => {
+    const firstResponse = await handleBimpeToolRequest(
       toolRequest({ location: "Yaba" }),
       "searchProviders",
       { environment }
     );
-    const payload = await response.json();
+    const firstPayload = await firstResponse.json();
 
-    expect(response.status).toBe(200);
-    expect(payload.data).toHaveLength(1);
-    expect(payload.data[0].id).toBe("provider-tola-fabrics");
-    expect(payload.meta).toEqual({
+    const secondResponse = await handleBimpeToolRequest(
+      toolRequest({ location: "Yaba" }),
+      "searchProviders",
+      { environment }
+    );
+    const secondPayload = await secondResponse.json();
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstPayload.data).toHaveLength(1);
+    expect(firstPayload.data[0].id).toBe("provider-tola-fabrics");
+    expect(firstPayload.meta).toMatchObject({
       source: "temporary-demo-providers",
-      liveDirectory: false
+      liveDirectory: false,
+      missionIdPolicy:
+        "Reuse this missionId for all stateful SABI tool calls in the current sourcing mission."
     });
+    expect(firstPayload.meta.missionId).toMatch(
+      /^mission-bimpe-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    expect(secondPayload.meta.missionId).toMatch(/^mission-bimpe-/);
+    expect(secondPayload.meta.missionId).not.toBe(firstPayload.meta.missionId);
   });
 
   it("returns one bounded provider record", async () => {
@@ -128,6 +142,47 @@ describe("Bimpe bounded agent tool bridge", () => {
     expect(payload.data.channel).toBe("MOCK");
     expect(payload.meta.liveCommunication).toBe(false);
     expect(payload.data.summary).toContain("No real provider was contacted");
+  });
+
+  it("rejects the legacy static mission-001 placeholder on stateful tool calls", async () => {
+    const response = await handleBimpeToolRequest(
+      toolRequest({
+        missionId: "mission-001",
+        providerId: "provider-ade-textiles",
+        objective: "Confirm stock and price"
+      }),
+      "callProvider",
+      { environment }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe("INVALID_AGENT_TOOL_INPUT");
+    expect(payload.details.fieldErrors.missionId).toContain(
+      "Static mission-001 is not allowed. Reuse the missionId returned by Search Providers for the current sourcing mission."
+    );
+  });
+
+  it("exposes sendMessage but fails closed when no verified messaging transport is configured", async () => {
+    const response = await handleBimpeToolRequest(
+      toolRequest({
+        missionId: "mission-demo",
+        providerId: "provider-ade-textiles",
+        communicationId: "communication-message-demo",
+        message: "Please confirm stock and price."
+      }),
+      "sendMessage",
+      { environment }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.data.channel).toBe("SMS");
+    expect(payload.data.status).toBe("UNAVAILABLE");
+    expect(payload.data.summary).toContain("no message was sent");
+    expect(payload.meta.transportConfigured).toBe(false);
+    expect(payload.meta.externalMessageAccepted).toBe(false);
+    expect(payload.meta.quoteCreated).toBe(false);
   });
 
   it("fails recordQuote closed when durable storage is not configured", async () => {
@@ -305,6 +360,11 @@ describe("Bimpe bounded agent tool bridge", () => {
         name: "Call Provider",
         http_method: "POST",
         url_template: "/api/agent-tools/call-provider"
+      },
+      {
+        name: "Send Message",
+        http_method: "POST",
+        url_template: "/api/agent-tools/send-message"
       },
       {
         name: "Record Quote",
