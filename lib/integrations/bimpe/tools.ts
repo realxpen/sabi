@@ -146,6 +146,8 @@ export const recordProviderResponseToolInputSchema = z.object({
   missionId: z.string().trim().min(1),
   communicationId: z.string().trim().min(1),
   available: z.boolean(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).optional(),
   price: z.number().nonnegative().optional(),
   deliveryFee: z.number().nonnegative().optional(),
   total: z.number().nonnegative().optional(),
@@ -160,6 +162,9 @@ export const recordProviderResponseToolInputSchema = z.object({
  * invent transcript content here. A Quote is created only when the referenced
  * CommunicationResult is COMPLETED, belongs to the same persisted Mission and
  * provider, and the Mission is at a valid quote-collection stage.
+ *
+ * Quantity/unit are accepted only as explicit provider evidence. The Mission's
+ * requested quantity is never copied into the Quote automatically.
  *
  * Repeating the same extraction is idempotent because the Quote ID is derived
  * from the communication ID.
@@ -203,6 +208,8 @@ export async function recordProviderResponseForAgent(
     missionId: snapshot.mission.id,
     providerId: communication.providerId,
     available: facts.available,
+    quantity: facts.available ? facts.quantity : undefined,
+    unit: facts.available ? facts.unit : undefined,
     price: facts.price,
     deliveryFee: facts.deliveryFee,
     total: facts.total,

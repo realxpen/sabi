@@ -16,6 +16,11 @@ function optionalNumber(value: string): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+function optionalPositiveNumber(value: string): number | undefined {
+  const parsed = optionalNumber(value);
+  return parsed !== undefined && parsed > 0 ? parsed : undefined;
+}
+
 export function SupervisedEvidenceCapture({
   missionId,
   communicationId,
@@ -25,6 +30,8 @@ export function SupervisedEvidenceCapture({
   const [open, setOpen] = useState(false);
   const [operatorToken, setOperatorToken] = useState("");
   const [available, setAvailable] = useState("true");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("");
   const [price, setPrice] = useState("");
   const [deliveryFee, setDeliveryFee] = useState("");
   const [total, setTotal] = useState("");
@@ -51,8 +58,11 @@ export function SupervisedEvidenceCapture({
     setSubmitting(true);
 
     try {
+      const isAvailable = available === "true";
       const payload = {
-        available: available === "true",
+        available: isAvailable,
+        quantity: isAvailable ? optionalPositiveNumber(quantity) : undefined,
+        unit: isAvailable ? unit.trim() || undefined : undefined,
         price: optionalNumber(price),
         deliveryFee: optionalNumber(deliveryFee),
         total: optionalNumber(total),
@@ -107,8 +117,8 @@ export function SupervisedEvidenceCapture({
         <div>
           <strong>Needs factual evidence</strong>
           <span>
-            The call completed, but SABI will not guess price, availability or
-            delivery from the transcript.
+            The call completed, but SABI will not guess quantity, price,
+            availability or delivery from missing evidence.
           </span>
         </div>
         <button
@@ -164,12 +174,31 @@ export function SupervisedEvidenceCapture({
 
       <div className="evidenceFormGrid">
         <label>
+          Confirmed quantity
+          <input
+            inputMode="decimal"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            placeholder="12"
+            disabled={available !== "true"}
+          />
+        </label>
+        <label>
+          Quantity unit
+          <input
+            value={unit}
+            onChange={(event) => setUnit(event.target.value)}
+            placeholder="bottles"
+            disabled={available !== "true"}
+          />
+        </label>
+        <label>
           Price (₦)
           <input
             inputMode="decimal"
             value={price}
             onChange={(event) => setPrice(event.target.value)}
-            placeholder="60000"
+            placeholder="96000"
           />
         </label>
         <label>
@@ -178,7 +207,7 @@ export function SupervisedEvidenceCapture({
             inputMode="decimal"
             value={deliveryFee}
             onChange={(event) => setDeliveryFee(event.target.value)}
-            placeholder="3000"
+            placeholder="5000"
           />
         </label>
         <label>
@@ -187,7 +216,7 @@ export function SupervisedEvidenceCapture({
             inputMode="decimal"
             value={total}
             onChange={(event) => setTotal(event.target.value)}
-            placeholder="63000"
+            placeholder="101000"
           />
         </label>
         <label>

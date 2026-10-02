@@ -71,13 +71,15 @@ describe("supervised evidence runtime", () => {
     });
   });
 
-  it("records a source-traceable Quote but waits while another provider contact is active", async () => {
+  it("records a source-traceable, quantity-aware Quote but waits while another provider contact is active", async () => {
     repositoryMocks.current = liveCollectionSnapshot("IN_PROGRESS");
 
     const result = await recordSupervisedProviderEvidence({
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       price: 96000,
       deliveryFee: 5000,
       total: 101000,
@@ -85,19 +87,23 @@ describe("supervised evidence runtime", () => {
     });
 
     expect(result.quote.sourceReference).toBe("vapi-first");
+    expect(result.quote.quantity).toBe(12);
+    expect(result.quote.unit).toBe("bottles");
     expect(result.snapshot.quotes).toHaveLength(1);
     expect(result.snapshot.mission.status).toBe("COLLECTING_QUOTES");
     expect(result.allProviderContactsSettled).toBe(false);
     expect(result.consequentialActionPerformed).toBe(false);
   });
 
-  it("continues to deterministic recommendation only after all provider contacts settle", async () => {
+  it("continues to deterministic recommendation only after all provider contacts settle and quantity is confirmed", async () => {
     repositoryMocks.current = liveCollectionSnapshot("NO_ANSWER");
 
     const result = await recordSupervisedProviderEvidence({
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       price: 96000,
       deliveryFee: 5000,
       total: 101000,
@@ -114,6 +120,25 @@ describe("supervised evidence runtime", () => {
     expect(result.consequentialActionPerformed).toBe(false);
   });
 
+  it("does not recommend when quantity evidence is missing, even if all contacts settle", async () => {
+    repositoryMocks.current = liveCollectionSnapshot("NO_ANSWER");
+
+    const result = await recordSupervisedProviderEvidence({
+      missionId: "mission-supervised",
+      communicationId: "communication-first",
+      available: true,
+      price: 96000,
+      deliveryFee: 5000,
+      total: 101000,
+      deliveryDate: "tomorrow"
+    });
+
+    expect(result.snapshot.mission.status).toBe("COMPARING");
+    expect(result.snapshot.recommendation).toBeUndefined();
+    expect(result.quote.quantity).toBeUndefined();
+    expect(result.consequentialActionPerformed).toBe(false);
+  });
+
   it("waits when another completed communication still needs factual evidence", async () => {
     repositoryMocks.current = liveCollectionSnapshot("COMPLETED");
 
@@ -121,6 +146,8 @@ describe("supervised evidence runtime", () => {
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       total: 101000,
       deliveryDate: "tomorrow"
     });

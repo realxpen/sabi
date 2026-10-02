@@ -6,6 +6,8 @@ export const runtime = "nodejs";
 
 const evidenceSchema = z.object({
   available: z.boolean(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).optional(),
   price: z.number().nonnegative().optional(),
   deliveryFee: z.number().nonnegative().optional(),
   total: z.number().nonnegative().optional(),

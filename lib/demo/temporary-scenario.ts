@@ -13,6 +13,11 @@ import {
  * simulation never looks like evidence from real businesses. They are chosen
  * to exercise SABI's hard constraints visibly: one option qualifies, one
  * misses the deadline, and one exceeds the budget.
+ *
+ * Quantity/unit are explicit fictional provider facts for the canonical demo,
+ * not values copied from the Mission. This preserves the same evidence rule
+ * used by the live path: requested quantity is never treated as provider
+ * capacity unless the provider/fixture actually represents it.
  */
 export const temporaryDemoProviders: Provider[] = [
   providerSchema.parse({
@@ -62,12 +67,14 @@ export function buildTemporaryDemoQuotes(mission: Mission): Quote[] {
       missionId: mission.id,
       providerId: "provider-scenthub-yaba",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       price: 96000,
       deliveryFee: 5000,
       total: 101000,
       deliveryDate: "tomorrow",
       notes:
-        "Simulation fixture: 12 bottles of 50ml long-lasting unisex perfume available. No real provider was contacted.",
+        "Simulation fixture: provider confirms 12 bottles of 50ml long-lasting unisex perfume available. No real provider was contacted.",
       source: "MANUAL",
       sourceReference: "hackathon-perfume-simulation",
       createdAt: now
@@ -77,12 +84,14 @@ export function buildTemporaryDemoQuotes(mission: Mission): Quote[] {
       missionId: mission.id,
       providerId: "provider-luxe-aroma",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       price: 105000,
       deliveryFee: 5000,
       total: 110000,
       deliveryDate: "2 days",
       notes:
-        "Simulation fixture: within budget but cannot meet tomorrow's deadline. No real provider was contacted.",
+        "Simulation fixture: provider confirms 12 bottles, but cannot meet tomorrow's deadline. No real provider was contacted.",
       source: "MANUAL",
       sourceReference: "hackathon-perfume-simulation",
       createdAt: now
@@ -92,12 +101,14 @@ export function buildTemporaryDemoQuotes(mission: Mission): Quote[] {
       missionId: mission.id,
       providerId: "provider-mira-scents",
       available: true,
+      quantity: 12,
+      unit: "bottles",
       price: 118000,
       deliveryFee: 6000,
       total: 124000,
       deliveryDate: "tomorrow",
       notes:
-        "Simulation fixture: can meet the deadline but exceeds the hard budget. No real provider was contacted.",
+        "Simulation fixture: provider confirms 12 bottles and tomorrow delivery, but exceeds the hard budget. No real provider was contacted.",
       source: "MANUAL",
       sourceReference: "hackathon-perfume-simulation",
       createdAt: now
