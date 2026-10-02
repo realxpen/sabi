@@ -14,4 +14,12 @@ export interface CommunicationAdapter {
   ): Promise<CommunicationResult>;
 
   normalizeEvent(payload: unknown): Promise<CommunicationResult>;
+
+  /**
+   * Optional read-only refresh hook for transports that expose call-log polling.
+   * Implementations must not create Quotes or infer factual provider responses.
+   */
+  refreshCommunication?(
+    communication: CommunicationResult
+  ): Promise<CommunicationResult>;
 }
