@@ -183,7 +183,8 @@ export function projectVerifiedVapiKrosFixture(
  * Runs the deterministic intelligence path against verified-shape Vapi/Kros
  * fixtures without placing a real phone call:
  * raw event -> Lara-equivalent CommunicationResult -> transcript observation
- * -> Quote extraction -> constraints/ranking -> recommendation.
+ * -> provider-confirmed quantity evidence -> Quote extraction ->
+ * constraints/ranking -> recommendation.
  */
 export function runVapiKrosIntelligenceFixture(input: {
   mission: Mission;
@@ -201,10 +202,19 @@ export function runVapiKrosIntelligenceFixture(input: {
       : undefined;
     const normalizedCommunication =
       normalization?.communication ?? projected.communication;
+    const quantityEvidence =
+      normalization?.normalization.unrepresentedQuantityEvidence;
     const extraction = extractQuoteFromCommunication(normalizedCommunication, {
       mission: input.mission,
       quoteId: `quote-${normalizedCommunication.id}`,
-      createdAt: normalizedCommunication.occurredAt
+      createdAt: normalizedCommunication.occurredAt,
+      confirmedQuantity:
+        quantityEvidence === undefined
+          ? undefined
+          : {
+              quantity: quantityEvidence.quantity,
+              unit: quantityEvidence.unit
+            }
     });
 
     return {
