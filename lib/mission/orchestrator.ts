@@ -123,19 +123,17 @@ function replaceQuote(quotes: Quote[], next: Quote): Quote[] {
 }
 
 /**
- * Reconcile only explicit structured live CommunicationResult observations into
- * canonical Quotes. Simulation already owns explicit fixture Quotes, so MOCK
- * communications are never materialized again here. Transcript/summary text is
- * never parsed. A completed live call without an explicit observation remains
- * communication evidence only.
+ * Reconcile only explicit structured non-mock CommunicationResult observations
+ * into canonical Quotes. Simulation already owns clearly labelled fixture
+ * Quotes, so MOCK communications are evidence/display only and are never
+ * materialized into a second set of Quotes here. Transcript/summary text is
+ * never parsed.
  */
 function reconcileCommunicationQuotes(snapshot: MissionSnapshot): MissionSnapshot {
   let quotes = snapshot.quotes;
 
   for (const communication of snapshot.communications) {
-    if (communication.channel === "MOCK") {
-      continue;
-    }
+    if (communication.channel === "MOCK") continue;
 
     if (
       !snapshot.providers.some(
@@ -151,6 +149,31 @@ function reconcileCommunicationQuotes(snapshot: MissionSnapshot): MissionSnapsho
   }
 
   return { ...snapshot, quotes };
+}
+
+function hasActiveProviderContact(snapshot: MissionSnapshot): boolean {
+  return snapshot.communications.some(
+    (communication) =>
+      communication.status === "INITIATED" ||
+      communication.status === "IN_PROGRESS"
+  );
+}
+
+function hasCompletedEvidencePending(snapshot: MissionSnapshot): boolean {
+  return snapshot.communications.some((communication) => {
+    if (communication.status !== "COMPLETED" || communication.channel === "MOCK") {
+      return false;
+    }
+
+    if (communication.observation?.available !== undefined) return false;
+
+    const sourceReference = communication.externalId ?? communication.id;
+    return !snapshot.quotes.some(
+      (quote) =>
+        quote.providerId === communication.providerId &&
+        quote.sourceReference === sourceReference
+    );
+  });
 }
 
 async function contactLiveProviders(
@@ -314,8 +337,23 @@ export async function advanceMissionOrchestration(
     case "COLLECTING_QUOTES": {
       const reconciled = reconcileCommunicationQuotes(snapshot);
 
+      if (hasActiveProviderContact(reconciled)) {
+        return {
+          snapshot: reconciled,
+          outcome: "WAITING",
+          reason: "WAITING_FOR_PROVIDER_RESPONSES"
+        };
+      }
+
+      if (hasCompletedEvidencePending(reconciled)) {
+        return {
+          snapshot: reconciled,
+          outcome: "WAITING",
+          reason: "WAITING_FOR_VALIDATED_EVIDENCE"
+        };
+      }
+
       if (reconciled.quotes.length === 0) {
-        if (reconciled !== snapshot) await saveMissionSnapshot(reconciled);
         return {
           snapshot: reconciled,
           outcome: "WAITING",
