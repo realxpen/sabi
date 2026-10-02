@@ -104,6 +104,7 @@ export function buildDemoMissionSnapshot(
     mission,
     steps,
     providers: temporaryDemoProviders,
+    communications: [],
     quotes,
     recommendation:
       selected && selectedProvider
