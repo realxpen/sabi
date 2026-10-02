@@ -406,6 +406,211 @@ export function LiveVoiceTestPanel({
       ) : null}
 
       {message ? <p className="recoveryMessage">{message}</p> : null}
+
+      <style jsx>{`
+        .liveVoiceCard {
+          padding: clamp(20px, 3vw, 32px);
+          border: 1px solid rgba(109, 76, 199, 0.2);
+          border-radius: 24px;
+          background:
+            radial-gradient(circle at top right, rgba(109, 76, 199, 0.16), transparent 42%),
+            rgba(255, 255, 255, 0.9);
+          box-shadow: 0 24px 80px rgba(24, 24, 27, 0.06);
+        }
+
+        .liveVoiceHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+        }
+
+        .liveVoiceHeader h2 {
+          margin: 0;
+          font-size: clamp(1.55rem, 4vw, 2.25rem);
+          letter-spacing: -0.025em;
+        }
+
+        .liveVoiceIntro {
+          max-width: 760px;
+          margin: 14px 0 20px;
+          color: #52525b;
+          line-height: 1.6;
+        }
+
+        .liveVoiceToken,
+        .liveProviderSelector label {
+          display: grid;
+          gap: 7px;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #3f3f46;
+        }
+
+        .liveVoiceToken {
+          max-width: 420px;
+          margin-bottom: 18px;
+        }
+
+        .liveVoiceToken input,
+        .liveProviderSelector select {
+          width: 100%;
+          border: 1px solid rgba(24, 24, 27, 0.13);
+          border-radius: 13px;
+          padding: 11px 12px;
+          background: white;
+          color: #18181b;
+          outline: none;
+        }
+
+        .liveVoiceToken input:focus,
+        .liveProviderSelector select:focus {
+          border-color: #6d4cc7;
+          box-shadow: 0 0 0 3px rgba(109, 76, 199, 0.1);
+        }
+
+        .liveVoiceActions,
+        .liveProviderSelector,
+        .liveCallState,
+        .liveEvidenceStage,
+        .transcriptEvidence {
+          display: grid;
+          gap: 12px;
+          margin-top: 16px;
+          padding: 16px;
+          border-radius: 16px;
+          background: #f7f3ff;
+        }
+
+        .liveVoiceActions {
+          grid-template-columns: max-content 1fr;
+          align-items: center;
+        }
+
+        .liveVoiceActions span,
+        .liveCallState span,
+        .liveEvidenceStage span {
+          color: #71717a;
+          font-size: 0.84rem;
+          line-height: 1.5;
+        }
+
+        .liveProviderSelector {
+          grid-template-columns: minmax(220px, 1fr) max-content;
+          align-items: end;
+        }
+
+        .liveProviderSelector .safetyNote {
+          grid-column: 1 / -1;
+          margin: 0;
+        }
+
+        .liveCallState,
+        .liveEvidenceStage {
+          grid-template-columns: 1fr max-content;
+          align-items: center;
+          background: #eef6ff;
+        }
+
+        .liveCallState > div,
+        .liveEvidenceStage > div {
+          display: grid;
+          gap: 4px;
+        }
+
+        .liveCallState .safetyNote {
+          grid-column: 1 / -1;
+          margin: 0;
+        }
+
+        .liveVoiceWarning,
+        .liveVoiceSuccess,
+        .recoveryMessage {
+          margin: 14px 0 0;
+          padding: 12px 14px;
+          border-radius: 14px;
+          font-size: 0.86rem;
+          line-height: 1.5;
+        }
+
+        .liveVoiceWarning {
+          background: #fff4d8;
+          color: #6b4d00;
+        }
+
+        .liveVoiceSuccess {
+          background: #e8f7ed;
+          color: #245d38;
+        }
+
+        .recoveryMessage {
+          background: #f3efe7;
+          color: #52525b;
+        }
+
+        .transcriptEvidence {
+          background: #18181b;
+          color: #f4f4f5;
+        }
+
+        .transcriptEvidenceHeader {
+          display: flex;
+          justify-content: space-between;
+          gap: 14px;
+          align-items: center;
+        }
+
+        .transcriptEvidenceHeader span {
+          color: #c4b5fd;
+          font-size: 0.78rem;
+          font-weight: 750;
+        }
+
+        .transcriptEvidence pre {
+          max-height: 280px;
+          margin: 0;
+          padding: 14px;
+          overflow: auto;
+          border-radius: 12px;
+          background: #27272a;
+          white-space: pre-wrap;
+          word-break: break-word;
+          font: 0.82rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        .transcriptEvidence p {
+          margin: 0;
+          color: #d4d4d8;
+          font-size: 0.83rem;
+          line-height: 1.5;
+        }
+
+        @media (max-width: 640px) {
+          .liveVoiceCard {
+            border-radius: 20px;
+          }
+
+          .liveVoiceHeader,
+          .transcriptEvidenceHeader {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .liveVoiceActions,
+          .liveProviderSelector,
+          .liveCallState,
+          .liveEvidenceStage {
+            grid-template-columns: 1fr;
+          }
+
+          .liveVoiceActions :global(button),
+          .liveProviderSelector :global(button),
+          .liveCallState :global(button),
+          .liveEvidenceStage :global(button) {
+            width: 100%;
+          }
+        }
+      `}</style>
     </section>
   );
 }
