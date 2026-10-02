@@ -19,7 +19,7 @@ describe("mission orchestrator", () => {
     delete process.env.SABI_LIVE_TEST_PROVIDERS_JSON;
 
     repositoryMocks.current = buildInitialMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
       "mission-orchestrator",
       true
     );
@@ -60,11 +60,11 @@ describe("mission orchestrator", () => {
     expect(result?.snapshot.quotes).toHaveLength(3);
     expect(
       result?.snapshot.quotes.every(
-        (quote) => quote.sourceReference === "phase1-mock-scenario"
+        (quote) => quote.sourceReference === "hackathon-perfume-simulation"
       )
     ).toBe(true);
     expect(result?.snapshot.recommendation?.providerId).toBe(
-      "provider-ade-textiles"
+      "provider-scenthub-yaba"
     );
   });
 
