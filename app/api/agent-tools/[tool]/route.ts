@@ -5,6 +5,12 @@ import {
   getCommunicationEvidenceToolInputSchema
 } from "../../../../lib/integrations/bimpe/communication-evidence";
 import {
+  callProviderForAgent,
+  callProviderToolInputSchema,
+  refreshCommunicationForAgent,
+  refreshCommunicationToolInputSchema
+} from "../../../../lib/integrations/bimpe/communication-runtime";
+import {
   agentProviderModeSchema,
   compareQuotesForAgent,
   getProviderForAgent,
@@ -16,7 +22,12 @@ import {
   searchProvidersForAgent,
   searchProvidersToolInputSchema
 } from "../../../../lib/integrations/bimpe/tools";
+import {
+  BimpeAIConfigurationError,
+  BimpeAIRequestError
+} from "../../../../lib/integrations/communication/bimpe-ai";
 import { createConfiguredCommunicationAdapter } from "../../../../lib/integrations/communication/live-runtime";
+import { BimpeEvidenceUnavailableError } from "../../../../lib/integrations/voice-runtime/bimpe-evidence";
 import {
   VapiEvidenceConfigurationError,
   VapiEvidenceUnavailableError
@@ -28,6 +39,8 @@ export const runtime = "nodejs";
 const toolSchema = z.enum([
   "search-providers",
   "get-provider",
+  "call-provider",
+  "refresh-communication",
   "get-communication-evidence",
   "record-provider-response",
   "record-quote",
@@ -74,7 +87,10 @@ function errorResponse(error: unknown): Response {
 
   if (
     error instanceof VapiEvidenceConfigurationError ||
-    error instanceof VapiEvidenceUnavailableError
+    error instanceof VapiEvidenceUnavailableError ||
+    error instanceof BimpeEvidenceUnavailableError ||
+    error instanceof BimpeAIConfigurationError ||
+    error instanceof BimpeAIRequestError
   ) {
     return Response.json(
       {
@@ -89,7 +105,8 @@ function errorResponse(error: unknown): Response {
 
   if (
     message === "MISSION_NOT_FOUND" ||
-    message === "COMMUNICATION_NOT_FOUND"
+    message === "COMMUNICATION_NOT_FOUND" ||
+    message === "PROVIDER_NOT_FOUND"
   ) {
     return Response.json({ error: message }, { status: 404 });
   }
@@ -111,6 +128,7 @@ function errorResponse(error: unknown): Response {
     message === "MISSION_NOT_READY_FOR_APPROVAL_REQUEST" ||
     message === "MISSION_NOT_READY_FOR_QUOTE_RECORDING" ||
     message === "MISSION_NOT_READY_FOR_COMPARISON" ||
+    message === "MISSION_NOT_READY_FOR_PROVIDER_CALL" ||
     message === "QUOTES_NOT_READY" ||
     message === "SIMULATION_NOT_ALLOWED_FOR_LIVE_MISSION" ||
     message === "COMMUNICATION_MISSION_MISMATCH" ||
@@ -123,7 +141,10 @@ function errorResponse(error: unknown): Response {
     return Response.json({ error: message }, { status: 409 });
   }
 
-  if (message === "LIVE_COMMUNICATION_ADAPTER_REQUIRED") {
+  if (
+    message === "LIVE_COMMUNICATION_ADAPTER_REQUIRED" ||
+    message === "COMMUNICATION_REFRESH_NOT_SUPPORTED"
+  ) {
     return Response.json({ error: message }, { status: 503 });
   }
 
@@ -166,6 +187,36 @@ export async function POST(
           tool: "getProvider",
           data: provider,
           meta: providerSourceMeta(input.mode)
+        });
+      }
+
+      case "call-provider": {
+        const input = callProviderToolInputSchema.parse(body);
+        const result = await callProviderForAgent(input);
+        return Response.json({
+          tool: "callProvider",
+          data: result.communication,
+          meta: {
+            persisted: true,
+            reusedExistingActiveCommunication:
+              result.reusedExistingActiveCommunication,
+            quoteCreated: false,
+            transactionPerformed: false
+          }
+        });
+      }
+
+      case "refresh-communication": {
+        const input = refreshCommunicationToolInputSchema.parse(body);
+        const result = await refreshCommunicationForAgent(input);
+        return Response.json({
+          tool: "refreshCommunication",
+          data: result.communication,
+          meta: {
+            persisted: true,
+            transcriptPersistedToMission: false,
+            quoteCreated: false
+          }
         });
       }
 
@@ -228,10 +279,12 @@ export async function POST(
 
       case "orchestrate-mission": {
         const input = orchestrateMissionInputSchema.parse(body);
+        const communicationMode = process.env.SABI_COMMUNICATION_MODE?.trim();
 
         if (
           input.mode === "LIVE" &&
-          process.env.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros"
+          communicationMode !== "bimpe" &&
+          communicationMode !== "vapi-kros"
         ) {
           return Response.json(
             {
