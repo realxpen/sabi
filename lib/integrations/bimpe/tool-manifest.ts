@@ -15,13 +15,19 @@ export const bimpeToolManifest = [
     name: "callProvider",
     method: "POST",
     path: "/api/agent-tools/call-provider",
-    purpose: "Initiate bounded provider communication through the configured communication adapter."
+    purpose: "Initiate exactly one consent-gated provider call through the configured live communication adapter and persist the CommunicationResult."
+  },
+  {
+    name: "refreshCommunication",
+    method: "POST",
+    path: "/api/agent-tools/refresh-communication",
+    purpose: "Poll the configured call transport for the latest persisted provider-call status without creating a Quote."
   },
   {
     name: "getCommunicationEvidence",
     method: "POST",
     path: "/api/agent-tools/get-communication-evidence",
-    purpose: "Retrieve authenticated transcript evidence for one completed correlated Vapi call without persisting the transcript or creating a Quote."
+    purpose: "Retrieve authenticated transcript evidence for one completed correlated BimpeAI or Vapi call without persisting the transcript or creating a Quote."
   },
   {
     name: "recordProviderResponse",
