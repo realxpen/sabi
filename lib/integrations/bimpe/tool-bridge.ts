@@ -346,6 +346,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: communication,
           meta: {
+            missionId: input.missionId,
             liveCommunication: communication.channel !== "MOCK",
             initiationOnly: communication.status === "INITIATED"
           }
@@ -364,6 +365,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: communication,
           meta: {
+            missionId: input.missionId,
             transportConfigured: Boolean(dependencies.messageTransport),
             externalMessageAccepted: Boolean(communication.externalId),
             initiationOnly: communication.status === "INITIATED",
@@ -395,6 +397,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: storedQuote,
           meta: {
+            missionId: input.missionId,
             persisted: true,
             storage: "neon-postgres"
           }
@@ -416,6 +419,7 @@ export async function handleBimpeToolRequest(
             tool: toolName,
             data: storedApproval,
             meta: {
+              missionId: input.missionId,
               transactionCommitted: false,
               approvalPersisted: Boolean(explicitApprovalRepository),
               message: explicitApprovalRepository
@@ -467,6 +471,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: storedApproval,
           meta: {
+            missionId: input.missionId,
             transactionCommitted: false,
             approvalPersisted: true,
             approvalStorage: "neon-postgres",
