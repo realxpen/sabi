@@ -73,10 +73,8 @@ describe("BimpeAI no-call preflight", () => {
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "https://api.bimpe.ai/api/v1/console/agents?limit=100"
-    );
-    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.bimpe.ai/api/v1/console/agents?limit=100",
       expect.objectContaining({ method: "GET" })
     );
     expect(result.local.consentedProviderMatchCount).toBe(1);
