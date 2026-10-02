@@ -122,6 +122,11 @@ export async function GET(): Promise<Response> {
           communicationClaimsReady
       )
     },
+    supervisedEvidence: {
+      operatorAuthConfigured: configured(process.env.SABI_OPERATOR_TOKEN),
+      transcriptAutoQuoteDisabled: true,
+      noAnswerAutoQuoteDisabled: true
+    },
     bimpe: {
       ...bimpe,
       configured: Boolean(bimpe.toolAuthConfigured)
