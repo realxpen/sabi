@@ -28,7 +28,7 @@ describe("persisted mission API lifecycle", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           request:
-            "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000."
+            "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000."
         })
       })
     );
@@ -41,7 +41,7 @@ describe("persisted mission API lifecycle", () => {
   });
 
   it("reads a persisted mission by id", async () => {
-    const snapshot = buildDemoMissionSnapshot("Find black Ankara", "mission-read");
+    const snapshot = buildDemoMissionSnapshot("Find perfume", "mission-read");
     repositoryMocks.getMissionSnapshot.mockResolvedValue(snapshot);
 
     const response = await getMission(
@@ -57,7 +57,7 @@ describe("persisted mission API lifecycle", () => {
 
   it("persists the APPROVED mission status without performing a transaction", async () => {
     const snapshot = buildDemoMissionSnapshot(
-      "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+      "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
       "mission-approve"
     );
     repositoryMocks.getMissionSnapshot.mockResolvedValue(snapshot);
