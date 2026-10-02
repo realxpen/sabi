@@ -48,6 +48,24 @@ const optionalBimpeNumberSchema = z.preprocess((value) => {
   return value;
 }, z.number().nonnegative().optional());
 
+const optionalBimpePositiveNumberSchema = z.preprocess((value) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+
+    if (!normalized || isUnresolvedBimpePlaceholder(normalized)) {
+      return undefined;
+    }
+
+    return Number(normalized);
+  }
+
+  return value;
+}, z.number().positive().optional());
+
 const optionalBimpeStringSchema = z.preprocess((value) => {
   if (typeof value === "string") {
     const normalized = value.trim();
@@ -64,6 +82,8 @@ export const recordQuoteInputSchema = z.object({
   missionId: z.string().trim().min(1),
   providerId: z.string().trim().min(1),
   available: bimpeBooleanSchema,
+  quantity: optionalBimpePositiveNumberSchema,
+  unit: optionalBimpeStringSchema,
   price: optionalBimpeNumberSchema,
   deliveryFee: optionalBimpeNumberSchema,
   total: optionalBimpeNumberSchema,
@@ -78,10 +98,10 @@ export type RecordQuoteInput = z.infer<typeof recordQuoteInputSchema>;
 /**
  * Build a canonical Quote from factual provider evidence.
  *
- * This tool validates and normalizes Quote data only. It does not persist to
- * a database, mutate Mission state, calculate missing totals, or assume a
- * missing delivery fee is zero. Persistence can be added later behind an
- * explicit repository boundary when one exists in the SABI architecture.
+ * quantity/unit represent the provider-confirmed or explicitly quoted amount,
+ * not a copy of the Mission request. This tool validates and normalizes Quote
+ * data only. It does not persist to a database, mutate Mission state, calculate
+ * missing totals, or assume a missing delivery fee is zero.
  */
 export function recordQuote(input: RecordQuoteInput): Quote {
   const quoteInput = recordQuoteInputSchema.parse(input);
@@ -118,7 +138,9 @@ function quoteSourceForCommunication(
  *
  * NO_ANSWER, UNAVAILABLE, FAILED, INITIATED and IN_PROGRESS results never
  * produce Quotes here. Missing commercial values remain unknown; this helper
- * intentionally does not calculate a total or assume a delivery fee.
+ * intentionally does not calculate a total or assume a delivery fee. Exact
+ * quantity evidence from transcripts is carried by the intelligence extraction
+ * seam because CommunicationObservation does not claim quantity by itself.
  */
 export function recordQuoteFromCommunication(
   candidate: CommunicationResult
