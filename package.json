@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "hacknight:secrets": "node scripts/generate-hack-night-secrets.mjs"
+    "hacknight:secrets": "node scripts/generate-hack-night-secrets.mjs",
+    "hacknight:preflight": "node scripts/bimpe-preflight.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
