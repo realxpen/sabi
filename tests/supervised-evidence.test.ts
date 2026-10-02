@@ -17,7 +17,7 @@ import { recordSupervisedProviderEvidence } from "../lib/mission/supervised-evid
 
 function liveCollectionSnapshot(secondStatus: "IN_PROGRESS" | "NO_ANSWER" | "COMPLETED") {
   const base = buildDemoMissionSnapshot(
-    "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.",
+    "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.",
     "mission-supervised"
   );
 
@@ -78,9 +78,9 @@ describe("supervised evidence runtime", () => {
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
-      price: 60000,
-      deliveryFee: 3000,
-      total: 63000,
+      price: 96000,
+      deliveryFee: 5000,
+      total: 101000,
       deliveryDate: "tomorrow"
     });
 
@@ -98,9 +98,9 @@ describe("supervised evidence runtime", () => {
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
-      price: 60000,
-      deliveryFee: 3000,
-      total: 63000,
+      price: 96000,
+      deliveryFee: 5000,
+      total: 101000,
       deliveryDate: "tomorrow"
     });
 
@@ -121,7 +121,7 @@ describe("supervised evidence runtime", () => {
       missionId: "mission-supervised",
       communicationId: "communication-first",
       available: true,
-      total: 63000,
+      total: 101000,
       deliveryDate: "tomorrow"
     });
 
