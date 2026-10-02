@@ -5,10 +5,10 @@ import {
   type MissionStep
 } from "../schemas";
 import {
-  buildTemporaryDemoQuotes,
-  selectTemporaryRecommendation,
-  temporaryDemoProviders
-} from "../demo/temporary-scenario";
+  buildIntelligenceDemoQuotes,
+  intelligenceDemoProviders,
+  recommend
+} from "../intelligence";
 import { parseDemoMissionRequest } from "./demo-parser";
 import { transitionMission } from "./state-machine";
 import type { MissionSnapshot } from "./snapshot";
@@ -19,7 +19,7 @@ type StepDefinition = {
   message: string;
 };
 
-const demoSteps: StepDefinition[] = [
+const comparisonSteps: StepDefinition[] = [
   {
     status: "UNDERSTANDING",
     type: "UNDERSTAND_REQUEST",
@@ -33,7 +33,7 @@ const demoSteps: StepDefinition[] = [
   {
     status: "SEARCHING",
     type: "SEARCH_PROVIDERS",
-    message: "Temporary Phase 1 provider fixtures loaded."
+    message: "Fictional provider fixtures loaded for the intelligence demo."
   },
   {
     status: "CONTACTING",
@@ -48,12 +48,7 @@ const demoSteps: StepDefinition[] = [
   {
     status: "COMPARING",
     type: "COMPARE_QUOTES",
-    message: "Temporary deterministic comparison executed."
-  },
-  {
-    status: "AWAITING_APPROVAL",
-    type: "REQUEST_APPROVAL",
-    message: "Recommendation ready. Waiting for human approval."
+    message: "Hard constraints applied before deterministic soft ranking."
   }
 ];
 
@@ -61,13 +56,13 @@ function makeStep(
   mission: Mission,
   definition: StepDefinition,
   index: number,
-  isLast: boolean
+  status: MissionStep["status"] = "COMPLETED"
 ): MissionStep {
   return missionStepSchema.parse({
     id: `${mission.id}-step-${index + 1}`,
     missionId: mission.id,
     type: definition.type,
-    status: isLast ? "RUNNING" : "COMPLETED",
+    status,
     message: definition.message,
     createdAt: new Date().toISOString()
   });
@@ -80,47 +75,53 @@ export function buildDemoMissionSnapshot(
   let mission = parseDemoMissionRequest(rawRequest, id);
   const steps: MissionStep[] = [];
 
-  demoSteps.forEach((definition, index) => {
+  comparisonSteps.forEach((definition, index) => {
     mission = transitionMission(mission, definition.status);
+    steps.push(makeStep(mission, definition, index));
+  });
+
+  const quotes = buildIntelligenceDemoQuotes(mission);
+  const result = recommend(mission, intelligenceDemoProviders, quotes);
+
+  if (result.decisionStatus === "READY" && result.selected) {
+    mission = transitionMission(mission, "AWAITING_APPROVAL");
     steps.push(
       makeStep(
         mission,
-        definition,
-        index,
-        index === demoSteps.length - 1
+        {
+          status: "AWAITING_APPROVAL",
+          type: "REQUEST_APPROVAL",
+          message: "Recommendation ready. Waiting for human approval."
+        },
+        steps.length,
+        "RUNNING"
       )
     );
-  });
-
-  const quotes = buildTemporaryDemoQuotes(mission);
-  const selected = selectTemporaryRecommendation(mission, quotes);
-  const selectedProvider = selected
-    ? temporaryDemoProviders.find(
-        (provider) => provider.id === selected.providerId
-      )
-    : undefined;
+  } else {
+    const last = steps.at(-1);
+    if (last) {
+      steps[steps.length - 1] = missionStepSchema.parse({
+        ...last,
+        status: "RUNNING",
+        message:
+          result.decisionStatus === "BLOCKED_UNKNOWN"
+            ? `Comparison is blocked until missing hard-constraint facts are verified: ${result.requiredFacts.join(" | ")}`
+            : "Comparison found no valid option under the represented hard constraints."
+      });
+    }
+  }
 
   return {
     mission,
     steps,
-    providers: temporaryDemoProviders,
+    providers: intelligenceDemoProviders,
     quotes,
     recommendation:
-      selected && selectedProvider
+      result.decisionStatus === "READY" && result.selected
         ? {
-            providerId: selected.providerId,
-            quoteId: selected.id,
-            reasons: [
-              selected.total !== undefined && mission.budget !== undefined
-                ? `₦${selected.total.toLocaleString()} total stays within the ₦${mission.budget.toLocaleString()} budget.`
-                : "Qualifying total is available.",
-              selected.deliveryDate === mission.deadline
-                ? `Can meet the ${mission.deadline} delivery requirement.`
-                : "Has a delivery commitment recorded.",
-              selectedProvider.verified
-                ? "Provider has the demo verified signal."
-                : "Provider qualification was based on available demo signals."
-            ]
+            providerId: result.selected.provider.id,
+            quoteId: result.selected.quote.id,
+            reasons: result.recommendationFactors
           }
         : undefined,
     demoMode: true
