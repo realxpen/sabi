@@ -3,6 +3,7 @@ import type { MissionSnapshot } from "../lib/mission/snapshot";
 import { ApprovalCard } from "./ApprovalCard";
 import { CommunicationActivity } from "./CommunicationActivity";
 import { DecisionTrace } from "./DecisionTrace";
+import { LiveVoiceTestPanel } from "./LiveVoiceTestPanel";
 import { MissionRecoveryControls } from "./MissionRecoveryControls";
 import { MissionSummary } from "./MissionSummary";
 import { MissionTimeline } from "./MissionTimeline";
@@ -59,17 +60,27 @@ export function MissionControl({ snapshot }: MissionControlProps) {
     <div className="missionLayout">
       <div className="demoBanner">
         <strong>
-          {snapshot.demoMode ? "Integration-safe demo mode" : "Integrated mission"}
+          {snapshot.demoMode ? "Integration-safe demo mode" : "Integrated live mission"}
         </strong>
         <span>
           {snapshot.demoMode
             ? "Mission Control is consuming the shared communication contract with demo fixtures. Live teammate outputs can replace the source without changing the UI architecture."
-            : "Mission Control is showing validated runtime outputs assembled through the shared SABI contracts. Human approval is still required before consequential action."}
+            : "This mission may use the operator-controlled BimpeAI Live Voice Test. A real call still requires explicit operator action and a separately configured consenting provider."}
         </span>
       </div>
 
       <MissionSummary mission={snapshot.mission} />
       <MissionTimeline steps={snapshot.steps} />
+
+      <LiveVoiceTestPanel
+        missionId={snapshot.mission.id}
+        demoMode={snapshot.demoMode}
+        status={snapshot.mission.status}
+        providers={snapshot.providers}
+        communications={snapshot.communications}
+        quotes={snapshot.quotes}
+      />
+
       <CommunicationActivity
         communications={snapshot.communications}
         providers={snapshot.providers}
