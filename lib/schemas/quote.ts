@@ -7,6 +7,8 @@ export const quoteSchema = z.object({
   missionId: z.string().min(1),
   providerId: z.string().min(1),
   available: z.boolean(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).optional(),
   price: z.number().nonnegative().optional(),
   deliveryFee: z.number().nonnegative().optional(),
   total: z.number().nonnegative().optional(),
