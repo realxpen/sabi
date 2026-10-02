@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 Status: ACTIVE
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 ## Current phase
 
@@ -62,6 +62,7 @@ Current mock provider responses/recommendation are temporary fixtures and must b
 - `Knowledge/Technical/INTEGRATION_STACK_DECISION.md`
 - `Knowledge/Technical/INTEGRATION_ACCESS_CHECKLIST.md`
 - `Knowledge/Technical/LLM_KNOWLEDGE_ARCHITECTURE.md`
+- `Knowledge/Technical/BIMPE_MISSION_CORRELATION.md`
 - `Raw/PartnerDocs/SOURCE_LINKS.md`
 
 ## Primary stack
@@ -159,36 +160,61 @@ Track:
 - optional Spitch/LiveKit language path
 - optional Temlio fallback only with verified contract
 
+## Lara verification update — 2026-10-02
+
+Observed evidence on the Lara track:
+
+- Bimpe Voice Playground successfully invoked `custom_search_providers` for Fabric in Yaba and returned the seeded Tola Fabrics provider.
+- The same Bimpe voice conversation invoked `custom_call_provider` with the bounded provider objective and truthfully reported mock/simulated contact; no real provider communication was claimed.
+- When asked for the price after the mock contact, Bimpe correctly said that no actual quote had been received rather than inventing one.
+- Lara Preview Neon showed no new Quote from that mock voice test.
+- The Bimpe bridge now generates a fresh `mission-bimpe-<uuid>` from `searchProviders` for each new sourcing start, documents reuse across the current mission, and rejects the observed legacy static `mission-001` placeholder on stateful calls.
+- `Send Message` is now included in the exported six-action Bimpe Custom API manifest. The underlying messaging runtime remains fail-closed/disabled unless explicitly configured; exposing the action alone does not send SMS.
+- GitHub CI passed install, typecheck, tests and build for the mission-correlation/action-manifest code and regression tests (`ad04d76c33dca03ae8d8faf44dba60e1f783ff34`).
+- Kros account/KYC/active Nigerian number are available and a consented Kros dashboard outbound test call succeeded.
+- Vapi assistant, API key, assistant ID and authenticated SABI Preview webhook are configured in the provider/dashboard layer.
+- Kros-to-Vapi BYO SIP trunk `sabi preview` now saves successfully in Vapi against the Kros SIP gateway over UDP with inbound/outbound enabled; the earlier `/credential` HTTP 400 validation blocker is resolved.
+- The Vapi SIP Trunk Credential ID still needs to be copied from the saved trunk details, the Kros number imported as a BYO SIP number, and that credential ID added to Lara Preview.
+- A fresh Lara Vercel Preview deployment is still blocked by the Vercel build-rate limit. Repository changes must not be treated as deployed until that clears.
+- The live Bimpe dashboard still needs to synchronize the mission-correlation workflow instruction and add the sixth `Send Message` action after the updated SABI Preview is available. Repository changes do not automatically mutate an already-configured Bimpe workflow/action list.
+
 ## Current external access gates
 
 ### KrosAI — critical
 
-- [ ] account/access
-- [ ] KYC
+- [x] account/access
+- [x] KYC
 - [ ] API key/scopes
-- [ ] phone number/event credits
+- [x] phone number/event credits sufficient for observed dashboard outbound test
 - [ ] confirmed live REST route
 - [ ] endpoint attached
-- [ ] one consented test call
+- [x] one consented dashboard test call
+- [ ] one SABI/Vapi-triggered consented test call
 - [ ] verified webhook/signature
 - [ ] transcript/result
 
 ### Vapi — critical candidate
 
-- [ ] account/API key
-- [ ] SABI provider-calling Assistant
-- [ ] Assistant ID
-- [ ] SIP Trunk Credential ID
+- [x] account/API key
+- [x] SABI provider-calling Assistant
+- [x] Assistant ID
+- [x] authenticated SABI Preview webhook configuration
+- [x] Kros SIP trunk configured and saved in Vapi
+- [ ] SIP Trunk Credential ID copied into SABI Preview
+- [ ] Kros number imported as Vapi BYO SIP number
 - [ ] Kros BYO/SIP path tested
 
 ### BimpeAI — core agent layer
 
-- [ ] API key
-- [ ] workflow
-- [ ] SABI agent
-- [ ] curated Knowledge Base
-- [ ] SABI Custom API integration
-- [ ] at least one bounded tool invocation
+- [x] account/access
+- [x] workflow
+- [x] SABI agent
+- [ ] curated Knowledge Base verification
+- [x] SABI Custom API integration
+- [x] bounded `searchProviders` invocation observed
+- [x] bounded `callProvider` mock invocation observed
+- [ ] live dashboard synchronized to generated mission ID contract
+- [ ] sixth `Send Message` action added to live dashboard action list
 
 ### Spitch/LiveKit — optional enhancement
 
@@ -199,9 +225,9 @@ Track:
 
 - [ ] key/credits only if selected
 
-### Temlio — optional fallback
+### Temlio / messaging fallback — optional
 
-Still need detailed partner/event API auth/request/webhook documentation before live coding.
+The SABI messaging boundary/runtime exists but remains disabled for live use. Do not let this block the voice golden path.
 
 ## Next integration gate
 
@@ -209,7 +235,7 @@ First complete:
 
 ```text
 request
-→ validated Mission
+→ SABI-generated mission correlation ID
 → provider discovery
 → mock/real communication through shared adapter
 → CommunicationResult
@@ -223,9 +249,12 @@ request
 Then prove the first real external gate:
 
 ```text
-Kros account/KYC/number
-→ confirmed live route
-→ one consented real call
+capture Vapi SIP Trunk Credential ID
+→ import Kros BYO number into Vapi
+→ add SIP credential ID to Lara Preview
+→ fresh Lara Preview deployment
+→ synchronize Bimpe mission correlation/action configuration
+→ one consented SABI-triggered real call
 → one verified webhook/transcript
 → CommunicationResult
 ```

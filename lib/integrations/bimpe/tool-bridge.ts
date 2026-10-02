@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { ZodError, z } from "zod";
 import type { CommunicationAdapter } from "../communication/types";
 import {
@@ -34,6 +34,7 @@ import {
 } from "../../tools/quote-tools";
 
 const requiredTokenKey = "SABI_AGENT_TOOL_TOKEN" as const;
+const legacyStaticMissionId = "mission-001" as const;
 
 export type BimpeToolEnvironment = {
   [key: string]: string | undefined;
@@ -60,10 +61,9 @@ export const bimpeToolNameSchema = z.enum([
 export type BimpeToolName = z.infer<typeof bimpeToolNameSchema>;
 
 /**
- * These are the five Bimpe Custom API actions already configured in the
- * hackathon workflow. sendMessage is intentionally available as a SABI route
- * without silently adding a sixth Bimpe action; enable that action explicitly
- * once the team chooses to expose the SMS fallback to the workflow.
+ * Bounded SABI actions intended for the Bimpe Custom API integration.
+ * Messaging is exposed as a sixth action, but the underlying runtime still
+ * fails closed as UNAVAILABLE unless a verified message transport is enabled.
  */
 export const bimpeCustomApiTools = [
   {
@@ -82,6 +82,11 @@ export const bimpeCustomApiTools = [
     url_template: "/api/agent-tools/call-provider"
   },
   {
+    name: "Send Message",
+    http_method: "POST",
+    url_template: "/api/agent-tools/send-message"
+  },
+  {
     name: "Record Quote",
     http_method: "POST",
     url_template: "/api/agent-tools/record-quote"
@@ -92,6 +97,25 @@ export const bimpeCustomApiTools = [
     url_template: "/api/agent-tools/request-approval"
   }
 ] as const;
+
+function createBimpeMissionId(): string {
+  return `mission-bimpe-${randomUUID()}`;
+}
+
+function assertUsableMissionId(missionId: string): void {
+  if (missionId.trim().toLowerCase() !== legacyStaticMissionId) {
+    return;
+  }
+
+  throw new ZodError([
+    {
+      code: "custom",
+      path: ["missionId"],
+      message:
+        "Static mission-001 is not allowed. Reuse the missionId returned by Search Providers for the current sourcing mission."
+    }
+  ]);
+}
 
 function safeTokenEquals(actual: string, expected: string): boolean {
   const actualBytes = Buffer.from(actual);
@@ -276,7 +300,10 @@ export async function handleBimpeToolRequest(
           data: providers,
           meta: {
             source: "temporary-demo-providers",
-            liveDirectory: false
+            liveDirectory: false,
+            missionId: createBimpeMissionId(),
+            missionIdPolicy:
+              "Reuse this missionId for all stateful SABI tool calls in the current sourcing mission."
           }
         });
       }
@@ -309,6 +336,7 @@ export async function handleBimpeToolRequest(
 
       case "callProvider": {
         const input = callProviderInputSchema.parse(body);
+        assertUsableMissionId(input.missionId);
         const communication = await callProvider(
           input,
           dependencies.communicationAdapter
@@ -318,6 +346,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: communication,
           meta: {
+            missionId: input.missionId,
             liveCommunication: communication.channel !== "MOCK",
             initiationOnly: communication.status === "INITIATED"
           }
@@ -326,6 +355,7 @@ export async function handleBimpeToolRequest(
 
       case "sendMessage": {
         const input = sendMessageInputSchema.parse(body);
+        assertUsableMissionId(input.missionId);
         const communication = await sendMessage(
           input,
           dependencies.messageTransport
@@ -335,6 +365,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: communication,
           meta: {
+            missionId: input.missionId,
             transportConfigured: Boolean(dependencies.messageTransport),
             externalMessageAccepted: Boolean(communication.externalId),
             initiationOnly: communication.status === "INITIATED",
@@ -358,6 +389,7 @@ export async function handleBimpeToolRequest(
         }
 
         const input = recordQuoteInputSchema.parse(body);
+        assertUsableMissionId(input.missionId);
         const quote = recordQuote(input);
         const storedQuote = await repository.save(quote);
 
@@ -365,6 +397,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: storedQuote,
           meta: {
+            missionId: input.missionId,
             persisted: true,
             storage: "neon-postgres"
           }
@@ -373,6 +406,7 @@ export async function handleBimpeToolRequest(
 
       case "requestApproval": {
         const input = requestApprovalInputSchema.parse(body);
+        assertUsableMissionId(input.missionId);
 
         if (dependencies.quoteLookup) {
           const approval = requestApproval(input, dependencies.quoteLookup);
@@ -385,6 +419,7 @@ export async function handleBimpeToolRequest(
             tool: toolName,
             data: storedApproval,
             meta: {
+              missionId: input.missionId,
               transactionCommitted: false,
               approvalPersisted: Boolean(explicitApprovalRepository),
               message: explicitApprovalRepository
@@ -436,6 +471,7 @@ export async function handleBimpeToolRequest(
           tool: toolName,
           data: storedApproval,
           meta: {
+            missionId: input.missionId,
             transactionCommitted: false,
             approvalPersisted: true,
             approvalStorage: "neon-postgres",
