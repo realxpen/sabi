@@ -1,7 +1,7 @@
 # Active Decisions
 
 Status: ACTIVE
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 This file records current binding product/technical decisions.
 
@@ -225,6 +225,14 @@ Mission
 Status: ACTIVE
 
 After this gate, multilingual voice, SMS fallback, and secondary providers are optional enhancements only.
+
+## D-028 — Quote quantity/capacity evidence
+
+Decision: Canonical Quote may carry optional `quantity` and `unit` only when the provider explicitly confirmed or quoted that amount. These fields must never be populated by copying the Mission request without provider evidence.
+
+Status: ACTIVE
+
+Reason: hard quantity/capacity constraints must be verifiable without treating generic `available: true` as proof that the requested amount is available. Missing provider quantity remains unknown; insufficient quantity or incompatible units fail the hard constraint.
 
 ## Decision update rule
 

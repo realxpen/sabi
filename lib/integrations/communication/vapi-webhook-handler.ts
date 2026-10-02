@@ -1,4 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { CommunicationResult } from "../../schemas";
+import type { PersistCommunicationIntelligenceResult } from "../../mission/communication-intelligence-persistence";
 import {
   createNeonCommunicationEventDeduplicatorFromEnvironment,
   type NeonCommunicationEventDedupeSql
@@ -12,6 +14,11 @@ import {
 } from "./vapi-kros";
 
 export type VapiWebhookEnvironment = VapiKrosEnvironment;
+
+export type VapiProcessedEventPersistence = (input: {
+  payload: unknown;
+  communication: CommunicationResult;
+}) => Promise<PersistCommunicationIntelligenceResult>;
 
 function safeSecretEquals(actual: string, expected: string): boolean {
   const actualBytes = Buffer.from(actual);
@@ -139,11 +146,17 @@ async function verifyVapiCall(
  * belongs to the configured SABI assistant, validates mission/provider
  * correlation from server-supplied assistantOverrides.variableValues, and
  * deduplicates exact webhook retries in Neon.
+ *
+ * An optional processed-event persistence callback may run after Lara's
+ * provider normalization/correlation checks. The callback executes before the
+ * dedupe claim is considered successful, so persistence failure releases the
+ * claim and allows a provider retry to reprocess the event.
  */
 export function createVapiWebhookPostHandler(
   environment: VapiWebhookEnvironment = process.env,
   fetchImpl: VapiKrosFetch = fetch,
-  sql?: NeonCommunicationEventDedupeSql
+  sql?: NeonCommunicationEventDedupeSql,
+  persistProcessedEvent?: VapiProcessedEventPersistence
 ) {
   return async function post(request: Request): Promise<Response> {
     if (environment.SABI_COMMUNICATION_MODE?.trim() !== "vapi-kros") {
@@ -236,12 +249,22 @@ export function createVapiWebhookPostHandler(
     }
 
     try {
+      let intelligence: PersistCommunicationIntelligenceResult | undefined;
+
       const result = await processCommunicationEvent({
         eventId,
         payload,
         adapter: new VapiKrosCommunicationAdapter(environment, fetchImpl),
         correlation,
-        deduplicator
+        deduplicator,
+        afterNormalize: persistProcessedEvent
+          ? async (communication) => {
+              intelligence = await persistProcessedEvent({
+                payload,
+                communication
+              });
+            }
+          : undefined
       });
 
       switch (result.kind) {
@@ -261,8 +284,11 @@ export function createVapiWebhookPostHandler(
               ok: true,
               kind: result.kind,
               eventId: result.eventId,
-              communication: result.communication,
-              quoteCreated: false
+              communication:
+                intelligence?.normalizedCommunication ?? result.communication,
+              quoteCreated: Boolean(intelligence?.extraction.quote),
+              decisionStatus: intelligence?.recommendation.decisionStatus,
+              requiredFacts: intelligence?.recommendation.requiredFacts ?? []
             },
             { status: 200 }
           );

@@ -29,6 +29,7 @@ export type NeonQuoteRepositoryEnvironmentInput = {
 export type NeonSql = ReturnType<typeof neon>;
 
 const storedNumberSchema = z.coerce.number().finite().nonnegative().nullable();
+const storedPositiveNumberSchema = z.coerce.number().finite().positive().nullable().optional();
 const storedTimestampSchema = z
   .union([z.string().datetime(), z.date()])
   .transform((value) => (value instanceof Date ? value.toISOString() : value));
@@ -38,6 +39,8 @@ const neonQuoteRowSchema = z.object({
   mission_id: z.string().min(1),
   provider_id: z.string().min(1),
   available: z.boolean(),
+  quantity: storedPositiveNumberSchema,
+  unit: z.string().trim().min(1).nullable().optional(),
   price: storedNumberSchema,
   delivery_fee: storedNumberSchema,
   total: storedNumberSchema,
@@ -70,6 +73,8 @@ function fromStorageRow(row: unknown): Quote {
     missionId: stored.mission_id,
     providerId: stored.provider_id,
     available: stored.available,
+    quantity: stored.quantity ?? undefined,
+    unit: stored.unit ?? undefined,
     price: stored.price ?? undefined,
     deliveryFee: stored.delivery_fee ?? undefined,
     total: stored.total ?? undefined,
@@ -121,6 +126,8 @@ export class NeonQuoteRepository implements QuoteRepository {
           mission_id,
           provider_id,
           available,
+          quantity,
+          unit,
           price,
           delivery_fee,
           total,
@@ -134,6 +141,8 @@ export class NeonQuoteRepository implements QuoteRepository {
           ${quote.missionId},
           ${quote.providerId},
           ${quote.available},
+          ${quote.quantity ?? null},
+          ${quote.unit ?? null},
           ${quote.price ?? null},
           ${quote.deliveryFee ?? null},
           ${quote.total ?? null},
@@ -148,6 +157,8 @@ export class NeonQuoteRepository implements QuoteRepository {
           mission_id,
           provider_id,
           available,
+          quantity,
+          unit,
           price,
           delivery_fee,
           total,
@@ -183,6 +194,8 @@ export class NeonQuoteRepository implements QuoteRepository {
           mission_id,
           provider_id,
           available,
+          quantity,
+          unit,
           price,
           delivery_fee,
           total,

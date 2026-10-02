@@ -65,6 +65,13 @@ export type ProcessCommunicationEventInput = {
   correlation?: CommunicationCorrelation;
   deduplicator: CommunicationEventDeduplicator;
   auditSink?: CommunicationAuditSink;
+  /**
+   * Optional durable post-processing hook executed after provider normalization
+   * and defensive correlation checks, but before the event claim is treated as
+   * successfully processed. If this hook throws, the dedupe claim is released
+   * so a provider retry can reprocess the event safely.
+   */
+  afterNormalize?: (communication: CommunicationResult) => Promise<void>;
 };
 
 async function writeAuditBestEffort(
@@ -89,8 +96,9 @@ async function writeAuditBestEffort(
  *
  * Provider-specific authentication/signature verification and correlation
  * lookup must happen before this function. This function then performs
- * idempotency, normalization, defensive correlation matching and metadata-only
- * observability. Raw partner payloads are never written to the audit sink.
+ * idempotency, normalization, defensive correlation matching, optional durable
+ * post-processing, and metadata-only observability. Raw partner payloads are
+ * never written to the audit sink.
  */
 export async function processCommunicationEvent(
   input: ProcessCommunicationEventInput
@@ -133,6 +141,10 @@ export async function processCommunicationEvent(
       throw new Error(
         `Communication correlation mismatch for event ${eventId}.`
       );
+    }
+
+    if (input.afterNormalize) {
+      await input.afterNormalize(communication);
     }
 
     await writeAuditBestEffort(

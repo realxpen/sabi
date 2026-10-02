@@ -18,6 +18,8 @@ const quote = quoteSchema.parse({
   missionId: "mission-test-1",
   providerId: "provider-ade-textiles",
   available: true,
+  quantity: 20,
+  unit: "yards",
   price: 62000,
   source: "CALL",
   sourceReference: "communication-test-1",
@@ -30,6 +32,8 @@ function storageRow() {
     mission_id: quote.missionId,
     provider_id: quote.providerId,
     available: true,
+    quantity: "20",
+    unit: "yards",
     price: "62000",
     delivery_fee: null,
     total: null,
@@ -78,6 +82,8 @@ describe("Neon Quote repository", () => {
       quote.missionId,
       quote.providerId,
       true,
+      20,
+      "yards",
       62000,
       null,
       null,
@@ -88,6 +94,8 @@ describe("Neon Quote repository", () => {
       quote.createdAt
     ]);
     expect(stored).toEqual(quote);
+    expect(stored.quantity).toBe(20);
+    expect(stored.unit).toBe("yards");
     expect(stored.deliveryFee).toBeUndefined();
     expect(stored.total).toBeUndefined();
   });

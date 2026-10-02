@@ -1,7 +1,7 @@
 # SABI Integration & Tool Contracts
 
 Status: ACTIVE
-Last verified: 2026-09-30
+Last verified: 2026-10-02
 
 Partner-independent contracts below are binding. Partner-specific details are implemented only from verified official documentation/live account behavior and stay behind adapters.
 
@@ -80,6 +80,8 @@ recordQuote({
   missionId,
   providerId,
   available,
+  quantity?,
+  unit?,
   price?,
   deliveryFee?,
   total?,
@@ -94,6 +96,10 @@ Rules:
 
 - validate input
 - unknown remains unknown
+- `quantity` and `unit` are provider-confirmed/quoted facts, not values copied from the Mission request without provider evidence
+- generic `available: true` does not prove the requested quantity/capacity
+- if a Mission has a hard quantity and provider-confirmed quantity is missing, the quantity constraint remains unknown
+- insufficient provider-confirmed quantity or incompatible units fail the hard constraint
 - do not assume missing delivery fee is zero
 - unavailable/no-answer calls do not create fabricated totals
 - preserve source reference back to transcript/call/message
@@ -107,7 +113,7 @@ compareQuotes({ missionId })
 Flow:
 
 1. load validated Mission + Quotes
-2. apply hard constraints
+2. apply hard constraints, including represented quantity/capacity
 3. rank only qualifying options
 4. return explanation-ready factors
 5. preserve excluded options + reasons in logs/state
@@ -222,6 +228,8 @@ provider transcript/result
 ```
 
 Only create a Quote when factual provider values exist. Missing information may trigger follow-up or remain unknown.
+
+Provider-confirmed quantity/capacity follows the same evidence rule. Transcript normalization may preserve an exact quantity confirmation as evidence and promote it to `Quote.quantity`/`Quote.unit`; it must not populate those fields merely because the Mission requested that amount.
 
 ## Voice runtime
 
