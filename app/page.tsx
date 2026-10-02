@@ -19,6 +19,10 @@ export default function HomePage() {
           <span>Buy something locally</span>
           <span>Find someone to fix something</span>
         </div>
+
+        <p className="safetyNote">
+          Builder preview: <a href="/readiness">check integration readiness</a>.
+        </p>
       </section>
     </main>
   );
