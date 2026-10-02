@@ -213,7 +213,7 @@ function moneyTokens(text: string, allowBare: boolean): MoneyToken[] {
   const candidates: MoneyToken[] = [];
   const patterns: RegExp[] = [
     /(?:₦|NGN\s*|\bN\s*)(\d[\d,]*(?:\.\d+)?)\s*(k)?\b/gi,
-    /\b(\d+(?:\.\d+)?)\s*k\b/gi
+    /\b(\d+(?:\.\d+)?)\s*(k)\b/gi
   ];
 
   // The grouped alternative prevents the parser from seeing the trailing
