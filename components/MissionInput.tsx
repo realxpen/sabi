@@ -110,6 +110,81 @@ export function MissionInput() {
             : "Create simulation mission"}
       </button>
       {error ? <p className="formError">{error}</p> : null}
+
+      <style jsx>{`
+        .missionModePicker {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin: 6px 0 0;
+          padding: 0;
+          border: 0;
+        }
+
+        .missionModePicker legend {
+          grid-column: 1 / -1;
+          margin-bottom: 2px;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #52525b;
+        }
+
+        .missionModePicker label {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          min-height: 102px;
+          padding: 14px;
+          border: 1px solid rgba(24, 24, 27, 0.1);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.62);
+          cursor: pointer;
+          transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+        }
+
+        .missionModePicker label.selected {
+          border-color: #8c6bd6;
+          box-shadow: inset 0 0 0 1px #8c6bd6;
+          background: #f7f3ff;
+        }
+
+        .missionModePicker input {
+          margin-top: 3px;
+          accent-color: #6d4cc7;
+        }
+
+        .missionModePicker span {
+          display: grid;
+          gap: 4px;
+        }
+
+        .missionModePicker strong {
+          font-size: 0.92rem;
+        }
+
+        .missionModePicker small {
+          color: #71717a;
+          font-size: 0.79rem;
+          font-weight: 500;
+          line-height: 1.45;
+        }
+
+        .liveModeNotice {
+          margin: 0;
+          padding: 11px 13px;
+          border-radius: 13px;
+          background: #fff4d8;
+          color: #6b4d00;
+          font-size: 0.82rem;
+          line-height: 1.5;
+        }
+
+        @media (max-width: 640px) {
+          .missionModePicker {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </form>
   );
 }
