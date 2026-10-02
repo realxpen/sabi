@@ -84,6 +84,7 @@ export function LiveVoiceTestPanel({
       ),
     [communications]
   );
+  const activeCommunicationId = activeCommunication?.id;
 
   const completedCommunication = useMemo(
     () =>
@@ -184,7 +185,7 @@ export function LiveVoiceTestPanel({
   }
 
   useEffect(() => {
-    if (!activeCommunication || !operatorToken.trim()) return;
+    if (!activeCommunicationId || !operatorToken.trim()) return;
 
     let cancelled = false;
 
@@ -194,7 +195,7 @@ export function LiveVoiceTestPanel({
       try {
         await performAction(
           "refresh",
-          { communicationId: activeCommunication.id },
+          { communicationId: activeCommunicationId },
           { quiet: true }
         );
       } finally {
@@ -207,7 +208,7 @@ export function LiveVoiceTestPanel({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeCommunication?.id, operatorToken, missionId]);
+  }, [activeCommunicationId, operatorToken, missionId]);
 
   if (demoMode) return null;
 
