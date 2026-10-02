@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const CANONICAL_REQUEST =
-  "I need 20 yards of black Ankara delivered to Yaba tomorrow. My budget is ₦70,000.";
+  "I need 12 bottles of 50ml long-lasting unisex perfume delivered to Yaba tomorrow. My budget is ₦120,000.";
 
 export function MissionInput() {
   const router = useRouter();
