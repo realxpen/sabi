@@ -42,12 +42,10 @@ describe("Vapi/Kros intelligence integration fixture", () => {
       })
     );
     expect(projected.communication.observation).toBeUndefined();
-    expect(projected.transcript).toContain(
-      "User: ₦60,000."
-    );
+    expect(projected.transcript).toContain("User: ₦60,000.");
   });
 
-  it("runs raw Lara-shaped events through transcript observation, Quote extraction and recommendation", () => {
+  it("runs raw Lara-shaped events through transcript observation, Quote extraction and READY recommendation", () => {
     const run = runVapiKrosIntelligenceFixture({
       mission,
       providers: intelligenceDemoProviders,
@@ -74,6 +72,8 @@ describe("Vapi/Kros intelligence integration fixture", () => {
     expect(ade?.extraction.quote).toEqual(
       expect.objectContaining({
         providerId: "provider-ade-textiles",
+        quantity: 20,
+        unit: "yards",
         price: 60000,
         deliveryFee: 3000,
         total: 63000,
@@ -82,30 +82,38 @@ describe("Vapi/Kros intelligence integration fixture", () => {
         sourceReference: "communication:communication-vapi-ade"
       })
     );
-    expect(ade?.extraction.missingFacts).toContainEqual(
-      expect.objectContaining({
-        code: "QUANTITY_CAPACITY_UNREPRESENTED",
-        blocksQuoteCreation: false
-      })
-    );
+    expect(
+      ade?.extraction.missingFacts.some(
+        (fact) => fact.code === "QUANTITY_CAPACITY_UNREPRESENTED"
+      )
+    ).toBe(false);
 
     const tola = run.events.find(
       (event) => event.communication.providerId === "provider-tola-fabrics"
     );
     expect(tola?.transcript).toContain("User: 64k.");
-    expect(tola?.extraction.quote?.total).toBe(67000);
+    expect(tola?.extraction.quote).toEqual(
+      expect.objectContaining({ total: 67000, quantity: 20, unit: "yards" })
+    );
 
     const bola = run.events.find(
       (event) => event.communication.providerId === "provider-bola-textiles"
     );
     expect(bola?.extraction.quote).toEqual(
-      expect.objectContaining({ total: 57000, deliveryDate: "friday" })
+      expect.objectContaining({
+        total: 57000,
+        quantity: 20,
+        unit: "yards",
+        deliveryDate: "friday"
+      })
     );
 
     const sade = run.events.find(
       (event) => event.communication.providerId === "provider-sade-fabrics"
     );
-    expect(sade?.extraction.quote?.total).toBe(79000);
+    expect(sade?.extraction.quote).toEqual(
+      expect.objectContaining({ total: 79000, quantity: 20, unit: "yards" })
+    );
 
     const noAnswer = run.events.find(
       (event) => event.communication.providerId === "provider-mariam-fabrics"
@@ -118,11 +126,16 @@ describe("Vapi/Kros intelligence integration fixture", () => {
       expect.objectContaining({ code: "COMMUNICATION_NOT_COMPLETED" })
     );
 
-    expect(run.recommendation.decisionStatus).toBe("BLOCKED_UNKNOWN");
-    expect(run.recommendation.selected).toBeUndefined();
+    expect(run.recommendation.decisionStatus).toBe("READY");
+    expect(run.recommendation.selected?.provider.id).toBe(
+      "provider-ade-textiles"
+    );
+    expect(run.recommendation.selected?.quote.total).toBe(63000);
+    expect(run.recommendation.selected?.quote.quantity).toBe(20);
+    expect(run.recommendation.selected?.quote.unit).toBe("yards");
     expect(
-      run.recommendation.pendingEvidence.map((candidate) => candidate.provider.id)
-    ).toEqual(["provider-ade-textiles", "provider-tola-fabrics"]);
+      run.recommendation.alternatives.map((candidate) => candidate.provider.id)
+    ).toEqual(["provider-tola-fabrics"]);
 
     expect(run.recommendation.exclusions).toContainEqual(
       expect.objectContaining({
@@ -141,9 +154,6 @@ describe("Vapi/Kros intelligence integration fixture", () => {
       })
     );
 
-    expect(run.recommendation.requiredFacts).toContain(
-      "The current Quote contract does not represent provider capacity, so availability of 20 yards cannot be independently verified."
-    );
     expect(run.recommendation.approvalRequired).toBe(true);
   });
 
