@@ -20,7 +20,9 @@ function quoteSourceForCommunication(communication: CommunicationResult): QuoteS
  * - communication must be COMPLETED
  * - observation must explicitly include availability
  * - no transcript/summary text is parsed here
- * - total is derived only when both price and delivery fee are explicit
+ * - provider-confirmed quantity/unit are preserved when represented
+ * - explicit total is preserved; otherwise total is derived only when both
+ *   price and delivery fee are explicit
  * - missing values remain missing
  */
 export function quoteFromCommunicationEvidence(
@@ -32,15 +34,18 @@ export function quoteFromCommunicationEvidence(
   if (!observation || observation.available === undefined) return undefined;
 
   const total =
-    observation.price !== undefined && observation.deliveryFee !== undefined
+    observation.total ??
+    (observation.price !== undefined && observation.deliveryFee !== undefined
       ? observation.price + observation.deliveryFee
-      : undefined;
+      : undefined);
 
   return quoteSchema.parse({
     id: `quote-${communication.id}`,
     missionId: communication.missionId,
     providerId: communication.providerId,
     available: observation.available,
+    quantity: observation.available ? observation.quantity : undefined,
+    unit: observation.available ? observation.unit : undefined,
     price: observation.price,
     deliveryFee: observation.deliveryFee,
     total,

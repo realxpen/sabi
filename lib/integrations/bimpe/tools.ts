@@ -232,8 +232,11 @@ export async function recordProviderResponseForAgent(
           ...candidate,
           observation: {
             available: facts.available,
+            quantity: facts.available ? facts.quantity : undefined,
+            unit: facts.available ? facts.unit : undefined,
             price: facts.price,
             deliveryFee: facts.deliveryFee,
+            total: facts.total,
             deliveryDate: facts.deliveryDate,
             notes: facts.notes
           }

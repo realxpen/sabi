@@ -18,8 +18,11 @@ export const communicationStatusSchema = z.enum([
 
 export const communicationObservationSchema = z.object({
   available: z.boolean().optional(),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().min(1).optional(),
   price: z.number().nonnegative().optional(),
   deliveryFee: z.number().nonnegative().optional(),
+  total: z.number().nonnegative().optional(),
   deliveryDate: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional()
 });

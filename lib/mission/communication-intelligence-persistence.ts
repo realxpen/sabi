@@ -78,7 +78,8 @@ function missionRecommendationFrom(
  * Mission state, request approval, or execute a transaction. It only:
  * 1. loads the existing Mission snapshot,
  * 2. applies transcript normalization when evidence is present,
- * 3. carries exact provider-confirmed quantity evidence into Quote when present,
+ * 3. carries exact provider-confirmed quantity evidence into both the
+ *    CommunicationResult observation and Quote when present,
  * 4. extracts a canonical Quote when the represented facts permit one,
  * 5. recomputes the deterministic recommendation across all stored Quotes,
  * 6. writes communication + Quote(s) + READY recommendation in one snapshot.
@@ -111,10 +112,20 @@ export async function persistCommunicationIntelligence({
         mission: snapshot.mission
       })
     : undefined;
-  const normalizedCommunication =
-    normalization?.communication ?? communication;
+  const normalizedBase = normalization?.communication ?? communication;
   const quantityEvidence =
     normalization?.normalization.unrepresentedQuantityEvidence;
+  const normalizedCommunication: CommunicationResult =
+    quantityEvidence && normalizedBase.observation
+      ? {
+          ...normalizedBase,
+          observation: {
+            ...normalizedBase.observation,
+            quantity: quantityEvidence.quantity,
+            unit: quantityEvidence.unit
+          }
+        }
+      : normalizedBase;
 
   const extraction = extractQuoteFromCommunication(normalizedCommunication, {
     mission: snapshot.mission,
