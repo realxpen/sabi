@@ -38,8 +38,13 @@ function quotesFor(targetMission = mission) {
 }
 
 describe("SABI hard constraints", () => {
-  it("does not treat unrepresented quantity/capacity as a pass", () => {
-    const quote = quotesFor(mission)[0];
+  it("does not treat missing provider-confirmed quantity/capacity as a pass", () => {
+    const baseQuote = quotesFor(mission)[0];
+    const quote = quoteSchema.parse({
+      ...baseQuote,
+      quantity: undefined,
+      unit: undefined
+    });
     const provider = intelligenceDemoProviders.find(
       (item) => item.id === quote.providerId
     );
@@ -76,9 +81,9 @@ describe("SABI hard constraints", () => {
 
   it("fails a deadline conflict instead of allowing a cheaper quote through", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     const late = result.exclusions.find(
       (item) => item.quoteId === "quote-bola-late"
@@ -90,9 +95,9 @@ describe("SABI hard constraints", () => {
 
   it("fails an over-budget option without relaxing the hard budget", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     const overBudget = result.exclusions.find(
       (item) => item.quoteId === "quote-sade-over-budget"
@@ -104,9 +109,9 @@ describe("SABI hard constraints", () => {
 
   it("keeps missing total factual uncertainty separate from hard failure", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     const missing = result.uncertainties.find(
       (item) => item.quoteId === "quote-missing-delivery-fee"
@@ -127,9 +132,9 @@ describe("SABI hard constraints", () => {
 
   it("fails an unavailable provider", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     const unavailable = result.exclusions.find(
       (item) => item.quoteId === "quote-unavailable-provider"
@@ -146,15 +151,11 @@ describe("SABI hard constraints", () => {
     expect(wrongProvider).toBeDefined();
 
     const quote = quoteSchema.parse({
-      ...quotesFor(missionWithoutQuantity)[0],
+      ...quotesFor(mission)[0],
       id: "quote-wrong-category",
       providerId: "provider-wrong-category"
     });
-    const evaluation = evaluateCandidate(
-      missionWithoutQuantity,
-      wrongProvider!,
-      quote
-    );
+    const evaluation = evaluateCandidate(mission, wrongProvider!, quote);
 
     expect(evaluation.status).toBe("FAIL");
     expect(evaluation.exclusions.map((reason) => reason.code)).toContain(
@@ -164,25 +165,25 @@ describe("SABI hard constraints", () => {
 });
 
 describe("SABI recommendation output", () => {
-  it("blocks the canonical Ankara recommendation while quantity capacity is unknown", () => {
+  it("returns READY for canonical Ankara when provider-confirmed quantity is represented", () => {
     const result = recommend(
       mission,
       intelligenceDemoProviders,
       quotesFor(mission)
     );
 
-    expect(result.decisionStatus).toBe("BLOCKED_UNKNOWN");
-    expect(result.selected).toBeUndefined();
-    expect(result.pendingEvidence[0]?.provider.id).toBe(
-      "provider-ade-textiles"
-    );
-    expect(result.pendingEvidence[0]?.quote.total).toBe(63000);
-    expect(result.requiredFacts.some((fact) => fact.includes("20 yards"))).toBe(
-      true
-    );
+    expect(result.decisionStatus).toBe("READY");
+    expect(result.selected?.provider.id).toBe("provider-ade-textiles");
+    expect(result.selected?.quote.total).toBe(63000);
+    expect(result.selected?.quote.quantity).toBe(20);
+    expect(result.selected?.quote.unit).toBe("yards");
+    expect(result.alternatives.map((candidate) => candidate.provider.id)).toEqual([
+      "provider-tola-fabrics"
+    ]);
+    expect(result.approvalRequired).toBe(true);
   });
 
-  it("selects Ade deterministically when all represented hard constraints pass", () => {
+  it("selects Ade deterministically when the Mission has no quantity constraint", () => {
     const result = recommend(
       missionWithoutQuantity,
       intelligenceDemoProviders,
@@ -200,9 +201,9 @@ describe("SABI recommendation output", () => {
 
   it("returns source provenance for every evaluated Quote", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     const bola = result.provenance.find(
       (item) => item.quoteId === "quote-bola-late"
@@ -212,14 +213,14 @@ describe("SABI recommendation output", () => {
   });
 
   it("returns no recommendation when every candidate fails", () => {
-    const invalidQuotes = quotesFor(missionWithoutQuantity).map((quote) => ({
+    const invalidQuotes = quotesFor(mission).map((quote) => ({
       ...quote,
       total: quote.total === undefined ? undefined : quote.total + 100000,
       deliveryDate: "next month"
     }));
 
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
       invalidQuotes
     );
@@ -230,17 +231,9 @@ describe("SABI recommendation output", () => {
   });
 
   it("is deterministic across repeated runs", () => {
-    const quotes = quotesFor(missionWithoutQuantity);
-    const first = recommend(
-      missionWithoutQuantity,
-      intelligenceDemoProviders,
-      quotes
-    );
-    const second = recommend(
-      missionWithoutQuantity,
-      intelligenceDemoProviders,
-      quotes
-    );
+    const quotes = quotesFor(mission);
+    const first = recommend(mission, intelligenceDemoProviders, quotes);
+    const second = recommend(mission, intelligenceDemoProviders, quotes);
 
     expect(first.selected?.quote.id).toBe(second.selected?.quote.id);
     expect(first.alternatives.map((item) => item.quote.id)).toEqual(
@@ -250,9 +243,9 @@ describe("SABI recommendation output", () => {
 
   it("does not rank on fields outside the documented factor set", () => {
     const result = recommend(
-      missionWithoutQuantity,
+      mission,
       intelligenceDemoProviders,
-      quotesFor(missionWithoutQuantity)
+      quotesFor(mission)
     );
     expect(result.selected?.factors.map((factor) => factor.code)).toEqual([
       "TOTAL_PRICE",
@@ -264,7 +257,7 @@ describe("SABI recommendation output", () => {
 
   it("preserves the mission approval requirement rather than inventing one", () => {
     const noApprovalMission = missionSchema.parse({
-      ...missionWithoutQuantity,
+      ...mission,
       id: "mission-no-approval",
       approvalRequired: false
     });
