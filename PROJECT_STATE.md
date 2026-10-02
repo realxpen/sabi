@@ -173,7 +173,8 @@ Observed evidence on the Lara track:
 - GitHub CI passed install, typecheck, tests and build for the mission-correlation/action-manifest code and regression tests (`ad04d76c33dca03ae8d8faf44dba60e1f783ff34`).
 - Kros account/KYC/active Nigerian number are available and a consented Kros dashboard outbound test call succeeded.
 - Vapi assistant, API key, assistant ID and authenticated SABI Preview webhook are configured in the provider/dashboard layer.
-- Kros-to-Vapi BYO SIP trunk creation is still blocked by Vapi credential validation (`POST /credential` HTTP 400); Kros/Vapi SIP authentication/allowlisting remains the external issue to resolve.
+- Kros-to-Vapi BYO SIP trunk `sabi preview` now saves successfully in Vapi against the Kros SIP gateway over UDP with inbound/outbound enabled; the earlier `/credential` HTTP 400 validation blocker is resolved.
+- The Vapi SIP Trunk Credential ID still needs to be copied from the saved trunk details, the Kros number imported as a BYO SIP number, and that credential ID added to Lara Preview.
 - A fresh Lara Vercel Preview deployment is still blocked by the Vercel build-rate limit. Repository changes must not be treated as deployed until that clears.
 - The live Bimpe dashboard still needs to synchronize the mission-correlation workflow instruction and add the sixth `Send Message` action after the updated SABI Preview is available. Repository changes do not automatically mutate an already-configured Bimpe workflow/action list.
 
@@ -198,7 +199,9 @@ Observed evidence on the Lara track:
 - [x] SABI provider-calling Assistant
 - [x] Assistant ID
 - [x] authenticated SABI Preview webhook configuration
-- [ ] SIP Trunk Credential ID
+- [x] Kros SIP trunk configured and saved in Vapi
+- [ ] SIP Trunk Credential ID copied into SABI Preview
+- [ ] Kros number imported as Vapi BYO SIP number
 - [ ] Kros BYO/SIP path tested
 
 ### BimpeAI — core agent layer
@@ -246,8 +249,9 @@ request
 Then prove the first real external gate:
 
 ```text
-resolve Kros ↔ Vapi SIP credential validation
+capture Vapi SIP Trunk Credential ID
 → import Kros BYO number into Vapi
+→ add SIP credential ID to Lara Preview
 → fresh Lara Preview deployment
 → synchronize Bimpe mission correlation/action configuration
 → one consented SABI-triggered real call
