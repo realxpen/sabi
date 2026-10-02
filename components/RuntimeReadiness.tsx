@@ -18,6 +18,15 @@ type RuntimeStatus = {
   communication: {
     mode: string;
     consentedProviderPhoneCount: number;
+    bimpe: {
+      apiBaseConfigured: boolean;
+      apiKeyConfigured: boolean;
+      agentConfigured: boolean;
+      workflowConfigured: boolean;
+      toolAuthConfigured: boolean;
+      testCallsEnabled: boolean;
+      voiceConfigured: boolean;
+    };
     vapi: {
       apiBaseConfigured: boolean;
       apiKeyConfigured: boolean;
@@ -34,10 +43,13 @@ type RuntimeStatus = {
     noAnswerAutoQuoteDisabled: boolean;
   };
   bimpe: {
+    apiBaseConfigured: boolean;
     apiKeyConfigured: boolean;
     agentConfigured: boolean;
     workflowConfigured: boolean;
     toolAuthConfigured: boolean;
+    testCallsEnabled: boolean;
+    voiceConfigured: boolean;
     configured: boolean;
   };
   truthGuards: {
@@ -103,6 +115,13 @@ export function RuntimeReadiness() {
     );
   }
 
+  const selectedVoiceReady =
+    status.communication.mode === "bimpe"
+      ? status.communication.bimpe.voiceConfigured
+      : status.communication.mode === "vapi-kros"
+        ? status.communication.vapi.configured
+        : false;
+
   return (
     <div className="missionLayout">
       <section className="summaryCard">
@@ -119,8 +138,22 @@ export function RuntimeReadiness() {
           <Flag ok={status.database.reachable} label="Neon database" />
           <Flag ok={status.database.missionSnapshotsReady} label="Mission storage" />
           <Flag ok={status.bimpe.toolAuthConfigured} label="Agent tool auth" />
-          <Flag ok={status.communication.vapi.configured} label="Vapi runtime" />
+          <Flag ok={selectedVoiceReady} label="Selected voice runtime" />
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="eyebrow">BimpeAI voice</div>
+        <h2>Primary Hack Night communication path</h2>
+        <div className="summaryGrid">
+          <Flag ok={status.bimpe.apiKeyConfigured} label="Bimpe API key" />
+          <Flag ok={status.bimpe.agentConfigured} label="Voice agent ID" />
+          <Flag ok={status.bimpe.apiBaseConfigured} label="Console API" />
+          <Flag ok={status.bimpe.testCallsEnabled} label="Safe test-call mode" />
+        </div>
+        <p className="safetyNote">
+          With communication mode set to <strong>bimpe</strong>, SABI can place consent-gated BimpeAI test calls, poll call status and retrieve transcript evidence without turning transcript text into a Quote automatically.
+        </p>
       </section>
 
       <section className="panel">
@@ -156,15 +189,15 @@ export function RuntimeReadiness() {
 
       <section className="panel">
         <div className="eyebrow">Live communication gate</div>
-        <h2>What is still needed for the real call</h2>
+        <h2>What is still needed for a real provider call</h2>
         <div className="summaryGrid">
           <Flag ok={status.providerDirectory.configured} label={`Test providers (${status.providerDirectory.providerCount})`} />
           <Flag ok={status.communication.consentedProviderPhoneCount > 0} label={`Consented phones (${status.communication.consentedProviderPhoneCount})`} />
-          <Flag ok={status.communication.vapi.sipTrunkConfigured} label="SIP trunk" />
-          <Flag ok={status.communication.vapi.webhookAuthConfigured} label="Webhook auth" />
+          <Flag ok={selectedVoiceReady} label="Selected transport configured" />
+          <Flag ok={status.database.missionSnapshotsReady} label="Mission persistence" />
         </div>
         <p className="safetyNote">
-          Communication mode: {status.communication.mode}. Provider phone numbers are never returned by this status endpoint.
+          Communication mode: {status.communication.mode}. Provider phone numbers are never returned by this status endpoint. Vapi/Kros remains available as a fallback path.
         </p>
       </section>
 
