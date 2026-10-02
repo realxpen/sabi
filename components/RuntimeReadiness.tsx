@@ -28,6 +28,11 @@ type RuntimeStatus = {
     };
     liveReady: boolean;
   };
+  supervisedEvidence: {
+    operatorAuthConfigured: boolean;
+    transcriptAutoQuoteDisabled: boolean;
+    noAnswerAutoQuoteDisabled: boolean;
+  };
   bimpe: {
     apiKeyConfigured: boolean;
     agentConfigured: boolean;
@@ -116,6 +121,20 @@ export function RuntimeReadiness() {
           <Flag ok={status.bimpe.toolAuthConfigured} label="Agent tool auth" />
           <Flag ok={status.communication.vapi.configured} label="Vapi runtime" />
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="eyebrow">Supervised evidence</div>
+        <h2>Phone-friendly factual capture fallback</h2>
+        <div className="summaryGrid">
+          <Flag ok={status.supervisedEvidence.operatorAuthConfigured} label="Operator token" />
+          <Flag ok={status.supervisedEvidence.transcriptAutoQuoteDisabled} label="No transcript guessing" />
+          <Flag ok={status.supervisedEvidence.noAnswerAutoQuoteDisabled} label="No-answer guard" />
+          <Flag ok={status.database.missionSnapshotsReady} label="Evidence persistence" />
+        </div>
+        <p className="safetyNote">
+          Completed real contacts can be given factual price, availability and delivery details by a supervised operator. Unknown values remain blank and no transaction is performed.
+        </p>
       </section>
 
       <section className="panel">
