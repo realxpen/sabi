@@ -1,4 +1,9 @@
+import { waitUntil } from "@vercel/functions";
 import { ZodError, z } from "zod";
+import {
+  isBimpeMissionOrchestrationConfigured,
+  startBimpeMissionOrchestration
+} from "../../../lib/integrations/bimpe/conversation-orchestrator";
 import {
   createPersistedMission,
   missionExecutionModeSchema,
@@ -37,16 +42,39 @@ export async function POST(request: Request) {
 
   try {
     const persisted = await createPersistedMission(parsed.data.request, mode);
+    const bimpeConfigured =
+      mode === "LIVE" && isBimpeMissionOrchestrationConfigured();
+
+    if (bimpeConfigured) {
+      waitUntil(
+        startBimpeMissionOrchestration({
+          missionId: persisted.mission.id,
+          request: persisted.mission.rawRequest
+        }).catch((error) => {
+          console.error(
+            `Bimpe live mission handoff failed for ${persisted.mission.id}`,
+            error
+          );
+        })
+      );
+    }
 
     return Response.json(
       {
         ...persisted,
         persisted: true,
         orchestrationMode: mode,
+        agentHandoff: {
+          provider: "BimpeAI",
+          scheduled: bimpeConfigured,
+          correlation: bimpeConfigured ? persisted.mission.id : undefined
+        },
         disclaimer:
           mode === "SIMULATION"
             ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
-            : "Live mission created. No external action occurs until an authenticated operator explicitly starts the Live Voice Test."
+            : bimpeConfigured
+              ? "Live mission created and handed to BimpeAI. Provider contact remains consent-gated and every consequential action stops for human approval."
+              : "Live mission created, but BimpeAI orchestration is not configured. No provider contact was initiated."
       },
       { status: 201 }
     );
