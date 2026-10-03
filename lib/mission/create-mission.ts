@@ -15,7 +15,7 @@ export type MissionCreationEnvironment = {
 export function readDefaultMissionExecutionMode(
   environment: MissionCreationEnvironment = process.env
 ): MissionExecutionMode {
-  const raw = environment.SABI_DEFAULT_MISSION_MODE?.trim() || "SIMULATION";
+  const raw = environment.SABI_DEFAULT_MISSION_MODE?.trim() || "LIVE";
   return missionExecutionModeSchema.parse(raw);
 }
 
