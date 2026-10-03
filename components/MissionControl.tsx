@@ -3,6 +3,7 @@ import type { MissionStartupIssue } from "../lib/mission/startup-status";
 import { AdaptiveDecisionCard } from "./AdaptiveDecisionCard";
 import { ApprovalCard } from "./ApprovalCard";
 import { MissionExperience } from "./MissionExperience";
+import { MissionStartupRecovery } from "./MissionStartupRecovery";
 
 type MissionControlProps = {
   snapshot: MissionSnapshot;
@@ -81,6 +82,10 @@ export function MissionControl({ snapshot, startupIssue }: MissionControlProps) 
   return (
     <div className="missionLayout">
       <MissionExperience snapshot={snapshot} startupIssue={startupIssue} />
+
+      {startupIssue?.code === "AGENT_START_DELAYED" ? (
+        <MissionStartupRecovery missionId={snapshot.mission.id} />
+      ) : null}
 
       {bestOverBudgetQuote && bestOverBudgetProvider && budget !== undefined && bestOverBudgetQuote.total !== undefined ? (
         <AdaptiveDecisionCard
