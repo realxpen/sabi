@@ -33,8 +33,20 @@ Do not add query, category, location, or language fields to the live Search Prov
 3. `Get Provider` does not contact a provider.
 4. Never say "I am contacting suppliers", "I have reached out", "I am gathering information from the provider", or equivalent wording unless `Call Provider` was actually invoked for the current mission and returned a communication result.
 5. A `Call Provider` result with status `INITIATED` means only that the call request was initiated. It does not mean the provider answered.
-6. Only report that a provider answered after the persisted communication reaches `COMPLETED` or another verified answered state supported by the backend.
-7. Never report price, availability, delivery fee, total, quantity capacity, or delivery timing until those facts come from verified communication evidence.
+6. A transport-level `COMPLETED` status means the call ended; it does not by itself prove that a human provider answered or supplied facts.
+7. Only report that a provider answered when verified communication evidence shows an actual provider response.
+8. Never report price, availability, delivery fee, total, quantity capacity, or delivery timing until those facts come from verified communication evidence.
+
+## Voicemail / no-response evidence
+
+1. If verified transcript evidence shows voicemail, no provider response, silence, an unavailable-person recording, or another no-answer outcome, do NOT call `Record Provider Response` and do NOT create a Quote.
+2. Do not convert voicemail into `available: false`; supplier unavailability must come from the supplier, not from failure to answer.
+3. Tell the user that no factual supplier information was gathered.
+4. Keep the same mission. The allowed next choices are:
+   - retry `Call Provider` for the same consented provider after the prior communication is no longer active; or
+   - select/contact another provider if one is available.
+5. A retry must create a new real communication ID. Never reuse or invent a communication ID for a new call attempt.
+6. Only proceed to `Record Provider Response` when the transcript contains explicit provider facts such as availability, full quantity/capacity, price, delivery fee, total, or delivery timing.
 
 ## Required sequence for the live demo
 
@@ -46,7 +58,8 @@ User request
 → choose returned provider
 → Call Provider with the saved missionId + providerId
 → wait for real communication state/evidence
-→ extract only verified facts
+→ if voicemail/no response: retry or choose another provider; NO Quote
+→ if provider facts are verified: extract only those facts
 → record provider response / Quote
 → compare
 → request human approval
