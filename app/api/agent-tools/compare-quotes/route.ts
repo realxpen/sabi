@@ -15,6 +15,27 @@ const inputSchema = z.object({
   missionId: z.string().trim().min(1)
 });
 
+function normalizeRelativeDeadline(
+  deadline: string | undefined,
+  createdAt: string
+): string | undefined {
+  if (!deadline) return deadline;
+
+  const normalized = deadline.trim().toLowerCase();
+  if (normalized !== "today" && normalized !== "tomorrow") {
+    return deadline;
+  }
+
+  const base = new Date(createdAt);
+  if (Number.isNaN(base.getTime())) return deadline;
+
+  if (normalized === "tomorrow") {
+    base.setUTCDate(base.getUTCDate() + 1);
+  }
+
+  return base.toISOString().slice(0, 10);
+}
+
 export async function POST(request: Request): Promise<Response> {
   const authFailure = authorizeAgentToolRequest(request);
   if (authFailure) return authFailure;
@@ -23,10 +44,28 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const { missionId } = inputSchema.parse(body);
-    const snapshot = await getMissionSnapshot(missionId);
+    let snapshot = await getMissionSnapshot(missionId);
 
     if (!snapshot) {
       return Response.json({ error: "MISSION_NOT_FOUND" }, { status: 404 });
+    }
+
+    const normalizedDeadline = normalizeRelativeDeadline(
+      snapshot.mission.deadline,
+      snapshot.mission.createdAt
+    );
+    const deadlineNormalized =
+      normalizedDeadline !== undefined &&
+      normalizedDeadline !== snapshot.mission.deadline;
+
+    if (deadlineNormalized) {
+      snapshot = await saveMissionSnapshot({
+        ...snapshot,
+        mission: {
+          ...snapshot.mission,
+          deadline: normalizedDeadline
+        }
+      });
     }
 
     let advancedToComparing = false;
@@ -73,7 +112,7 @@ export async function POST(request: Request): Promise<Response> {
         createdAt: new Date().toISOString()
       });
 
-      await saveMissionSnapshot({
+      snapshot = await saveMissionSnapshot({
         ...snapshot,
         mission,
         steps: [...snapshot.steps, step]
@@ -98,6 +137,8 @@ export async function POST(request: Request): Promise<Response> {
       meta: {
         persisted: true,
         advancedToComparing,
+        deadlineNormalized,
+        normalizedDeadline: deadlineNormalized ? normalizedDeadline : undefined,
         communicationInitiated: false,
         quoteCreated: false,
         transactionPerformed: false
