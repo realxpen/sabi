@@ -54,6 +54,19 @@ function uniqueRequiredFacts(
   return [...facts].sort();
 }
 
+function quoteEvidenceSourceLabel(source: Quote["source"]): string {
+  switch (source) {
+    case "CALL":
+      return "quote evidence source: provider call";
+    case "SMS":
+      return "quote evidence source: provider message";
+    case "MANUAL":
+      return "quote evidence source: manual entry";
+    case "OTHER":
+      return "quote evidence source: other recorded evidence";
+  }
+}
+
 export function recommend(
   mission: Mission,
   providers: Provider[],
@@ -96,7 +109,10 @@ export function recommend(
       selected.quote.deliveryDate
         ? `delivery ${selected.quote.deliveryDate}`
         : "unknown delivery date",
-      selected.provider.verified ? "verified provider" : "unverified provider",
+      selected.provider.verified
+        ? "provider profile verification: verified"
+        : "provider profile verification: not provided",
+      quoteEvidenceSourceLabel(selected.quote.source),
       selected.provider.reliabilityScore !== undefined
         ? `reliability ${selected.provider.reliabilityScore}`
         : undefined
