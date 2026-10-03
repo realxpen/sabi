@@ -5,6 +5,7 @@ import {
   getMissionSnapshot,
   saveMissionSnapshot
 } from "../../../../lib/integrations/neon/mission-snapshot-repository";
+import { normalizeRelativeDeadline } from "../../../../lib/intelligence/deadline-normalization";
 import { runMissionIntelligence } from "../../../../lib/mission/intelligence-runtime";
 import { transitionMission } from "../../../../lib/mission/state-machine";
 import { missionStepSchema } from "../../../../lib/schemas";
@@ -14,27 +15,6 @@ export const runtime = "nodejs";
 const inputSchema = z.object({
   missionId: z.string().trim().min(1)
 });
-
-export function normalizeRelativeDeadline(
-  deadline: string | undefined,
-  createdAt: string
-): string | undefined {
-  if (!deadline) return deadline;
-
-  const normalized = deadline.trim().toLowerCase();
-  if (normalized !== "today" && normalized !== "tomorrow") {
-    return deadline;
-  }
-
-  const base = new Date(createdAt);
-  if (Number.isNaN(base.getTime())) return deadline;
-
-  if (normalized === "tomorrow") {
-    base.setUTCDate(base.getUTCDate() + 1);
-  }
-
-  return base.toISOString().slice(0, 10);
-}
 
 export async function POST(request: Request): Promise<Response> {
   const authFailure = authorizeAgentToolRequest(request);
