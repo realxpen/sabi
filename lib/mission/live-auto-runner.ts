@@ -36,7 +36,10 @@ export async function reconcileLiveMission(
       return { status: snapshot.mission.status, reason: "HUMAN_OR_TERMINAL_CHECKPOINT", progressed };
     }
 
-    if (snapshot.mission.status === "COLLECTING_QUOTES") {
+    if (
+      snapshot.mission.status === "CONTACTING" ||
+      snapshot.mission.status === "COLLECTING_QUOTES"
+    ) {
       const active = snapshot.communications.filter((communication) =>
         ["INITIATED", "IN_PROGRESS"].includes(communication.status)
       );
