@@ -11,6 +11,8 @@ import {
   missionExecutionModeSchema,
   readDefaultMissionExecutionMode
 } from "../../../lib/mission/create-mission";
+import { advanceMissionOrchestration } from "../../../lib/mission/orchestrator";
+import type { MissionSnapshot } from "../../../lib/mission/snapshot";
 
 const createMissionRequestSchema = z.object({
   request: z.string().trim().min(1),
@@ -19,6 +21,38 @@ const createMissionRequestSchema = z.object({
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+async function bootstrapLiveMissionToAgentBoundary(
+  snapshot: MissionSnapshot
+): Promise<MissionSnapshot> {
+  let current = snapshot;
+
+  // These transitions are deterministic, internal and non-consequential.
+  // They make mission startup reliable even if the agent accepts a message
+  // without immediately invoking its first tool.
+  for (let index = 0; index < 6; index += 1) {
+    if (current.mission.status === "CONTACTING") return current;
+
+    if (
+      !["CREATED", "UNDERSTANDING", "PLANNING", "SEARCHING"].includes(
+        current.mission.status
+      )
+    ) {
+      return current;
+    }
+
+    const result = await advanceMissionOrchestration(current.mission.id, {
+      mode: "LIVE"
+    });
+    current = result.snapshot;
+
+    if (result.outcome !== "ADVANCED" || current.mission.status === "CONTACTING") {
+      return current;
+    }
+  }
+
+  return current;
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -60,9 +94,12 @@ export async function POST(request: Request) {
     let persisted = await createPersistedMission(parsed.data.request, mode);
 
     if (bimpeConfigured) {
+      persisted = await bootstrapLiveMissionToAgentBoundary(persisted);
       persisted = await saveMissionSnapshot({
-        ...persisted, steps: [...persisted.steps, buildBimpeHandoffStep(persisted.mission.id)]
+        ...persisted,
+        steps: [...persisted.steps, buildBimpeHandoffStep(persisted.mission.id)]
       });
+
       waitUntil(
         dispatchBimpeMissionStart(persisted).catch((error) => {
           console.error(
@@ -87,7 +124,7 @@ export async function POST(request: Request) {
           mode === "SIMULATION"
             ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
             : bimpeConfigured
-              ? "Live mission created and handed to BimpeAI. External provider action occurs only through the consent-gated live tools, and every consequential action stops for human approval."
+              ? "Live mission created, safely bootstrapped through internal planning, and handed to BimpeAI for real-world provider action. Every consequential action stops for human approval."
               : "Live mission created. No external action occurs because BimpeAI orchestration is not configured; no provider contact was initiated."
       },
       { status: 201 }
