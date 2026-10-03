@@ -4,6 +4,7 @@ import { AdaptiveDecisionCard } from "./AdaptiveDecisionCard";
 import { ApprovalCard } from "./ApprovalCard";
 import { MissionExperience } from "./MissionExperience";
 import { MissionStartupRecovery } from "./MissionStartupRecovery";
+import { NoProviderOutcome } from "./NoProviderOutcome";
 
 type MissionControlProps = {
   snapshot: MissionSnapshot;
@@ -24,6 +25,13 @@ function latestQuotesByProvider(snapshot: MissionSnapshot) {
 }
 
 export function MissionControl({ snapshot, startupIssue }: MissionControlProps) {
+  const searchCompletedWithoutProvider =
+    snapshot.mission.status === "SEARCHING" &&
+    snapshot.providers.length === 0 &&
+    snapshot.steps.some(
+      (step) => step.type === "SEARCH_PROVIDERS" && step.status === "COMPLETED"
+    );
+
   const selectedQuote = snapshot.recommendation
     ? snapshot.quotes.find(
         (quote) => quote.id === snapshot.recommendation?.quoteId
@@ -78,6 +86,17 @@ export function MissionControl({ snapshot, startupIssue }: MissionControlProps) 
   const untriedProviderCount = snapshot.providers.filter(
     (provider) => !contactedProviderIds.has(provider.id)
   ).length;
+
+  if (searchCompletedWithoutProvider) {
+    return (
+      <div className="missionLayout">
+        <NoProviderOutcome
+          request={snapshot.mission.rawRequest}
+          location={snapshot.mission.location}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="missionLayout">
