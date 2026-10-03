@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Mission, Provider, Quote } from "../lib/schemas";
+import styles from "./ApprovalCard.module.css";
 
 type ApprovalCardProps = {
   mission: Mission;
@@ -32,15 +33,7 @@ export function ApprovalCard({
   );
   const [error, setError] = useState<string | null>(null);
 
-  if (!provider || !quote) {
-    return (
-      <section className="approvalCard">
-        <div className="eyebrow">Human approval</div>
-        <h2>No qualifying recommendation yet</h2>
-        <p>SABI will not proceed until a valid option exists.</p>
-      </section>
-    );
-  }
+  if (!provider || !quote) return null;
 
   const selectedProvider = provider;
   const selectedQuote = quote;
@@ -65,7 +58,7 @@ export function ApprovalCard({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.missionStatus !== "APPROVED") {
-        throw new Error("SABI could not persist this approval.");
+        throw new Error("SABI could not save this approval.");
       }
 
       setDecision("APPROVED");
@@ -75,7 +68,7 @@ export function ApprovalCard({
       setError(
         caught instanceof Error
           ? caught.message
-          : "SABI could not persist this approval."
+          : "SABI could not save this approval."
       );
     }
   }
@@ -93,7 +86,7 @@ export function ApprovalCard({
       const result = await response.json().catch(() => null);
 
       if (!response.ok || result?.missionStatus !== "CANCELLED") {
-        throw new Error("SABI could not persist this cancellation.");
+        throw new Error("SABI could not cancel this mission.");
       }
 
       setDecision("CANCELLED");
@@ -103,41 +96,50 @@ export function ApprovalCard({
       setError(
         caught instanceof Error
           ? caught.message
-          : "SABI could not persist this cancellation."
+          : "SABI could not cancel this mission."
       );
     }
   }
 
+  const total =
+    selectedQuote.total !== undefined
+      ? `₦${selectedQuote.total.toLocaleString()}`
+      : "Total pending";
+
   return (
-    <section className="approvalCard">
-      <div className="eyebrow">Human approval</div>
+    <section className={styles.card}>
+      <div className={styles.eyebrow}>Human approval</div>
 
       {decision === "PENDING" ||
       decision === "APPROVING" ||
       decision === "CANCELLING" ? (
         <>
-          <h2>Ready for your decision</h2>
-          <p>
-            {selectedProvider.name} is the current recommendation for{" "}
-            <strong>
-              {selectedQuote.total !== undefined
-                ? `₦${selectedQuote.total.toLocaleString()}`
-                : "an unknown total"}
-            </strong>
-            .
-          </p>
+          <div className={styles.header}>
+            <div>
+              <h2>Ready for your decision</h2>
+              <p>
+                SABI recommends <strong>{selectedProvider.name}</strong>. Review
+                the verified option above, then decide whether to accept it.
+              </p>
+            </div>
+            <div className={styles.total}>
+              <strong>{total}</strong>
+              <span>verified total</span>
+            </div>
+          </div>
 
-          <div className="approvalActions">
+          <div className={styles.actions}>
             <button
-              className="primaryAction"
+              className={styles.primary}
               type="button"
               onClick={approve}
               disabled={decision !== "PENDING"}
             >
-              {decision === "APPROVING" ? "Saving approval…" : "Approve choice"}
+              {decision === "APPROVING" ? "Saving approval…" : `Approve ${total}`}
+              {decision === "PENDING" ? <span aria-hidden="true">→</span> : null}
             </button>
             <button
-              className="secondaryAction"
+              className={styles.secondary}
               type="button"
               onClick={cancelMission}
               disabled={decision !== "PENDING"}
@@ -146,32 +148,35 @@ export function ApprovalCard({
             </button>
           </div>
 
-          {error ? <p className="formError">{error}</p> : null}
-          <p className="safetyNote">
-            Approval or cancellation updates the persisted mission state only.
-            No purchase, booking, transfer, or payment is performed.
-          </p>
+          {error ? <p className={styles.error}>{error}</p> : null}
+
+          <div className={styles.safety}>
+            <span className={styles.safetyMark}>✓</span>
+            <span>
+              Approval saves your choice only. SABI does not make a payment,
+              purchase, booking or transfer at this checkpoint.
+            </span>
+          </div>
         </>
       ) : decision === "APPROVED" ? (
-        <>
+        <div className={styles.state}>
           <h2>Choice approved</h2>
           <p>
-            The human checkpoint is persisted for mission{" "}
-            <strong>{mission.id}</strong>.
+            Your decision for <strong>{selectedProvider.name}</strong> has been
+            saved. SABI has stopped before any transaction.
           </p>
-          <p className="safetyNote">
-            No transaction was performed. The hackathon MVP intentionally
-            stops at approval.
-          </p>
-        </>
+          <span className={styles.successBadge}>✓ Approval persisted</span>
+          <div className={styles.safety}>
+            <span className={styles.safetyMark}>✓</span>
+            <span>No payment, booking, purchase or transfer was performed.</span>
+          </div>
+        </div>
       ) : (
-        <>
+        <div className={styles.state}>
           <h2>Mission cancelled</h2>
-          <p>The human cancellation is persisted.</p>
-          <p className="safetyNote">
-            No external or financial action was taken after cancellation.
-          </p>
-        </>
+          <p>SABI has stopped this mission and will take no further action.</p>
+          <span className={styles.cancelBadge}>Mission stopped</span>
+        </div>
       )}
     </section>
   );
