@@ -155,7 +155,17 @@ function normalizeOptionalBimpeNumber(value: unknown) {
   if (typeof value !== "string") return value;
 
   const normalized = value.trim();
-  if (normalized === "") return undefined;
+  const normalizedLower = normalized.toLowerCase();
+  if (
+    normalized === "" ||
+    normalizedLower === "null" ||
+    normalizedLower === "undefined" ||
+    normalizedLower === "unknown" ||
+    normalizedLower === "n/a" ||
+    normalizedLower === "na"
+  ) {
+    return undefined;
+  }
 
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : value;
