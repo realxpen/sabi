@@ -1,4 +1,4 @@
-import { MissionInput } from "../components/MissionInput";
+import { BimpeMissionInput } from "../components/BimpeMissionInput";
 import styles from "./home.module.css";
 
 export default function HomePage() {
@@ -26,13 +26,14 @@ export default function HomePage() {
           </div>
           <h1>What do you need?</h1>
           <p>
-            Tell SABI the outcome. It can find providers, call and verify the
-            important details, compare real options, and wait for your approval.
+            Talk it through with SABI one step at a time. The live Bimpe agent
+            can turn your answers into a real mission, find matching providers,
+            call to verify the details, and stop for your approval.
           </p>
         </div>
 
         <div className={styles.composerWrap}>
-          <MissionInput />
+          <BimpeMissionInput />
         </div>
 
         <div className={styles.trustRow} aria-label="SABI safeguards">

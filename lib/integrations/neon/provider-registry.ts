@@ -48,6 +48,15 @@ type ProviderRegistryRow = {
   consented: boolean;
 };
 
+const CATEGORY_GROUPS = [
+  ["food", "catering", "caterer", "restaurant", "meals", "meal"],
+  ["photography", "photographer", "photo"],
+  ["plumbing", "plumber"],
+  ["electrical", "electrician"],
+  ["fashion", "tailor", "tailoring", "seamstress"],
+  ["beauty", "barber", "hair", "salon", "stylist"]
+] as const;
+
 function hasDatabaseConfiguration() {
   return Boolean(process.env.DATABASE_URL?.trim());
 }
@@ -97,25 +106,94 @@ function providerIdFor(name: string) {
   return `provider-${slug}-${randomUUID().slice(0, 8)}`;
 }
 
-function matchesFilters(provider: Provider, filters: RegisteredProviderFilters) {
-  const query = filters.query?.trim().toLowerCase();
-  const category = filters.category?.trim().toLowerCase();
-  const location = filters.location?.trim().toLowerCase();
+function normalizeLookup(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  if (query) {
-    const haystack = [
-      provider.name,
-      provider.category,
-      provider.location,
-      ...provider.languages
-    ]
-      .join(" ")
-      .toLowerCase();
-    if (!haystack.includes(query)) return false;
+function categoryGroupFor(value: string): readonly string[] | undefined {
+  const normalized = normalizeLookup(value);
+  return CATEGORY_GROUPS.find((group) =>
+    group.some(
+      (alias) =>
+        normalized === alias ||
+        normalized.includes(`${alias} `) ||
+        normalized.includes(` ${alias}`)
+    )
+  );
+}
+
+export function registeredProviderCategoryMatches(
+  providerCategory: string,
+  requestedCategory: string
+): boolean {
+  const actual = normalizeLookup(providerCategory);
+  const expected = normalizeLookup(requestedCategory);
+  if (!actual || !expected) return false;
+  if (actual === expected || actual.includes(expected) || expected.includes(actual)) {
+    return true;
   }
 
-  if (category && provider.category.toLowerCase() !== category) return false;
-  if (location && provider.location.toLowerCase() !== location) return false;
+  const actualGroup = categoryGroupFor(actual);
+  const expectedGroup = categoryGroupFor(expected);
+  return Boolean(
+    actualGroup &&
+      expectedGroup &&
+      actualGroup.some((alias) => expectedGroup.includes(alias))
+  );
+}
+
+export function registeredProviderLocationMatches(
+  providerLocation: string,
+  requestedLocation: string
+): boolean {
+  const actual = normalizeLookup(providerLocation);
+  const expected = normalizeLookup(requestedLocation);
+  if (!actual || !expected) return false;
+
+  return (
+    actual === expected ||
+    actual.includes(expected) ||
+    expected.includes(actual)
+  );
+}
+
+export function registeredProviderMatchesFilters(
+  provider: Provider,
+  filters: RegisteredProviderFilters
+): boolean {
+  const query = filters.query?.trim();
+  const category = filters.category?.trim();
+  const location = filters.location?.trim();
+
+  if (query) {
+    const normalizedQuery = normalizeLookup(query);
+    const haystack = normalizeLookup(
+      [
+        provider.name,
+        provider.category,
+        provider.location,
+        ...provider.languages
+      ].join(" ")
+    );
+    const queryMatchesMetadata = haystack.includes(normalizedQuery);
+    const queryMatchesCategory = registeredProviderCategoryMatches(
+      provider.category,
+      query
+    );
+    if (!queryMatchesMetadata && !queryMatchesCategory) return false;
+  }
+
+  if (category && !registeredProviderCategoryMatches(provider.category, category)) {
+    return false;
+  }
+  if (location && !registeredProviderLocationMatches(provider.location, location)) {
+    return false;
+  }
   if (filters.verified !== undefined && provider.verified !== filters.verified) {
     return false;
   }
@@ -216,7 +294,7 @@ export async function listRegisteredProviders(
 
   return rows
     .map((row) => providerSchema.parse(row.provider))
-    .filter((provider) => matchesFilters(provider, filters));
+    .filter((provider) => registeredProviderMatchesFilters(provider, filters));
 }
 
 export async function getRegisteredProvider(
