@@ -175,6 +175,13 @@
   cursor: pointer;
 }
 
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .submit {
   display: inline-flex;
   align-items: center;
@@ -337,6 +344,12 @@
   font-size: 0.68rem;
 }
 
+.vendorActions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
 .activeBadge {
   padding: 6px 9px;
   border-radius: 999px;
@@ -344,6 +357,17 @@
   color: #2d6842;
   font-size: 0.68rem;
   font-weight: 850;
+}
+
+.editButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #655178;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 850;
+  cursor: pointer;
 }
 
 .empty {
@@ -399,8 +423,8 @@
     grid-template-columns: 42px 1fr;
   }
 
-  .activeBadge {
+  .vendorActions {
     grid-column: 2;
-    width: fit-content;
+    justify-items: start;
   }
 }
