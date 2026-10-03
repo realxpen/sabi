@@ -67,19 +67,21 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const existingLiveCommunication = snapshot.communications.find(
+    const activeLiveCommunication = snapshot.communications.find(
       (communication) =>
         communication.providerId === parsed.data.providerId &&
-        communication.channel !== "MOCK"
+        communication.channel !== "MOCK" &&
+        (communication.status === "INITIATED" ||
+          communication.status === "IN_PROGRESS")
     );
-    if (existingLiveCommunication) {
+    if (activeLiveCommunication) {
       return Response.json(
         {
           error: "PROVIDER_ALREADY_CONTACTED",
-          communicationId: existingLiveCommunication.id,
-          communicationStatus: existingLiveCommunication.status,
+          communicationId: activeLiveCommunication.id,
+          communicationStatus: activeLiveCommunication.status,
           message:
-            "This provider already has a persisted live communication for the mission. No duplicate provider call was initiated."
+            "This provider already has an active live communication for the mission. No duplicate provider call was initiated."
         },
         { status: 409 }
       );
@@ -142,6 +144,12 @@ export async function POST(request: Request): Promise<Response> {
         liveCommunication: true,
         initiationOnly: communication.status === "INITIATED",
         replacedStaleMockCommunication: Boolean(staleMockCommunication),
+        retryAfterTerminalCommunication: snapshot.communications.some(
+          (existing) =>
+            existing.providerId === parsed.data.providerId &&
+            existing.channel !== "MOCK" &&
+            ["NO_ANSWER", "FAILED", "UNAVAILABLE"].includes(existing.status)
+        ),
         missionPersisted: true,
         quoteCreated: false
       }
