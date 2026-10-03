@@ -67,20 +67,48 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const existingCommunication = snapshot.communications.find(
-      (communication) => communication.providerId === parsed.data.providerId
+    const existingLiveCommunication = snapshot.communications.find(
+      (communication) =>
+        communication.providerId === parsed.data.providerId &&
+        communication.channel !== "MOCK"
     );
-    if (existingCommunication) {
+    if (existingLiveCommunication) {
       return Response.json(
         {
           error: "PROVIDER_ALREADY_CONTACTED",
-          communicationId: existingCommunication.id,
-          communicationStatus: existingCommunication.status,
+          communicationId: existingLiveCommunication.id,
+          communicationStatus: existingLiveCommunication.status,
           message:
-            "This provider already has a persisted communication for the mission. No duplicate provider call was initiated."
+            "This provider already has a persisted live communication for the mission. No duplicate provider call was initiated."
         },
         { status: 409 }
       );
+    }
+
+    const staleMockCommunication = snapshot.communications.find(
+      (communication) =>
+        communication.providerId === parsed.data.providerId &&
+        communication.channel === "MOCK"
+    );
+
+    if (staleMockCommunication && snapshot.demoMode) {
+      return Response.json(
+        {
+          error: "SIMULATION_MISSION_CANNOT_PLACE_LIVE_CALL",
+          communicationId: staleMockCommunication.id,
+          message:
+            "This mission is in demo mode and already contains simulated provider contact. No live provider call was initiated."
+        },
+        { status: 409 }
+      );
+    }
+
+    if (staleMockCommunication) {
+      console.warn("SABI ignoring stale mock provider communication on live mission", {
+        missionId: parsed.data.missionId,
+        providerId: parsed.data.providerId,
+        communicationId: staleMockCommunication.id
+      });
     }
 
     console.info("SABI provider call starting", {
@@ -91,6 +119,11 @@ export async function POST(request: Request): Promise<Response> {
 
     const adapter = createConfiguredCommunicationAdapter();
     const communication = await adapter.initiateContact(parsed.data);
+
+    if (communication.channel === "MOCK") {
+      throw new Error("LIVE_PROVIDER_CALL_RETURNED_MOCK_COMMUNICATION");
+    }
+
     await persistCommunicationResultToMission(communication);
 
     console.info("SABI provider call persisted", {
@@ -106,8 +139,9 @@ export async function POST(request: Request): Promise<Response> {
       tool: "callProvider",
       data: communication,
       meta: {
-        liveCommunication: communication.channel !== "MOCK",
+        liveCommunication: true,
         initiationOnly: communication.status === "INITIATED",
+        replacedStaleMockCommunication: Boolean(staleMockCommunication),
         missionPersisted: true,
         quoteCreated: false
       }
