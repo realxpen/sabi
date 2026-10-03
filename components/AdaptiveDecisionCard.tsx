@@ -13,6 +13,8 @@ type AdaptiveDecisionCardProps = {
   untriedProviderCount: number;
 };
 
+type BusyAction = "accept" | "stop" | null;
+
 export function AdaptiveDecisionCard({
   missionId,
   quoteId,
@@ -22,7 +24,7 @@ export function AdaptiveDecisionCard({
   untriedProviderCount
 }: AdaptiveDecisionCardProps) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [message, setMessage] = useState<string | null>(null);
   const gap = Math.max(total - budget, 0);
 
@@ -49,7 +51,7 @@ export function AdaptiveDecisionCard({
     );
     if (!confirmed) return;
 
-    setBusy(true);
+    setBusyAction("accept");
     setMessage(null);
 
     try {
@@ -83,7 +85,43 @@ export function AdaptiveDecisionCard({
         error instanceof Error ? error.message : "SABI could not apply that decision safely."
       );
     } finally {
-      setBusy(false);
+      setBusyAction(null);
+    }
+  }
+
+  async function keepBudgetAndStop() {
+    const confirmed = window.confirm(
+      `Keep your ₦${budget.toLocaleString()} budget and end this mission? SABI will not contact anyone else, book, purchase or pay.`
+    );
+    if (!confirmed) return;
+
+    setBusyAction("stop");
+    setMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/missions/${encodeURIComponent(missionId)}/cancel`,
+        { method: "POST" }
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        missionStatus?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "SABI could not end the mission safely.");
+      }
+
+      setMessage(
+        `No problem. Your ₦${budget.toLocaleString()} budget stays unchanged and SABI ended the mission without booking or payment.`
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "SABI could not end the mission safely."
+      );
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -97,12 +135,22 @@ export function AdaptiveDecisionCard({
         <strong>₦{gap.toLocaleString()}</strong> above your ₦{budget.toLocaleString()} budget.
       </p>
       <div className={styles.actions}>
-        <button type="button" onClick={acceptBestAvailable} disabled={busy}>
-          {busy ? "Checking…" : `Use best available · ₦${total.toLocaleString()}`}
+        <button type="button" onClick={acceptBestAvailable} disabled={busyAction !== null}>
+          {busyAction === "accept" ? "Checking…" : `Use best available · ₦${total.toLocaleString()}`}
         </button>
-        <span>Only changes the budget after your confirmation. Approval is still required next.</span>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={keepBudgetAndStop}
+          disabled={busyAction !== null}
+        >
+          {busyAction === "stop" ? "Ending mission…" : `Never mind — keep my ₦${budget.toLocaleString()} budget`}
+        </button>
       </div>
-      <div className={styles.safety}>No booking, purchase or payment happens from this action.</div>
+      <p className={styles.choiceNote}>
+        Go above budget only if this is urgent. Otherwise, keep your original limit and end the mission with no commitment.
+      </p>
+      <div className={styles.safety}>No booking, purchase or payment happens from either action without a later approval step.</div>
       {message ? <p className={styles.message}>{message}</p> : null}
     </section>
   );
