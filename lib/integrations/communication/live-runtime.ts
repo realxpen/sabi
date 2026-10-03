@@ -1,4 +1,9 @@
-import type { CommunicationAdapter } from "./types";
+import type { CommunicationResult } from "../../schemas";
+import { getRegisteredProviderPhone } from "../neon/provider-registry";
+import type {
+  CommunicationAdapter,
+  ContactProviderInput
+} from "./types";
 import { MockCommunicationAdapter } from "./mock";
 import {
   BimpeAICommunicationAdapter,
@@ -29,6 +34,50 @@ class InvalidCommunicationModeAdapter implements CommunicationAdapter {
   }
 }
 
+class RegistryBackedVapiKrosCommunicationAdapter implements CommunicationAdapter {
+  readonly name = "vapi-kros";
+
+  constructor(
+    private readonly environment: CommunicationEnvironment,
+    private readonly fetchImpl: VapiKrosFetch
+  ) {}
+
+  async initiateContact(input: ContactProviderInput): Promise<CommunicationResult> {
+    const registeredPhone =
+      input.destinationPhone ?? (await getRegisteredProviderPhone(input.providerId));
+
+    const scopedEnvironment: CommunicationEnvironment = registeredPhone
+      ? {
+          ...this.environment,
+          SABI_CONSENTED_PROVIDER_PHONES_JSON: JSON.stringify({
+            [input.providerId]: registeredPhone
+          })
+        }
+      : this.environment;
+
+    return new VapiKrosCommunicationAdapter(
+      scopedEnvironment,
+      this.fetchImpl
+    ).initiateContact(input);
+  }
+
+  async normalizeEvent(payload: unknown): Promise<CommunicationResult> {
+    return new VapiKrosCommunicationAdapter(
+      this.environment,
+      this.fetchImpl
+    ).normalizeEvent(payload);
+  }
+
+  async refreshCommunication(
+    communication: CommunicationResult
+  ): Promise<CommunicationResult> {
+    return new VapiKrosCommunicationAdapter(
+      this.environment,
+      this.fetchImpl
+    ).refreshCommunication(communication);
+  }
+}
+
 export function createConfiguredCommunicationAdapter(
   environment: CommunicationEnvironment = process.env,
   fetchImpl: VapiKrosFetch = fetch
@@ -40,7 +89,7 @@ export function createConfiguredCommunicationAdapter(
     return new BimpeAICommunicationAdapter(environment, fetchImpl);
   }
   if (mode === "vapi-kros") {
-    return new VapiKrosCommunicationAdapter(environment, fetchImpl);
+    return new RegistryBackedVapiKrosCommunicationAdapter(environment, fetchImpl);
   }
   return new InvalidCommunicationModeAdapter(mode);
 }
