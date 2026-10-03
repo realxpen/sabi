@@ -31,7 +31,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   margin-top: 18px;
 }
 
@@ -45,16 +45,23 @@
   cursor: pointer;
 }
 
+.actions .secondaryButton {
+  border: 1px solid rgba(23, 21, 29, 0.14);
+  background: rgba(255, 255, 255, 0.75);
+  color: #393441;
+}
+
 .actions button:disabled {
   opacity: 0.55;
   cursor: progress;
 }
 
-.actions span {
-  max-width: 430px;
-  color: #777181;
+.choiceNote {
+  margin-top: 12px !important;
+  max-width: 720px;
+  color: #777181 !important;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5 !important;
 }
 
 .safety {
