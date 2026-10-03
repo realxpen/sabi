@@ -21,8 +21,42 @@ function activeFlowIndex(status: MissionSnapshot["mission"]["status"]): number {
   return direct >= 0 ? direct : 0;
 }
 
-function statusMessage(snapshot: MissionSnapshot): string {
+function latestQuotesByProvider(snapshot: MissionSnapshot) {
+  const latest = new Map<string, MissionSnapshot["quotes"][number]>();
+
+  for (const quote of snapshot.quotes) {
+    const existing = latest.get(quote.providerId);
+    if (!existing || quote.createdAt >= existing.createdAt) {
+      latest.set(quote.providerId, quote);
+    }
+  }
+
+  return [...latest.values()];
+}
+
+function isFinalNoValidBudgetOutcome(snapshot: MissionSnapshot): boolean {
   const { mission } = snapshot;
+  if (mission.status !== "COMPARING" || snapshot.recommendation || mission.budget === undefined) {
+    return false;
+  }
+
+  const latestQuotes = latestQuotesByProvider(snapshot);
+  return (
+    latestQuotes.length > 0 &&
+    latestQuotes.every(
+      (quote) => quote.total !== undefined && quote.total > mission.budget!
+    )
+  );
+}
+
+function statusMessage(snapshot: MissionSnapshot, noValidBudgetOutcome: boolean): string {
+  const { mission } = snapshot;
+
+  if (noValidBudgetOutcome) {
+    const latestQuotes = latestQuotesByProvider(snapshot);
+    const lowestTotal = Math.min(...latestQuotes.map((quote) => quote.total ?? Number.POSITIVE_INFINITY));
+    return `I verified the latest provider quote at ₦${lowestTotal.toLocaleString()}, but your hard budget is ₦${mission.budget?.toLocaleString()}. No valid option fits your current limits, so I stopped without booking or payment.`;
+  }
 
   switch (mission.status) {
     case "CREATED":
@@ -37,10 +71,12 @@ function statusMessage(snapshot: MissionSnapshot): string {
         : "I found possible providers and I’m reaching out for real availability and pricing.";
     case "COLLECTING_QUOTES":
       return "I’m verifying the important details from provider responses so I don’t recommend something based on guesses.";
-    case "COMPARING":
-      return snapshot.quotes.length > 0
-        ? `I have ${snapshot.quotes.length} verified option${snapshot.quotes.length === 1 ? "" : "s"}. I’m comparing them against your budget, quantity and deadline.`
+    case "COMPARING": {
+      const latestQuotes = latestQuotesByProvider(snapshot);
+      return latestQuotes.length > 0
+        ? `I have ${latestQuotes.length} verified provider option${latestQuotes.length === 1 ? "" : "s"}. I’m comparing the latest evidence against your budget, quantity and deadline.`
         : "I’m comparing the verified evidence against your mission constraints.";
+    }
     case "AWAITING_APPROVAL":
       return "I found an option that satisfies your current constraints. Review it below — I won’t commit or pay without you.";
     case "APPROVED":
@@ -58,7 +94,12 @@ function statusMessage(snapshot: MissionSnapshot): string {
   }
 }
 
-function progressTitle(status: MissionSnapshot["mission"]["status"]): string {
+function progressTitle(
+  status: MissionSnapshot["mission"]["status"],
+  noValidBudgetOutcome: boolean
+): string {
+  if (noValidBudgetOutcome) return "No option fits your current budget";
+
   switch (status) {
     case "CREATED":
     case "UNDERSTANDING":
@@ -102,9 +143,20 @@ export function MissionExperience({ snapshot, startupIssue }: {
 }) {
   const { mission } = snapshot;
   const flowIndex = activeFlowIndex(mission.status);
-  const terminal = ["APPROVED", "COMPLETED", "FAILED", "CANCELLED", "ESCALATED"].includes(
-    mission.status
-  );
+  const noValidBudgetOutcome = isFinalNoValidBudgetOutcome(snapshot);
+  const terminal =
+    noValidBudgetOutcome ||
+    ["APPROVED", "COMPLETED", "FAILED", "CANCELLED", "ESCALATED"].includes(
+      mission.status
+    );
+
+  const latestQuotes = latestQuotesByProvider(snapshot);
+  const latestOverBudgetQuote = noValidBudgetOutcome
+    ? [...latestQuotes].sort((a, b) => (a.total ?? Infinity) - (b.total ?? Infinity))[0]
+    : undefined;
+  const latestOverBudgetProvider = latestOverBudgetQuote
+    ? snapshot.providers.find((provider) => provider.id === latestOverBudgetQuote.providerId)
+    : undefined;
 
   const selectedProvider = snapshot.recommendation
     ? snapshot.providers.find(
@@ -115,8 +167,11 @@ export function MissionExperience({ snapshot, startupIssue }: {
     ? snapshot.quotes.find((quote) => quote.id === snapshot.recommendation?.quoteId)
     : undefined;
 
-  const progressPercent =
-    flowIndex < 0 ? 100 : Math.round(((flowIndex + (terminal ? 1 : 0.5)) / FLOW.length) * 100);
+  const progressPercent = noValidBudgetOutcome
+    ? 100
+    : flowIndex < 0
+      ? 100
+      : Math.round(((flowIndex + (terminal ? 1 : 0.5)) / FLOW.length) * 100);
 
   const completedContacts = snapshot.communications.filter((communication) =>
     ["COMPLETED", "NO_ANSWER", "FAILED", "UNAVAILABLE"].includes(communication.status)
@@ -154,19 +209,25 @@ export function MissionExperience({ snapshot, startupIssue }: {
     },
     {
       label:
-        snapshot.quotes.length > 0
-          ? `${snapshot.quotes.length} verified response${snapshot.quotes.length === 1 ? "" : "s"}`
+        latestQuotes.length > 0
+          ? `${latestQuotes.length} latest verified provider response${latestQuotes.length === 1 ? "" : "s"}`
           : "Verifying provider responses",
       detail:
-        snapshot.quotes.length > 0
-          ? "Confirmed facts are structured into comparable options."
+        latestQuotes.length > 0
+          ? "Historical call evidence is retained, while the latest quote per provider is used for comparison."
           : "Price, quantity, delivery and availability are checked before recommendation."
     },
     {
-      label: snapshot.recommendation ? "Best option ready" : "Comparing against your limits",
-      detail: snapshot.recommendation
-        ? "A verified option satisfies the represented mission constraints."
-        : "Verified options are checked against budget, quantity and deadline."
+      label: noValidBudgetOutcome
+        ? "No valid option within budget"
+        : snapshot.recommendation
+          ? "Best option ready"
+          : "Comparing against your limits",
+      detail: noValidBudgetOutcome
+        ? `The latest verified total exceeds your hard budget of ₦${mission.budget?.toLocaleString()}, so SABI stopped safely.`
+        : snapshot.recommendation
+          ? "A verified option satisfies the represented mission constraints."
+          : "Verified options are checked against budget, quantity and deadline."
     }
   ];
 
@@ -197,7 +258,7 @@ export function MissionExperience({ snapshot, startupIssue }: {
           <div className={`${styles.messageRow} ${styles.assistant}`}>
             <div className={styles.messageBubble}>
               <span className={styles.messageLabel}>SABI</span>
-              {startupIssue?.message ?? statusMessage(snapshot)}
+              {startupIssue?.message ?? statusMessage(snapshot, noValidBudgetOutcome)}
               {!terminal && !startupIssue ? (
                 <span className={styles.typing} aria-label="SABI is working">
                   <i />
@@ -221,7 +282,7 @@ export function MissionExperience({ snapshot, startupIssue }: {
         <div className={styles.progressHeader}>
           <div>
             <span>Mission progress</span>
-            <strong>{startupIssue ? "Waiting for the agent connection" : progressTitle(mission.status)}</strong>
+            <strong>{startupIssue ? "Waiting for the agent connection" : progressTitle(mission.status, noValidBudgetOutcome)}</strong>
           </div>
           <div className={styles.progressPercent}>{Math.min(progressPercent, 100)}%</div>
         </div>
@@ -248,7 +309,7 @@ export function MissionExperience({ snapshot, startupIssue }: {
           <div className={styles.activityHeader}>
             <div>
               <span>Live activity</span>
-              <strong>What SABI is doing</strong>
+              <strong>{terminal ? "What SABI did" : "What SABI is doing"}</strong>
             </div>
             {!terminal && !startupIssue ? <span className={styles.activityWorking}>Live</span> : null}
           </div>
@@ -326,6 +387,42 @@ export function MissionExperience({ snapshot, startupIssue }: {
             {selectedQuote.source === "CALL" ? (
               <span className={styles.evidenceBadge}>Quote verified from call</span>
             ) : null}
+          </div>
+        </div>
+      ) : noValidBudgetOutcome && latestOverBudgetQuote && latestOverBudgetProvider ? (
+        <div className={styles.resultCard}>
+          <div className={styles.resultEyebrow}>No valid option</div>
+          <div className={styles.resultHeader}>
+            <div>
+              <h2>{latestOverBudgetProvider.name}</h2>
+              <p>The provider can fulfill the request, but the verified quote exceeds your hard budget.</p>
+            </div>
+            <div className={styles.resultTotal}>
+              <strong>₦{latestOverBudgetQuote.total?.toLocaleString()}</strong>
+              <span>verified all-in total</span>
+            </div>
+          </div>
+
+          <div className={styles.factGrid}>
+            <div className={styles.fact}>
+              <span>Your budget</span>
+              <strong>₦{mission.budget?.toLocaleString()}</strong>
+            </div>
+            <div className={styles.fact}>
+              <span>Over budget by</span>
+              <strong>₦{((latestOverBudgetQuote.total ?? 0) - (mission.budget ?? 0)).toLocaleString()}</strong>
+            </div>
+            <div className={styles.fact}>
+              <span>Delivery</span>
+              <strong>{latestOverBudgetQuote.deliveryDate ?? mission.deadline ?? "Confirmed"}</strong>
+            </div>
+          </div>
+
+          <div className={styles.evidenceRow}>
+            <span className={styles.evidenceBadge}>Availability confirmed</span>
+            <span className={styles.evidenceBadge}>10 packs confirmed</span>
+            <span className={styles.evidenceBadge}>Delivery included</span>
+            <span className={styles.evidenceBadge}>Quote verified from call</span>
           </div>
         </div>
       ) : !terminal && !startupIssue ? (
