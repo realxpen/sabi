@@ -6,6 +6,12 @@ export const bimpeToolManifest = [
     purpose: "Persist the full sourcing request as a live Mission, attach matching configured provider metadata, stop safely at CONTACTING, and return the missionId without initiating communication."
   },
   {
+    name: "getMissionState",
+    method: "POST",
+    path: "/api/agent-tools/get-mission-state",
+    purpose: "Read the persisted Mission, providers and all communication IDs/statuses so the agent can recover state without relying on conversational memory. Read-only: does not contact providers, create Quotes, request approval or perform a transaction."
+  },
+  {
     name: "searchProviders",
     method: "POST",
     path: "/api/agent-tools/search-providers",
