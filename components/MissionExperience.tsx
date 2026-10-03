@@ -40,6 +40,18 @@ function isFinalNoValidBudgetOutcome(snapshot: MissionSnapshot): boolean {
     return false;
   }
 
+  const contactedProviderIds = new Set(
+    snapshot.communications.map((communication) => communication.providerId)
+  );
+  const hasUntriedProvider = snapshot.providers.some(
+    (provider) => !contactedProviderIds.has(provider.id)
+  );
+  const hasActiveContact = snapshot.communications.some((communication) =>
+    ["INITIATED", "IN_PROGRESS"].includes(communication.status)
+  );
+
+  if (hasUntriedProvider || hasActiveContact) return false;
+
   const latestQuotes = latestQuotesByProvider(snapshot);
   return (
     latestQuotes.length > 0 &&
