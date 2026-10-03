@@ -6,13 +6,7 @@ import styles from "./BimpeMissionInput.module.css";
 
 type InputMode = "CHAT" | "LIVE";
 type Speaker = "SABI" | "YOU";
-type IntakeSlot =
-  | "need"
-  | "location"
-  | "quantity"
-  | "budget"
-  | "deadline"
-  | "confirm";
+type IntakeSlot = "need" | "location" | "quantity" | "budget" | "deadline" | "confirm";
 
 type IntakeState = {
   need?: string;
@@ -23,11 +17,7 @@ type IntakeState = {
   skipped: Array<"quantity" | "budget" | "deadline">;
 };
 
-type ConversationMessage = {
-  id: number;
-  speaker: Speaker;
-  text: string;
-};
+type ConversationMessage = { id: number; speaker: Speaker; text: string };
 
 type IntakeResponse = {
   data?: {
@@ -44,15 +34,10 @@ type IntakeResponse = {
 };
 
 type SpeechRecognitionEventLike = {
-  results: ArrayLike<{
-    0: { transcript: string };
-    isFinal: boolean;
-  }>;
+  results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
 };
 
-type SpeechRecognitionErrorEventLike = {
-  error?: string;
-};
+type SpeechRecognitionErrorEventLike = { error?: string };
 
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -67,7 +52,7 @@ type SpeechRecognitionLike = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-type SpeechWindow = Window & {
+type SpeechWindow = {
   SpeechRecognition?: SpeechRecognitionConstructor;
   webkitSpeechRecognition?: SpeechRecognitionConstructor;
 };
@@ -114,7 +99,7 @@ export function BimpeMissionInput() {
   useEffect(() => { currentSlotRef.current = currentSlot; }, [currentSlot]);
 
   useEffect(() => {
-    const speechWindow = window as SpeechWindow;
+    const speechWindow = window as unknown as SpeechWindow;
     const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
 
     if (!Recognition) {
@@ -281,9 +266,7 @@ export function BimpeMissionInput() {
     }
 
     if (result.data.confirmed) {
-      if (!result.data.missionRequest) {
-        throw new Error("Bimpe confirmed the intake but SABI did not receive a mission request.");
-      }
+      if (!result.data.missionRequest) throw new Error("Bimpe confirmed the intake but SABI did not receive a mission request.");
       await createRealMission(result.data.missionRequest);
       return;
     }
