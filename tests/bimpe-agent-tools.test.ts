@@ -49,6 +49,7 @@ describe("Bimpe-facing SABI tools", () => {
   it("exposes the bounded golden-path tool manifest", () => {
     expect(bimpeToolManifest.map((tool) => tool.name)).toEqual([
       "startMission",
+      "getMissionState",
       "searchProviders",
       "getProvider",
       "callProvider",
