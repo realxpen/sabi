@@ -38,7 +38,8 @@ export async function reconcileLiveMission(
 
     if (
       snapshot.mission.status === "CONTACTING" ||
-      snapshot.mission.status === "COLLECTING_QUOTES"
+      snapshot.mission.status === "COLLECTING_QUOTES" ||
+      snapshot.mission.status === "COMPARING"
     ) {
       const active = snapshot.communications.filter((communication) =>
         ["INITIATED", "IN_PROGRESS"].includes(communication.status)
@@ -63,25 +64,52 @@ export async function reconcileLiveMission(
       snapshot = await getMissionSnapshot(missionId);
       if (!snapshot) throw new Error("MISSION_NOT_FOUND");
 
-      const completedWithoutQuote = snapshot.communications.filter((communication) => {
+      const completedNeedingFacts = snapshot.communications.filter((communication) => {
         if (communication.status !== "COMPLETED" || communication.channel !== "CALL") return false;
         const sourceReference = communication.externalId ?? communication.id;
-        return !snapshot!.quotes.some(
-          (quote) =>
-            quote.providerId === communication.providerId &&
-            quote.sourceReference === sourceReference
+        const quote = snapshot!.quotes.find(
+          (candidate) =>
+            candidate.providerId === communication.providerId &&
+            candidate.sourceReference === sourceReference
+        );
+        return (
+          !quote ||
+          quote.total === undefined ||
+          quote.quantity === undefined ||
+          quote.deliveryDate === undefined
         );
       });
 
-      for (const communication of completedWithoutQuote) {
+      for (const communication of completedNeedingFacts) {
         try {
           const evidence = await getCommunicationEvidenceForAgent({
             missionId,
             communicationId: communication.id
           });
           const facts = extractProviderFactsFromTranscript(snapshot.mission, evidence.transcript);
+          const sourceReference = communication.externalId ?? communication.id;
+          const existingQuote = snapshot.quotes.find(
+            (candidate) =>
+              candidate.providerId === communication.providerId &&
+              candidate.sourceReference === sourceReference
+          );
 
           if (facts.available === undefined) {
+            reason = "COMPLETED_CALL_NEEDS_FACT_CLARIFICATION";
+            continue;
+          }
+
+          const addsNewFact =
+            !existingQuote ||
+            (existingQuote.total === undefined && facts.total !== undefined) ||
+            (existingQuote.price === undefined && facts.price !== undefined) ||
+            (existingQuote.deliveryFee === undefined && facts.deliveryFee !== undefined) ||
+            (existingQuote.quantity === undefined && facts.quantity !== undefined) ||
+            (existingQuote.unit === undefined && facts.unit !== undefined) ||
+            (existingQuote.deliveryDate === undefined && facts.deliveryDate !== undefined) ||
+            existingQuote.available !== facts.available;
+
+          if (!addsNewFact) {
             reason = "COMPLETED_CALL_NEEDS_FACT_CLARIFICATION";
             continue;
           }
