@@ -26,8 +26,8 @@ function factors(provider: Provider, quote: Quote): RecommendationFactor[] {
     code: "VERIFICATION",
     value: String(provider.verified),
     explanation: provider.verified
-      ? "Provider is marked verified in the supplied provider data."
-      : "Provider is not marked verified in the supplied provider data."
+      ? "Provider profile verification is marked verified in the supplied provider data."
+      : "Provider profile verification is not provided in the supplied provider data. This is separate from the quote evidence source and does not mean the Quote itself is unverified."
   });
 
   if (provider.reliabilityScore !== undefined) {
