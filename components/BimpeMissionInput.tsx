@@ -67,32 +67,22 @@ type SpeechRecognitionLike = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
+type SpeechWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
 
 const INITIAL_STATE: IntakeState = { skipped: [] };
 
 function friendlySlot(slot: IntakeSlot | null): string {
   switch (slot) {
-    case "need":
-      return "Need";
-    case "location":
-      return "Location";
-    case "quantity":
-      return "Quantity";
-    case "budget":
-      return "Budget";
-    case "deadline":
-      return "Deadline";
-    case "confirm":
-      return "Confirm";
-    default:
-      return "Starting";
+    case "need": return "Need";
+    case "location": return "Location";
+    case "quantity": return "Quantity";
+    case "budget": return "Budget";
+    case "deadline": return "Deadline";
+    case "confirm": return "Confirm";
+    default: return "Starting";
   }
 }
 
@@ -116,25 +106,16 @@ export function BimpeMissionInput() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(true);
-  const [voiceProvider, setVoiceProvider] = useState<
-    "YarnGPT" | "Browser fallback" | "Text only" | null
-  >(null);
-  const [bimpeChannel, setBimpeChannel] = useState<
-    "test-webchat" | "live-webchat" | null
-  >(null);
+  const [voiceProvider, setVoiceProvider] = useState<"YarnGPT" | "Browser fallback" | "Text only" | null>(null);
+  const [bimpeChannel, setBimpeChannel] = useState<"test-webchat" | "live-webchat" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    inputModeRef.current = mode;
-  }, [mode]);
+  useEffect(() => { inputModeRef.current = mode; }, [mode]);
+  useEffect(() => { currentSlotRef.current = currentSlot; }, [currentSlot]);
 
   useEffect(() => {
-    currentSlotRef.current = currentSlot;
-  }, [currentSlot]);
-
-  useEffect(() => {
-    const Recognition =
-      window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    const speechWindow = window as SpeechWindow;
+    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
 
     if (!Recognition) {
       setVoiceSupported(false);
@@ -149,16 +130,13 @@ export function BimpeMissionInput() {
     recognition.onresult = (event) => {
       let finalText = "";
       let interimText = "";
-
       for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
         const transcript = result?.[0]?.transcript?.trim();
         if (!transcript) continue;
-
         if (result.isFinal) finalText += `${transcript} `;
         else interimText += `${transcript} `;
       }
-
       setInterimTranscript(interimText.trim());
       if (finalText.trim()) {
         setInterimTranscript("");
@@ -193,7 +171,6 @@ export function BimpeMissionInput() {
   useEffect(() => {
     sessionIdRef.current = crypto.randomUUID();
     void startIntake(false);
-    // Start exactly one Bimpe intake conversation for this mounted page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,28 +178,19 @@ export function BimpeMissionInput() {
     const clean = text.trim();
     if (!clean) return;
     messageIdRef.current += 1;
-    const next = { id: messageIdRef.current, speaker, text: clean };
-    setMessages((current) => [...current, next].slice(-10));
+    setMessages((current) => [...current, { id: messageIdRef.current, speaker, text: clean }].slice(-10));
   }
 
   function chooseBrowserVoice() {
     if (!("speechSynthesis" in window)) return undefined;
     const voices = window.speechSynthesis.getVoices();
-    return (
-      voices.find((voice) => voice.lang.toLowerCase() === "en-ng") ??
+    return voices.find((voice) => voice.lang.toLowerCase() === "en-ng") ??
       voices.find((voice) => voice.lang.toLowerCase().startsWith("en-gb")) ??
-      voices.find((voice) => voice.lang.toLowerCase().startsWith("en"))
-    );
+      voices.find((voice) => voice.lang.toLowerCase().startsWith("en"));
   }
 
   async function browserFallbackSpeak(text: string): Promise<boolean> {
-    if (
-      !("speechSynthesis" in window) ||
-      typeof SpeechSynthesisUtterance === "undefined"
-    ) {
-      return false;
-    }
-
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return false;
     await new Promise<void>((resolve) => {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -231,7 +199,6 @@ export function BimpeMissionInput() {
       utterance.pitch = 1;
       const voice = chooseBrowserVoice();
       if (voice) utterance.voice = voice;
-
       let finished = false;
       const finish = () => {
         if (finished) return;
@@ -242,13 +209,11 @@ export function BimpeMissionInput() {
       utterance.onerror = finish;
       window.speechSynthesis.speak(utterance);
     });
-
     return true;
   }
 
   async function speakReply(text: string): Promise<void> {
     if (inputModeRef.current !== "LIVE") return;
-
     setSpeaking(true);
     setVoiceProvider(null);
     try {
@@ -258,7 +223,6 @@ export function BimpeMissionInput() {
         body: JSON.stringify({ text }),
         cache: "no-store"
       });
-
       if (response.ok) {
         const blob = await response.blob();
         if (blob.size > 0) {
@@ -277,7 +241,6 @@ export function BimpeMissionInput() {
           }
         }
       }
-
       const usedFallback = await browserFallbackSpeak(text);
       setVoiceProvider(usedFallback ? "Browser fallback" : "Text only");
     } catch {
@@ -288,11 +251,8 @@ export function BimpeMissionInput() {
     }
   }
 
-  function startRecognition() {
-    if (!voiceSupported || thinking || creatingMission || speaking || listening) {
-      return;
-    }
-
+  function startRecognition(force = false) {
+    if (!voiceSupported || (!force && (thinking || creatingMission || speaking || listening))) return;
     setError(null);
     setInterimTranscript("");
     try {
@@ -304,15 +264,9 @@ export function BimpeMissionInput() {
     }
   }
 
-  async function consumeIntakeResponse(
-    response: Response,
-    result: IntakeResponse,
-    speak: boolean
-  ) {
+  async function consumeIntakeResponse(response: Response, result: IntakeResponse, speak: boolean) {
     if (!response.ok || !result.data?.reply || !result.data.currentSlot || !result.data.state) {
-      throw new Error(
-        result.message ?? "SABI could not get the next response from Bimpe. No mission was created."
-      );
+      throw new Error(result.message ?? "SABI could not get the next response from Bimpe. No mission was created.");
     }
 
     stateRef.current = result.data.state;
@@ -336,14 +290,13 @@ export function BimpeMissionInput() {
 
     if (speak && autoListenAfterSpeechRef.current) {
       autoListenAfterSpeechRef.current = false;
-      startRecognition();
+      startRecognition(true);
     }
   }
 
   async function startIntake(speak: boolean) {
     const sessionId = sessionIdRef.current;
     if (!sessionId || thinking) return;
-
     setThinking(true);
     setError(null);
     try {
@@ -356,11 +309,7 @@ export function BimpeMissionInput() {
       const result = (await response.json().catch(() => ({}))) as IntakeResponse;
       await consumeIntakeResponse(response, result, speak);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "SABI could not start the Bimpe conversation. No mission was created."
-      );
+      setError(caught instanceof Error ? caught.message : "SABI could not start the Bimpe conversation. No mission was created.");
     } finally {
       setThinking(false);
     }
@@ -370,7 +319,6 @@ export function BimpeMissionInput() {
     const clean = text.trim();
     const slot = currentSlotRef.current;
     if (!clean || !slot || thinking || creatingMission) return;
-
     recognitionRef.current?.stop();
     setListening(false);
     setAnswer("");
@@ -378,7 +326,6 @@ export function BimpeMissionInput() {
     setError(null);
     appendMessage("YOU", clean);
     setThinking(true);
-
     try {
       const response = await fetch("/api/bimpe/intake", {
         method: "POST",
@@ -392,17 +339,9 @@ export function BimpeMissionInput() {
         cache: "no-store"
       });
       const result = (await response.json().catch(() => ({}))) as IntakeResponse;
-      await consumeIntakeResponse(
-        response,
-        result,
-        fromVoice || inputModeRef.current === "LIVE"
-      );
+      await consumeIntakeResponse(response, result, fromVoice || inputModeRef.current === "LIVE");
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "SABI could not continue the Bimpe conversation. No provider was contacted."
-      );
+      setError(caught instanceof Error ? caught.message : "SABI could not continue the Bimpe conversation. No provider was contacted.");
     } finally {
       setThinking(false);
     }
@@ -420,13 +359,9 @@ export function BimpeMissionInput() {
         cache: "no-store"
       });
       const result = await response.json().catch(() => null);
-
       if (!response.ok || !result?.mission?.id) {
-        throw new Error(
-          result?.message ?? "SABI could not create the live mission. No provider was contacted."
-        );
+        throw new Error(result?.message ?? "SABI could not create the live mission. No provider was contacted.");
       }
-
       router.push(`/mission/${encodeURIComponent(result.mission.id)}`);
     } catch (caught) {
       setCreatingMission(false);
@@ -461,14 +396,11 @@ export function BimpeMissionInput() {
     setMode(nextMode);
     inputModeRef.current = nextMode;
     setError(null);
-
     if (nextMode === "LIVE") {
-      const latestSabi = [...messages]
-        .reverse()
-        .find((message) => message.speaker === "SABI");
+      const latestSabi = [...messages].reverse().find((message) => message.speaker === "SABI");
       if (latestSabi) {
         await speakReply(latestSabi.text);
-        startRecognition();
+        startRecognition(true);
       }
     }
   }
@@ -492,26 +424,9 @@ export function BimpeMissionInput() {
   return (
     <div className={styles.shell}>
       <div className={styles.modeSwitch} role="tablist" aria-label="Talk to SABI">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "CHAT"}
-          className={mode === "CHAT" ? styles.activeMode : ""}
-          onClick={() => void switchMode("CHAT")}
-          disabled={busy}
-        >
-          Chat
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "LIVE"}
-          className={mode === "LIVE" ? styles.activeMode : ""}
-          onClick={() => void switchMode("LIVE")}
-          disabled={busy}
-        >
-          <span className={styles.liveDot} aria-hidden="true" />
-          Live with Bimpe
+        <button type="button" role="tab" aria-selected={mode === "CHAT"} className={mode === "CHAT" ? styles.activeMode : ""} onClick={() => void switchMode("CHAT")} disabled={busy}>Chat</button>
+        <button type="button" role="tab" aria-selected={mode === "LIVE"} className={mode === "LIVE" ? styles.activeMode : ""} onClick={() => void switchMode("LIVE")} disabled={busy}>
+          <span className={styles.liveDot} aria-hidden="true" />Live with Bimpe
         </button>
       </div>
 
@@ -519,129 +434,58 @@ export function BimpeMissionInput() {
         <div className={styles.runtimeBar}>
           <div className={styles.runtimeBadges}>
             <span className={styles.agentBadge}>Bimpe agent</span>
-            {bimpeChannel ? (
-              <span className={bimpeChannel === "live-webchat" ? styles.liveBadge : styles.testBadge}>
-                {bimpeChannel === "live-webchat" ? "Live webchat" : "Test webchat"}
-              </span>
-            ) : null}
-            {mode === "LIVE" && voiceProvider ? (
-              <span className={voiceProvider === "YarnGPT" ? styles.voiceBadge : styles.fallbackBadge}>
-                Voice: {voiceProvider}
-              </span>
-            ) : null}
+            {bimpeChannel ? <span className={bimpeChannel === "live-webchat" ? styles.liveBadge : styles.testBadge}>{bimpeChannel === "live-webchat" ? "Live webchat" : "Test webchat"}</span> : null}
+            {mode === "LIVE" && voiceProvider ? <span className={voiceProvider === "YarnGPT" ? styles.voiceBadge : styles.fallbackBadge}>Voice: {voiceProvider}</span> : null}
           </div>
           <span className={styles.turnStatus}>{statusText}</span>
         </div>
 
         <div className={styles.transcript} role="log" aria-live="polite">
-          {messages.length === 0 && thinking ? (
-            <div className={styles.agentTyping}>
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : null}
-
+          {messages.length === 0 && thinking ? <div className={styles.agentTyping}><span /><span /><span /></div> : null}
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`${styles.messageRow} ${
-                message.speaker === "YOU" ? styles.userRow : styles.sabiRow
-              }`}
-            >
-              <div className={styles.speakerMark} aria-hidden="true">
-                {message.speaker === "YOU" ? "Y" : "S"}
-              </div>
+            <div key={message.id} className={`${styles.messageRow} ${message.speaker === "YOU" ? styles.userRow : styles.sabiRow}`}>
+              <div className={styles.speakerMark} aria-hidden="true">{message.speaker === "YOU" ? "Y" : "S"}</div>
               <div className={styles.messageBubble}>
                 <strong>{message.speaker === "YOU" ? "You" : "SABI · Bimpe"}</strong>
                 <p>{message.text}</p>
               </div>
             </div>
           ))}
-
           {interimTranscript ? (
             <div className={`${styles.messageRow} ${styles.userRow} ${styles.interim}`}>
               <div className={styles.speakerMark} aria-hidden="true">Y</div>
-              <div className={styles.messageBubble}>
-                <strong>You · listening</strong>
-                <p>{interimTranscript}</p>
-              </div>
+              <div className={styles.messageBubble}><strong>You · listening</strong><p>{interimTranscript}</p></div>
             </div>
           ) : null}
-
-          {thinking && messages.length > 0 ? (
-            <div className={styles.agentTyping} aria-label="Bimpe is thinking">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : null}
+          {thinking && messages.length > 0 ? <div className={styles.agentTyping} aria-label="Bimpe is thinking"><span /><span /><span /></div> : null}
         </div>
 
         {mode === "CHAT" ? (
           <form className={styles.answerComposer} onSubmit={handleChatSubmit}>
-            <input
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              placeholder={currentSlot ? "Answer SABI…" : "Connecting to Bimpe…"}
-              disabled={!currentSlot || busy}
-              autoComplete="off"
-            />
-            <button type="submit" disabled={!answer.trim() || !currentSlot || busy}>
-              <span aria-hidden="true">↑</span>
-              <span className={styles.srOnly}>Send answer</span>
-            </button>
+            <input value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder={currentSlot ? "Answer SABI…" : "Connecting to Bimpe…"} disabled={!currentSlot || busy} autoComplete="off" />
+            <button type="submit" disabled={!answer.trim() || !currentSlot || busy}><span aria-hidden="true">↑</span><span className={styles.srOnly}>Send answer</span></button>
           </form>
         ) : (
           <div className={styles.liveControls}>
-            <div className={`${styles.voiceOrb} ${listening ? styles.listening : ""} ${speaking ? styles.speaking : ""}`}>
-              <span />
-              <span />
-              <div className={styles.voiceCore}>S</div>
-            </div>
-
+            <div className={`${styles.voiceOrb} ${listening ? styles.listening : ""} ${speaking ? styles.speaking : ""}`}><span /><span /><div className={styles.voiceCore}>S</div></div>
             {!voiceSupported ? (
-              <button type="button" className={styles.micButton} onClick={() => void switchMode("CHAT")}>
-                Voice input unavailable — use Chat
-              </button>
+              <button type="button" className={styles.micButton} onClick={() => void switchMode("CHAT")}>Voice input unavailable — use Chat</button>
             ) : listening ? (
-              <button
-                type="button"
-                className={`${styles.micButton} ${styles.stopButton}`}
-                onClick={() => recognitionRef.current?.stop()}
-              >
-                Stop listening
-              </button>
+              <button type="button" className={`${styles.micButton} ${styles.stopButton}`} onClick={() => recognitionRef.current?.stop()}>Stop listening</button>
             ) : (
-              <button
-                type="button"
-                className={styles.micButton}
-                onClick={startRecognition}
-                disabled={!currentSlot || busy || speaking}
-              >
-                {speaking ? "SABI is speaking" : "Answer SABI"}
-              </button>
+              <button type="button" className={styles.micButton} onClick={() => startRecognition()} disabled={!currentSlot || busy || speaking}>{speaking ? "SABI is speaking" : "Answer SABI"}</button>
             )}
-            <p>
-              Your microphone is captured by the browser. The conversation turn itself is sent to the Bimpe agent.
-            </p>
+            <p>Your microphone is captured by the browser. The conversation turn itself is sent to the Bimpe agent.</p>
           </div>
         )}
 
         <div className={styles.footerBar}>
           <span>SABI asks one thing at a time and waits for you.</span>
-          <button type="button" onClick={() => void resetConversation()} disabled={busy}>
-            Start over
-          </button>
+          <button type="button" onClick={() => void resetConversation()} disabled={busy}>Start over</button>
         </div>
       </section>
 
-      {error ? (
-        <div className={styles.errorPanel} role="alert">
-          <strong>Live agent paused safely</strong>
-          <span>{error}</span>
-        </div>
-      ) : null}
+      {error ? <div className={styles.errorPanel} role="alert"><strong>Live agent paused safely</strong><span>{error}</span></div> : null}
     </div>
   );
 }
