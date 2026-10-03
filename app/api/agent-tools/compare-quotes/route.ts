@@ -44,11 +44,13 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const { missionId } = inputSchema.parse(body);
-    let snapshot = await getMissionSnapshot(missionId);
+    const loadedSnapshot = await getMissionSnapshot(missionId);
 
-    if (!snapshot) {
+    if (!loadedSnapshot) {
       return Response.json({ error: "MISSION_NOT_FOUND" }, { status: 404 });
     }
+
+    let snapshot = loadedSnapshot;
 
     const normalizedDeadline = normalizeRelativeDeadline(
       snapshot.mission.deadline,
