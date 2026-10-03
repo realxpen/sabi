@@ -1,0 +1,335 @@
+.page {
+  position: relative;
+  width: min(1180px, calc(100% - 40px));
+  min-height: 100svh;
+  padding: 34px 0 72px;
+}
+
+.page::before,
+.page::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.page::before {
+  top: -130px;
+  right: -80px;
+  background: rgba(126, 92, 230, 0.13);
+}
+
+.page::after {
+  left: -150px;
+  bottom: -170px;
+  background: rgba(229, 195, 132, 0.14);
+}
+
+.homeHero {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #18181b;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #19191d, #7452d4 72%, #9e88ea);
+  color: white;
+  box-shadow: 0 10px 28px rgba(78, 53, 145, 0.22);
+  letter-spacing: 0;
+}
+
+.vendorLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid rgba(24, 24, 27, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #34323a;
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.05);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.vendorLink:hover {
+  transform: translateY(-1px);
+  background: white;
+  box-shadow: 0 12px 32px rgba(24, 24, 27, 0.08);
+}
+
+.vendorLink span {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #eee8fb;
+  color: #6544bd;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.intro {
+  width: min(100%, 790px);
+  margin: clamp(64px, 9vh, 104px) auto 34px;
+  text-align: center;
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 7px 11px;
+  border: 1px solid rgba(91, 63, 192, 0.1);
+  border-radius: 999px;
+  background: rgba(247, 243, 255, 0.75);
+  color: #655b76;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7654d8;
+  box-shadow: 0 0 0 5px rgba(118, 84, 216, 0.1);
+}
+
+.intro h1 {
+  margin: 0;
+  font-size: clamp(3.2rem, 6.6vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+}
+
+.intro p {
+  width: min(100%, 690px);
+  margin: 22px auto 0;
+  color: #65616b;
+  font-size: clamp(1rem, 1.8vw, 1.1rem);
+  line-height: 1.65;
+}
+
+.composerWrap {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
+.trustRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  width: min(100%, 900px);
+  margin: 22px auto 0;
+  color: #7d7884;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.trustRow span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trustRow b {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(222, 244, 231, 0.85);
+  color: #287345;
+  font-size: 0.62rem;
+}
+
+.homeHero :global(.sabiComposerShell) {
+  gap: 17px !important;
+  margin-top: 0 !important;
+}
+
+.homeHero :global(.modeSwitch) {
+  margin: 0 auto !important;
+  padding: 5px !important;
+  border-color: rgba(24, 24, 27, 0.07) !important;
+  background: rgba(239, 235, 226, 0.72) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+}
+
+.homeHero :global(.modeSwitch button) {
+  min-width: 112px !important;
+  min-height: 44px !important;
+  justify-content: center !important;
+  padding: 10px 18px !important;
+  font-size: 0.9rem !important;
+}
+
+.homeHero :global(.modeSwitch button.active) {
+  box-shadow: 0 7px 22px rgba(24, 24, 27, 0.09) !important;
+}
+
+.homeHero :global(.chatComposer) {
+  padding: 18px 18px 14px !important;
+  border-color: rgba(98, 69, 180, 0.16) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 25px 85px rgba(55, 42, 85, 0.11) !important;
+}
+
+.homeHero :global(.chatComposer:focus-within) {
+  border-color: rgba(109, 76, 199, 0.48) !important;
+  box-shadow: 0 28px 95px rgba(73, 52, 128, 0.16) !important;
+}
+
+.homeHero :global(.composerTopline) {
+  font-size: 0.82rem !important;
+}
+
+.homeHero :global(.sabiMark) {
+  width: 27px !important;
+  height: 27px !important;
+  border-radius: 9px !important;
+}
+
+.homeHero :global(.chatComposer textarea) {
+  min-height: 92px !important;
+  padding: 17px 4px 8px !important;
+  font-size: 1.05rem !important;
+  line-height: 1.55 !important;
+}
+
+.homeHero :global(.composerHint) {
+  font-size: 0.78rem !important;
+}
+
+.homeHero :global(.sendButton) {
+  width: 46px !important;
+  height: 46px !important;
+  box-shadow: 0 10px 24px rgba(24, 24, 27, 0.16) !important;
+}
+
+.homeHero :global(.exampleSection) {
+  gap: 10px !important;
+  padding-top: 1px !important;
+}
+
+.homeHero :global(.exampleSection > span) {
+  font-size: 0.78rem !important;
+  letter-spacing: 0.01em !important;
+}
+
+.homeHero :global(.exampleChips) {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.homeHero :global(.exampleChips button) {
+  width: 100% !important;
+  min-height: 50px !important;
+  padding: 11px 14px !important;
+  border-radius: 16px !important;
+  background: rgba(255, 255, 255, 0.58) !important;
+  color: #5b5761 !important;
+  font-size: 0.83rem !important;
+  line-height: 1.35 !important;
+  box-shadow: 0 6px 20px rgba(24, 24, 27, 0.035) !important;
+}
+
+.homeHero :global(.exampleChips button:hover) {
+  background: rgba(247, 243, 255, 0.95) !important;
+  box-shadow: 0 10px 28px rgba(69, 49, 120, 0.07) !important;
+}
+
+@media (max-width: 720px) {
+  .page {
+    width: min(100% - 24px, 620px);
+    padding: 18px 0 44px;
+  }
+
+  .intro {
+    margin: 50px auto 28px;
+    text-align: left;
+  }
+
+  .intro h1 {
+    font-size: clamp(2.75rem, 14vw, 4.1rem);
+  }
+
+  .intro p {
+    margin-top: 17px;
+    font-size: 0.98rem;
+  }
+
+  .kicker {
+    margin-bottom: 14px;
+  }
+
+  .vendorLink {
+    min-height: 38px;
+    padding: 0 12px;
+  }
+
+  .homeHero :global(.modeSwitch) {
+    width: 100% !important;
+  }
+
+  .homeHero :global(.modeSwitch button) {
+    min-width: 0 !important;
+  }
+
+  .homeHero :global(.chatComposer) {
+    border-radius: 23px !important;
+  }
+
+  .homeHero :global(.chatComposer textarea) {
+    min-height: 112px !important;
+    font-size: 1rem !important;
+  }
+
+  .homeHero :global(.exampleChips) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .trustRow {
+    justify-content: flex-start;
+    margin-top: 18px;
+  }
+}
