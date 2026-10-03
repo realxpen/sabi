@@ -142,15 +142,44 @@ export async function recordQuoteForAgent(
   return saveMissionSnapshot({ ...snapshot, quotes });
 }
 
+function normalizeBimpeBoolean(value: unknown) {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return value;
+}
+
+function normalizeOptionalBimpeNumber(value: unknown) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") return value;
+
+  const normalized = value.trim();
+  if (normalized === "") return undefined;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+const bimpeBooleanSchema = z.preprocess(normalizeBimpeBoolean, z.boolean());
+const optionalPositiveBimpeNumberSchema = z.preprocess(
+  normalizeOptionalBimpeNumber,
+  z.number().positive().optional()
+);
+const optionalNonnegativeBimpeNumberSchema = z.preprocess(
+  normalizeOptionalBimpeNumber,
+  z.number().nonnegative().optional()
+);
+
 export const recordProviderResponseToolInputSchema = z.object({
   missionId: z.string().trim().min(1),
   communicationId: z.string().trim().min(1),
-  available: z.boolean(),
-  quantity: z.number().positive().optional(),
+  available: bimpeBooleanSchema,
+  quantity: optionalPositiveBimpeNumberSchema,
   unit: z.string().trim().min(1).optional(),
-  price: z.number().nonnegative().optional(),
-  deliveryFee: z.number().nonnegative().optional(),
-  total: z.number().nonnegative().optional(),
+  price: optionalNonnegativeBimpeNumberSchema,
+  deliveryFee: optionalNonnegativeBimpeNumberSchema,
+  total: optionalNonnegativeBimpeNumberSchema,
   deliveryDate: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional()
 });
