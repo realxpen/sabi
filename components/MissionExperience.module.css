@@ -5,6 +5,7 @@
 
 .conversationCard,
 .progressCard,
+.activityCard,
 .resultCard {
   border: 1px solid rgba(24, 24, 27, 0.08);
   border-radius: 26px;
@@ -248,6 +249,140 @@
   color: #4d4658;
 }
 
+.activityCard {
+  overflow: hidden;
+  padding: clamp(20px, 3vw, 28px);
+  background:
+    linear-gradient(180deg, rgba(250, 248, 255, 0.96), rgba(255, 255, 255, 0.94));
+}
+
+.activityHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.activityHeader > div {
+  display: grid;
+  gap: 4px;
+}
+
+.activityHeader span:first-child {
+  color: #8b8790;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.activityHeader strong {
+  font-size: clamp(1.1rem, 2.6vw, 1.45rem);
+}
+
+.activityWorking {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f0eaff;
+  color: #6648bd !important;
+  font-size: 0.72rem !important;
+  font-weight: 850;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.activityWorking::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7552d6;
+  box-shadow: 0 0 0 4px rgba(117, 82, 214, 0.1);
+  animation: statePulse 1.5s ease-in-out infinite;
+}
+
+.activityList {
+  display: grid;
+}
+
+.activityItem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.activityItem:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 42px;
+  bottom: -4px;
+  left: 14px;
+  width: 1px;
+  background: #e5e0ea;
+}
+
+.activityDot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background: #ebe7ef;
+  color: #7f7888;
+  box-shadow: 0 0 0 4px #fff;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.activityItem > div {
+  min-width: 0;
+}
+
+.activityItem strong {
+  display: block;
+  color: #3f3946;
+  font-size: 0.9rem;
+}
+
+.activityItem p {
+  margin: 4px 0 0;
+  color: #89838f;
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+.activityItem.done .activityDot {
+  background: #dcefe3;
+  color: #276b41;
+}
+
+.activityItem.done:not(:last-child)::after {
+  background: #d6e8dc;
+}
+
+.activityItem.active .activityDot {
+  background: #6d4cc7;
+  color: #fff;
+  box-shadow: 0 0 0 5px rgba(109, 76, 199, 0.1);
+  animation: activityPulse 1.6s ease-in-out infinite;
+}
+
+.activityItem.active strong {
+  color: #4b337f;
+}
+
+.activityItem.pending {
+  opacity: 0.56;
+}
+
 .resultCard {
   overflow: hidden;
   padding: clamp(22px, 4vw, 34px);
@@ -386,10 +521,17 @@
   50% { box-shadow: 0 0 0 9px rgba(109, 76, 199, 0.14); }
 }
 
+@keyframes activityPulse {
+  0%, 100% { transform: scale(0.94); box-shadow: 0 0 0 4px rgba(109, 76, 199, 0.08); }
+  50% { transform: scale(1); box-shadow: 0 0 0 8px rgba(109, 76, 199, 0.13); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .liveState::before,
+  .activityWorking::before,
   .typing i,
-  .progressStep.active .stepDot {
+  .progressStep.active .stepDot,
+  .activityItem.active .activityDot {
     animation: none;
   }
 }
@@ -397,6 +539,7 @@
 @media (max-width: 760px) {
   .conversationCard,
   .progressCard,
+  .activityCard,
   .resultCard {
     border-radius: 21px;
   }
@@ -421,6 +564,7 @@
 
 @media (max-width: 520px) {
   .conversationHeader,
+  .activityHeader,
   .resultHeader {
     align-items: flex-start;
     flex-direction: column;
