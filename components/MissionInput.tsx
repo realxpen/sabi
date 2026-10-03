@@ -4,6 +4,14 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type InputMode = "TEXT" | "VOICE";
+type VoiceTurn = "REQUEST" | "CONFIRMATION";
+type LiveSpeaker = "SABI" | "YOU";
+
+type LiveMessage = {
+  id: number;
+  speaker: LiveSpeaker;
+  text: string;
+};
 
 type SpeechRecognitionEventLike = {
   results: ArrayLike<{
@@ -49,29 +57,73 @@ const LOADING_MESSAGES = [
   "Preparing SABI…"
 ];
 
+const START_WORDS = [
+  "yes",
+  "start",
+  "start mission",
+  "send it",
+  "go ahead",
+  "proceed",
+  "do it",
+  "that's right",
+  "that is right",
+  "correct"
+];
+
+const RETRY_WORDS = [
+  "no",
+  "try again",
+  "start again",
+  "change it",
+  "redo",
+  "again"
+];
+
 export function MissionInput() {
   const router = useRouter();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceTurnRef = useRef<VoiceTurn>("REQUEST");
+  const requestRef = useRef("");
+  const messageIdRef = useRef(0);
+
   const [request, setRequest] = useState("");
   const [inputMode, setInputMode] = useState<InputMode>("TEXT");
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(true);
+  const [voiceOutputSupported, setVoiceOutputSupported] = useState(true);
+  const [voiceTurn, setVoiceTurn] = useState<VoiceTurn>("REQUEST");
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingIndex, setLoadingIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    requestRef.current = request;
+  }, [request]);
+
+  useEffect(() => {
+    const storedCaptions = window.localStorage.getItem("sabi-live-captions");
+    if (storedCaptions === "off") setCaptionsEnabled(false);
+
+    setVoiceOutputSupported(
+      "speechSynthesis" in window && "SpeechSynthesisUtterance" in window
+    );
+
     const Recognition =
       window.SpeechRecognition ?? window.webkitSpeechRecognition;
 
     if (!Recognition) {
       setVoiceSupported(false);
-      return;
+      return () => {
+        window.speechSynthesis?.cancel();
+      };
     }
 
     const recognition = new Recognition();
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "en-NG";
 
@@ -91,17 +143,23 @@ export function MissionInput() {
         }
       }
 
-      if (finalText.trim()) {
-        setRequest((current) =>
-          `${current}${current.trim() ? " " : ""}${finalText.trim()}`.trim()
-        );
-      }
       setInterimTranscript(interimText.trim());
+
+      if (finalText.trim()) {
+        setInterimTranscript("");
+        void handleVoiceTurn(finalText.trim());
+      }
     };
 
     recognition.onerror = (event) => {
       setListening(false);
       setInterimTranscript("");
+
+      if (event.error === "no-speech") {
+        setError("I didn’t hear anything. Tap the microphone and try again.");
+        return;
+      }
+
       if (event.error !== "aborted") {
         setError("SABI could not hear you clearly. Try again or switch to Chat.");
       }
@@ -117,6 +175,7 @@ export function MissionInput() {
     return () => {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -135,24 +194,73 @@ export function MissionInput() {
     return () => window.clearInterval(timer);
   }, [submitting]);
 
-  function switchMode(mode: InputMode) {
-    if (submitting) return;
-    if (listening) recognitionRef.current?.stop();
-    setListening(false);
-    setInterimTranscript("");
-    setError(null);
-    setInputMode(mode);
+  function appendLiveMessage(speaker: LiveSpeaker, text: string) {
+    const clean = text.trim();
+    if (!clean) return;
+
+    messageIdRef.current += 1;
+    const message: LiveMessage = {
+      id: messageIdRef.current,
+      speaker,
+      text: clean
+    };
+
+    setLiveMessages((current) => [...current.slice(-5), message]);
   }
 
-  function toggleListening() {
-    if (!voiceSupported || submitting) return;
+  function chooseVoice() {
+    if (!("speechSynthesis" in window)) return undefined;
+
+    const voices = window.speechSynthesis.getVoices();
+    return (
+      voices.find((voice) => voice.lang.toLowerCase() === "en-ng") ??
+      voices.find((voice) => voice.lang.toLowerCase().startsWith("en-gb")) ??
+      voices.find((voice) => voice.lang.toLowerCase().startsWith("en"))
+    );
+  }
+
+  function speak(text: string) {
+    appendLiveMessage("SABI", text);
+
+    if (
+      !("speechSynthesis" in window) ||
+      typeof SpeechSynthesisUtterance === "undefined"
+    ) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      window.speechSynthesis.cancel();
+      setSpeaking(true);
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-NG";
+      utterance.rate = 0.97;
+      utterance.pitch = 1;
+      const voice = chooseVoice();
+      if (voice) utterance.voice = voice;
+
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        setSpeaking(false);
+        resolve();
+      };
+
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
+  function startRecognition(turn: VoiceTurn) {
+    if (!voiceSupported || submitting || speaking) return;
 
     setError(null);
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
+    setInterimTranscript("");
+    voiceTurnRef.current = turn;
+    setVoiceTurn(turn);
 
     try {
       recognitionRef.current?.start();
@@ -163,11 +271,96 @@ export function MissionInput() {
     }
   }
 
-  async function createMission() {
-    const trimmed = request.trim();
+  async function beginLiveConversation() {
+    if (!voiceSupported || submitting || listening || speaking) return;
+
+    setError(null);
+    setRequest("");
+    requestRef.current = "";
+    setLiveMessages([]);
+    voiceTurnRef.current = "REQUEST";
+    setVoiceTurn("REQUEST");
+
+    await speak(
+      "Hi, I’m SABI. Tell me what you need. You can include your budget, location, quantity, and deadline if they matter."
+    );
+    startRecognition("REQUEST");
+  }
+
+  async function handleVoiceTurn(text: string) {
+    setListening(false);
+    appendLiveMessage("YOU", text);
+
+    if (voiceTurnRef.current === "REQUEST") {
+      const cleanRequest = text.trim();
+      setRequest(cleanRequest);
+      requestRef.current = cleanRequest;
+
+      await speak(
+        `Got it. I heard: ${cleanRequest}. If that sounds right, say start mission. If you want to say it again, say try again.`
+      );
+      startRecognition("CONFIRMATION");
+      return;
+    }
+
+    const normalized = text.toLowerCase().replace(/[.,!?]/g, "").trim();
+    const approved = START_WORDS.some(
+      (phrase) => normalized === phrase || normalized.includes(phrase)
+    );
+    const retry = RETRY_WORDS.some(
+      (phrase) => normalized === phrase || normalized.includes(phrase)
+    );
+
+    if (approved) {
+      await speak("Perfect. I’ll start the mission now.");
+      await createMission(requestRef.current, true);
+      return;
+    }
+
+    if (retry) {
+      setRequest("");
+      requestRef.current = "";
+      await speak("No problem. Tell me again what you need.");
+      startRecognition("REQUEST");
+      return;
+    }
+
+    await speak(
+      "I didn’t catch that choice. Say start mission if the request is right, or say try again to start over."
+    );
+    startRecognition("CONFIRMATION");
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+    setListening(false);
+  }
+
+  function switchMode(mode: InputMode) {
+    if (submitting) return;
+
+    recognitionRef.current?.stop();
+    window.speechSynthesis?.cancel();
+    setListening(false);
+    setSpeaking(false);
+    setInterimTranscript("");
+    setError(null);
+    setInputMode(mode);
+  }
+
+  function toggleCaptions() {
+    setCaptionsEnabled((current) => {
+      const next = !current;
+      window.localStorage.setItem("sabi-live-captions", next ? "on" : "off");
+      return next;
+    });
+  }
+
+  async function createMission(overrideRequest?: string, alreadyAnnounced = false) {
+    const trimmed = (overrideRequest ?? request).trim();
     if (!trimmed || submitting) return;
 
-    if (listening) recognitionRef.current?.stop();
+    recognitionRef.current?.stop();
     setListening(false);
     setSubmitting(true);
     setError(null);
@@ -189,14 +382,23 @@ export function MissionInput() {
         );
       }
 
+      if (inputMode === "VOICE" && !alreadyAnnounced) {
+        await speak("Your mission is ready. I’m starting the search now.");
+      }
+
       router.push(`/mission/${encodeURIComponent(result.mission.id)}`);
     } catch (caught) {
-      setError(
+      const message =
         caught instanceof Error
           ? caught.message
-          : "SABI could not create this mission right now."
-      );
+          : "SABI could not create this mission right now.";
+
+      setError(message);
       setSubmitting(false);
+
+      if (inputMode === "VOICE") {
+        await speak(`I couldn’t start that mission. ${message}`);
+      }
     }
   }
 
@@ -205,9 +407,29 @@ export function MissionInput() {
     await createMission();
   }
 
-  const composedVoiceText = [request, interimTranscript]
-    .filter(Boolean)
-    .join(request && interimTranscript ? " " : "");
+  const voiceHeadline = speaking
+    ? "SABI is speaking"
+    : listening
+      ? voiceTurn === "CONFIRMATION"
+        ? "Your turn"
+        : "I’m listening"
+      : liveMessages.length
+        ? "Continue with SABI"
+        : "Talk to SABI";
+
+  const voiceDescription = !voiceSupported
+    ? "Voice input is not available in this browser. You can still use Chat."
+    : !voiceOutputSupported
+      ? "Spoken replies are unavailable in this browser, so captions will carry the conversation."
+      : speaking
+        ? "SABI will finish speaking, then listen for your response."
+        : listening
+          ? voiceTurn === "CONFIRMATION"
+            ? "Say “start mission” to continue, or “try again” to start over."
+            : "Speak naturally. SABI will respond when you finish."
+          : liveMessages.length
+            ? "Tap the microphone to continue the conversation, or start the mission when you’re ready."
+            : "Have a two-way voice conversation with SABI before starting the mission.";
 
   return (
     <div className="sabiComposerShell">
@@ -264,8 +486,26 @@ export function MissionInput() {
           </div>
         </form>
       ) : (
-        <section className="voiceComposer" aria-live="polite">
-          <div className={`voiceOrb ${listening ? "listening" : ""}`} aria-hidden="true">
+        <section className="voiceComposer" aria-label="Live voice conversation with SABI">
+          <div className="voiceToolbar">
+            <span className={`voiceStatus ${listening ? "listening" : ""} ${speaking ? "speaking" : ""}`}>
+              <span aria-hidden="true" />
+              {speaking ? "SABI speaking" : listening ? "Listening" : "Live voice"}
+            </span>
+            <button
+              type="button"
+              className={`captionToggle ${captionsEnabled ? "active" : ""}`}
+              aria-pressed={captionsEnabled}
+              onClick={toggleCaptions}
+              disabled={!voiceOutputSupported && captionsEnabled}
+              title={!voiceOutputSupported ? "Captions stay on because spoken replies are unavailable." : undefined}
+            >
+              <span className="ccIcon" aria-hidden="true">CC</span>
+              Captions {captionsEnabled ? "On" : "Off"}
+            </button>
+          </div>
+
+          <div className={`voiceOrb ${listening ? "listening" : ""} ${speaking ? "speaking" : ""}`} aria-hidden="true">
             <span />
             <span />
             <span />
@@ -273,52 +513,94 @@ export function MissionInput() {
           </div>
 
           <div className="voiceCopy">
-            <h2>{listening ? "I’m listening" : "Talk to SABI"}</h2>
-            <p>
-              {!voiceSupported
-                ? "Voice input is not available in this browser. You can still use Chat."
-                : listening
-                  ? "Describe what you need naturally. You can include your budget, location and deadline."
-                  : "Start talking and SABI will turn your words into a mission."}
-            </p>
+            <h2>{voiceHeadline}</h2>
+            <p>{voiceDescription}</p>
           </div>
 
-          {(request || interimTranscript) ? (
-            <div className="voiceTranscript">
-              <span>Transcript</span>
-              <p>{composedVoiceText}</p>
+          {captionsEnabled && (liveMessages.length > 0 || interimTranscript) ? (
+            <div className="liveCaptions" role="log" aria-live="polite" aria-label="Live conversation captions">
+              {liveMessages.map((message) => (
+                <div key={message.id} className={`captionLine ${message.speaker === "SABI" ? "sabi" : "you"}`}>
+                  <strong>{message.speaker === "SABI" ? "SABI" : "You"}</strong>
+                  <span>{message.text}</span>
+                </div>
+              ))}
+              {interimTranscript ? (
+                <div className="captionLine you interim">
+                  <strong>You</strong>
+                  <span>{interimTranscript}</span>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
           <div className="voiceActions">
-            {voiceSupported ? (
-              <button
-                type="button"
-                className={`listenButton ${listening ? "stop" : ""}`}
-                onClick={toggleListening}
-                disabled={submitting}
-              >
-                <span className="micGlyph" aria-hidden="true">●</span>
-                {listening ? "Stop listening" : "Start listening"}
-              </button>
-            ) : (
+            {!voiceSupported ? (
               <button type="button" className="listenButton" onClick={() => switchMode("TEXT")}>
                 Use Chat instead
               </button>
+            ) : listening ? (
+              <button type="button" className="listenButton stop" onClick={stopListening}>
+                <span className="micGlyph" aria-hidden="true">●</span>
+                Stop listening
+              </button>
+            ) : speaking ? (
+              <button type="button" className="listenButton speakingButton" disabled>
+                <span className="soundGlyph" aria-hidden="true">)))</span>
+                SABI is speaking
+              </button>
+            ) : liveMessages.length === 0 ? (
+              <button type="button" className="listenButton" onClick={beginLiveConversation} disabled={submitting}>
+                <span className="micGlyph" aria-hidden="true">●</span>
+                Start conversation
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="listenButton"
+                onClick={() => startRecognition(voiceTurn)}
+                disabled={submitting}
+              >
+                <span className="micGlyph" aria-hidden="true">●</span>
+                {voiceTurn === "CONFIRMATION" ? "Answer SABI" : "Talk again"}
+              </button>
             )}
 
-            {request.trim() ? (
+            {request.trim() && !speaking ? (
               <button
                 type="button"
                 className="voiceSendButton"
-                onClick={createMission}
+                onClick={() => void createMission()}
                 disabled={submitting}
               >
-                Send mission
+                Start mission
                 <span aria-hidden="true">→</span>
               </button>
             ) : null}
+
+            {request.trim() && !listening && !speaking ? (
+              <button
+                type="button"
+                className="voiceResetButton"
+                onClick={() => {
+                  setRequest("");
+                  requestRef.current = "";
+                  setLiveMessages([]);
+                  setInterimTranscript("");
+                  voiceTurnRef.current = "REQUEST";
+                  setVoiceTurn("REQUEST");
+                  setError(null);
+                }}
+                disabled={submitting}
+              >
+                Start over
+              </button>
+            ) : null}
           </div>
+
+          <p className="voicePrivacyNote">
+            Your browser handles microphone capture. SABI still stops before any commitment or payment.
+          </p>
         </section>
       )}
 
@@ -344,6 +626,7 @@ export function MissionInput() {
                 type="button"
                 onClick={() => {
                   setRequest(example);
+                  requestRef.current = example;
                   setInputMode("TEXT");
                   setError(null);
                 }}
@@ -527,12 +810,96 @@ export function MissionInput() {
           display: grid;
           place-items: center;
           gap: 20px;
-          min-height: 420px;
-          padding: 38px 24px 28px;
+          min-height: 430px;
+          padding: 26px 24px 24px;
           text-align: center;
           background:
-            radial-gradient(circle at 50% 28%, rgba(111, 78, 207, 0.13), transparent 34%),
+            radial-gradient(circle at 50% 24%, rgba(111, 78, 207, 0.14), transparent 35%),
             rgba(255, 255, 255, 0.95);
+        }
+
+        .voiceToolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 12px;
+        }
+
+        .voiceStatus {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #706b78;
+          font-size: 0.76rem;
+          font-weight: 850;
+          letter-spacing: 0.02em;
+        }
+
+        .voiceStatus > span {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #a1a1aa;
+          transition: background 180ms ease, box-shadow 180ms ease;
+        }
+
+        .voiceStatus.listening > span {
+          background: #22a06b;
+          box-shadow: 0 0 0 5px rgba(34, 160, 107, 0.12);
+        }
+
+        .voiceStatus.speaking > span {
+          background: #7c5cff;
+          box-shadow: 0 0 0 5px rgba(124, 92, 255, 0.12);
+        }
+
+        .captionToggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          border: 1px solid rgba(24, 24, 27, 0.09);
+          border-radius: 999px;
+          padding: 8px 11px;
+          background: rgba(255, 255, 255, 0.8);
+          color: #77717f;
+          cursor: pointer;
+          font-size: 0.74rem;
+          font-weight: 800;
+          transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+        }
+
+        .captionToggle.active {
+          border-color: rgba(109, 76, 199, 0.22);
+          background: #f5f1ff;
+          color: #51379d;
+        }
+
+        .captionToggle:disabled {
+          cursor: default;
+          opacity: 0.75;
+        }
+
+        .ccIcon {
+          display: inline-grid;
+          place-items: center;
+          min-width: 27px;
+          height: 20px;
+          padding: 0 5px;
+          border-radius: 7px;
+          background: currentColor;
+          color: white;
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.02em;
+        }
+
+        .captionToggle .ccIcon {
+          background: #77717f;
+        }
+
+        .captionToggle.active .ccIcon {
+          background: #6d4cc7;
         }
 
         .voiceOrb {
@@ -551,15 +918,18 @@ export function MissionInput() {
           transform: scale(1);
         }
 
-        .voiceOrb.listening > span:nth-child(1) {
+        .voiceOrb.listening > span:nth-child(1),
+        .voiceOrb.speaking > span:nth-child(1) {
           animation: pulseRing 1.8s ease-out infinite;
         }
 
-        .voiceOrb.listening > span:nth-child(2) {
+        .voiceOrb.listening > span:nth-child(2),
+        .voiceOrb.speaking > span:nth-child(2) {
           animation: pulseRing 1.8s 0.45s ease-out infinite;
         }
 
-        .voiceOrb.listening > span:nth-child(3) {
+        .voiceOrb.listening > span:nth-child(3),
+        .voiceOrb.speaking > span:nth-child(3) {
           animation: pulseRing 1.8s 0.9s ease-out infinite;
         }
 
@@ -577,15 +947,20 @@ export function MissionInput() {
           font-size: 1.65rem;
           font-weight: 900;
           transform: rotate(-4deg);
-          transition: transform 180ms ease;
+          transition: transform 180ms ease, box-shadow 180ms ease;
         }
 
         .voiceOrb.listening .voiceOrbCore {
-          animation: breathe 1.5s ease-in-out infinite;
+          box-shadow: 0 22px 48px rgba(34, 160, 107, 0.28);
+          animation: breathe 1.3s ease-in-out infinite;
+        }
+
+        .voiceOrb.speaking .voiceOrbCore {
+          animation: speakPulse 700ms ease-in-out infinite alternate;
         }
 
         .voiceCopy {
-          max-width: 520px;
+          max-width: 540px;
         }
 
         .voiceCopy h2 {
@@ -599,28 +974,57 @@ export function MissionInput() {
           line-height: 1.55;
         }
 
-        .voiceTranscript {
-          width: min(100%, 620px);
-          padding: 15px 17px;
-          border-radius: 18px;
-          background: rgba(244, 241, 249, 0.92);
+        .liveCaptions {
+          display: grid;
+          gap: 8px;
+          width: min(100%, 640px);
+          max-height: 190px;
+          overflow-y: auto;
+          padding: 12px;
+          border: 1px solid rgba(24, 24, 27, 0.07);
+          border-radius: 20px;
+          background: rgba(249, 247, 252, 0.94);
           text-align: left;
+          scroll-behavior: smooth;
         }
 
-        .voiceTranscript span {
-          display: block;
-          margin-bottom: 5px;
-          color: #716d78;
-          font-size: 0.72rem;
-          font-weight: 850;
-          letter-spacing: 0.08em;
+        .captionLine {
+          display: grid;
+          grid-template-columns: 42px 1fr;
+          gap: 10px;
+          align-items: start;
+          padding: 9px 10px;
+          border-radius: 14px;
+          color: #39363e;
+          line-height: 1.45;
+        }
+
+        .captionLine.sabi {
+          background: rgba(111, 78, 207, 0.08);
+        }
+
+        .captionLine.you {
+          background: rgba(24, 24, 27, 0.045);
+        }
+
+        .captionLine.interim {
+          opacity: 0.6;
+        }
+
+        .captionLine strong {
+          color: #6d4cc7;
+          font-size: 0.68rem;
+          font-weight: 900;
+          letter-spacing: 0.05em;
           text-transform: uppercase;
         }
 
-        .voiceTranscript p {
-          margin: 0;
-          color: #312f36;
-          line-height: 1.55;
+        .captionLine.you strong {
+          color: #6b6870;
+        }
+
+        .captionLine span {
+          font-size: 0.9rem;
         }
 
         .voiceActions {
@@ -631,7 +1035,8 @@ export function MissionInput() {
         }
 
         .listenButton,
-        .voiceSendButton {
+        .voiceSendButton,
+        .voiceResetButton {
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -652,17 +1057,30 @@ export function MissionInput() {
         }
 
         .listenButton.stop {
-          background: #5b3fc0;
+          background: #4c8068;
+        }
+
+        .speakingButton {
+          background: #6244bb;
+          opacity: 0.9;
+          cursor: wait;
         }
 
         .voiceSendButton {
-          border: 1px solid rgba(24, 24, 27, 0.09);
-          background: white;
-          color: #27272a;
+          border: 1px solid rgba(109, 76, 199, 0.16);
+          background: #f5f1ff;
+          color: #4b338e;
+        }
+
+        .voiceResetButton {
+          border: 1px solid transparent;
+          background: transparent;
+          color: #77717f;
         }
 
         .listenButton:hover:not(:disabled),
-        .voiceSendButton:hover:not(:disabled) {
+        .voiceSendButton:hover:not(:disabled),
+        .voiceResetButton:hover:not(:disabled) {
           transform: translateY(-2px);
         }
 
@@ -675,6 +1093,19 @@ export function MissionInput() {
           color: #d9d2ff;
           font-size: 0.55rem;
           box-shadow: inset 0 0 0 5px currentColor;
+        }
+
+        .soundGlyph {
+          color: #e6defd;
+          font-size: 0.68rem;
+          letter-spacing: -0.16em;
+        }
+
+        .voicePrivacyNote {
+          margin: -2px 0 0;
+          color: #96919b;
+          font-size: 0.72rem;
+          line-height: 1.45;
         }
 
         .missionLoading {
@@ -785,6 +1216,11 @@ export function MissionInput() {
           50% { transform: scale(1.06) rotate(1deg); }
         }
 
+        @keyframes speakPulse {
+          from { transform: scale(0.98) rotate(-4deg); box-shadow: 0 20px 40px rgba(76, 49, 148, 0.22); }
+          to { transform: scale(1.08) rotate(1deg); box-shadow: 0 28px 58px rgba(76, 49, 148, 0.36); }
+        }
+
         @keyframes ping {
           0%, 100% { transform: scale(0.7); opacity: 0.55; }
           50% { transform: scale(1); opacity: 1; }
@@ -797,7 +1233,9 @@ export function MissionInput() {
 
         @media (prefers-reduced-motion: reduce) {
           .voiceOrb.listening > span,
+          .voiceOrb.speaking > span,
           .voiceOrb.listening .voiceOrbCore,
+          .voiceOrb.speaking .voiceOrbCore,
           .loadingOrb,
           .loadingOrb span,
           .miniSpinner,
@@ -822,8 +1260,16 @@ export function MissionInput() {
           }
 
           .voiceComposer {
-            min-height: 390px;
-            padding: 30px 18px 22px;
+            min-height: 410px;
+            padding: 18px 16px 20px;
+          }
+
+          .voiceToolbar {
+            align-items: flex-start;
+          }
+
+          .captionToggle {
+            flex: 0 0 auto;
           }
 
           .composerFooter {
@@ -834,9 +1280,19 @@ export function MissionInput() {
             max-width: 75%;
           }
 
+          .liveCaptions {
+            max-height: 220px;
+          }
+
+          .captionLine {
+            grid-template-columns: 38px 1fr;
+            padding: 8px;
+          }
+
           .voiceActions,
           .listenButton,
-          .voiceSendButton {
+          .voiceSendButton,
+          .voiceResetButton {
             width: 100%;
           }
 
