@@ -142,31 +142,44 @@ export async function recordQuoteForAgent(
   return saveMissionSnapshot({ ...snapshot, quotes });
 }
 
-const bimpeBooleanSchema = z.preprocess((value) => {
+function normalizeBimpeBoolean(value: unknown) {
   if (typeof value !== "string") return value;
   const normalized = value.trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
   return value;
-}, z.boolean());
+}
 
-const bimpeNumberSchema = z.preprocess((value) => {
+function normalizeOptionalBimpeNumber(value: unknown) {
+  if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") return value;
+
   const normalized = value.trim();
-  if (!normalized) return value;
+  if (normalized === "") return undefined;
+
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : value;
-}, z.number());
+}
+
+const bimpeBooleanSchema = z.preprocess(normalizeBimpeBoolean, z.boolean());
+const optionalPositiveBimpeNumberSchema = z.preprocess(
+  normalizeOptionalBimpeNumber,
+  z.number().positive().optional()
+);
+const optionalNonnegativeBimpeNumberSchema = z.preprocess(
+  normalizeOptionalBimpeNumber,
+  z.number().nonnegative().optional()
+);
 
 export const recordProviderResponseToolInputSchema = z.object({
   missionId: z.string().trim().min(1),
   communicationId: z.string().trim().min(1),
   available: bimpeBooleanSchema,
-  quantity: bimpeNumberSchema.pipe(z.number().positive()).optional(),
+  quantity: optionalPositiveBimpeNumberSchema,
   unit: z.string().trim().min(1).optional(),
-  price: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
-  deliveryFee: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
-  total: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
+  price: optionalNonnegativeBimpeNumberSchema,
+  deliveryFee: optionalNonnegativeBimpeNumberSchema,
+  total: optionalNonnegativeBimpeNumberSchema,
   deliveryDate: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional()
 });
