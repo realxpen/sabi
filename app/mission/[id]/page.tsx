@@ -1,5 +1,6 @@
 import { MissionControl } from "../../../components/MissionControl";
 import { MissionLiveRefresh } from "../../../components/MissionLiveRefresh";
+import { ProviderDiscoveryProof } from "../../../components/ProviderDiscoveryProof";
 import { getMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
 import type { MissionSnapshot } from "../../../lib/mission/snapshot";
 import { isBimpeMissionOrchestrationConfigured } from "../../../lib/integrations/bimpe/conversation-orchestrator";
@@ -52,6 +53,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
             status={snapshot.mission.status}
             demoMode={snapshot.demoMode}
           />
+          <ProviderDiscoveryProof snapshot={snapshot} />
           <MissionControl
             snapshot={snapshot}
             startupIssue={getMissionStartupIssue(snapshot, isBimpeMissionOrchestrationConfigured())}
