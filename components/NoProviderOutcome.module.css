@@ -1,0 +1,133 @@
+.shell {
+  border: 1px solid rgba(96, 67, 196, 0.16);
+  background: linear-gradient(135deg, rgba(255,255,255,0.99), rgba(247,244,255,0.97));
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 18px 55px rgba(37, 28, 73, 0.08);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6f52ca;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.status {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(72, 166, 106, 0.1);
+  color: #2f7d4a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.requestCard {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #17151d;
+  color: white;
+}
+
+.requestCard span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  opacity: 0.65;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.requestCard strong {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.explanation {
+  margin: 18px 0 0;
+  color: #5e596a;
+  line-height: 1.65;
+}
+
+.progress {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.progress div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #aaa4b4;
+  text-align: center;
+}
+
+.progress span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #efedf3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.progress small {
+  font-size: 11px;
+}
+
+.progress .done {
+  color: #2f7d4a;
+}
+
+.progress .done span {
+  background: rgba(72, 166, 106, 0.12);
+}
+
+.safety {
+  margin-top: 20px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(72, 166, 106, 0.08);
+  color: #2f7d4a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.action {
+  display: inline-flex;
+  margin-top: 16px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: #17151d;
+  color: white;
+  text-decoration: none;
+  font-weight: 750;
+}
+
+@media (max-width: 700px) {
+  .progress {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
