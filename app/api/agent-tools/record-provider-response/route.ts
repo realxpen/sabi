@@ -20,20 +20,32 @@ function explicitlyMarksMonetaryFactsUnknown(notes: unknown): boolean {
   );
 }
 
+function isZeroTransportDefault(value: unknown): boolean {
+  if (value === 0) return true;
+  if (typeof value !== "string") return false;
+
+  const normalized = value.trim();
+  if (!normalized) return false;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed === 0;
+}
+
 function sanitizeBimpeMoneyDefaults(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return body;
 
   const sanitized = { ...(body as Record<string, unknown>) };
 
-  // Bimpe custom API number fields may arrive as numeric 0 when the agent means
-  // "unknown". Never turn that transport default into provider evidence. Only
-  // strip the values when the evidence notes explicitly state that the monetary
-  // facts were not provided. A real provider-stated zero (for example, free
-  // delivery) remains valid when the notes do not mark it unknown.
+  // Bimpe custom API number fields may arrive as numeric or string zero when
+  // the agent means "unknown". Never turn that transport default into provider
+  // evidence. Only strip the values when the evidence notes explicitly state
+  // that the monetary facts were not provided. A real provider-stated zero
+  // (for example, free delivery) remains valid when the notes do not mark it
+  // unknown.
   if (explicitlyMarksMonetaryFactsUnknown(sanitized.notes)) {
-    if (sanitized.price === 0) delete sanitized.price;
-    if (sanitized.deliveryFee === 0) delete sanitized.deliveryFee;
-    if (sanitized.total === 0) delete sanitized.total;
+    if (isZeroTransportDefault(sanitized.price)) delete sanitized.price;
+    if (isZeroTransportDefault(sanitized.deliveryFee)) delete sanitized.deliveryFee;
+    if (isZeroTransportDefault(sanitized.total)) delete sanitized.total;
   }
 
   return sanitized;
