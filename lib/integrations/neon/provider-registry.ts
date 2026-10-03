@@ -15,8 +15,22 @@ export const createRegisteredProviderInputSchema = z.object({
   consentedToLiveContact: z.literal(true)
 });
 
+export const updateRegisteredProviderInputSchema = z.object({
+  id: z.string().trim().min(1),
+  currentPhone: z.string().trim().min(8),
+  name: z.string().trim().min(2),
+  category: z.string().trim().min(2),
+  location: z.string().trim().min(2),
+  phone: z.string().trim().min(8).optional(),
+  languages: z.array(z.string().trim().min(1)).min(1),
+  consentedToLiveContact: z.literal(true)
+});
+
 export type CreateRegisteredProviderInput = z.infer<
   typeof createRegisteredProviderInputSchema
+>;
+export type UpdateRegisteredProviderInput = z.infer<
+  typeof updateRegisteredProviderInputSchema
 >;
 
 export type RegisteredProviderFilters = {
@@ -41,7 +55,9 @@ function hasDatabaseConfiguration() {
 function getSql() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL_NOT_CONFIGURED");
-  return neon(databaseUrl);
+  return neon(databaseUrl, {
+    fetchOptions: { cache: "no-store" }
+  });
 }
 
 async function ensureProviderRegistryTable() {
@@ -134,6 +150,51 @@ export async function createRegisteredProvider(
       now(),
       now()
     )
+  `;
+
+  return provider;
+}
+
+export async function updateRegisteredProvider(
+  input: UpdateRegisteredProviderInput
+): Promise<Provider> {
+  const parsed = updateRegisteredProviderInputSchema.parse(input);
+  const sql = await ensureProviderRegistryTable();
+  const rows = (await sql`
+    select id, provider, phone, consented
+    from provider_registry
+    where id = ${parsed.id}
+    limit 1
+  `) as ProviderRegistryRow[];
+
+  const row = rows[0];
+  if (!row) throw new Error("PROVIDER_NOT_FOUND");
+
+  const currentPhone = normalizeProviderPhone(parsed.currentPhone);
+  const storedPhone = e164PhoneSchema.parse(row.phone);
+  if (currentPhone !== storedPhone) {
+    throw new Error("PROVIDER_EDIT_PHONE_MISMATCH");
+  }
+
+  const existing = providerSchema.parse(row.provider);
+  const provider = providerSchema.parse({
+    ...existing,
+    name: parsed.name,
+    category: parsed.category,
+    location: parsed.location,
+    languages: parsed.languages
+  });
+  const phone = parsed.phone?.trim()
+    ? normalizeProviderPhone(parsed.phone)
+    : storedPhone;
+
+  await sql`
+    update provider_registry
+    set provider = ${JSON.stringify(provider)}::jsonb,
+        phone = ${phone},
+        consented = true,
+        updated_at = now()
+    where id = ${parsed.id}
   `;
 
   return provider;
