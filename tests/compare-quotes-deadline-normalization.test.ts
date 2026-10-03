@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeRelativeDeadline } from "../app/api/agent-tools/compare-quotes/route";
+import { normalizeRelativeDeadline } from "../lib/intelligence/deadline-normalization";
 
 describe("compare quotes deadline normalization", () => {
   it("resolves tomorrow from the persisted mission creation time", () => {
