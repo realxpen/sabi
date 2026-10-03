@@ -4,7 +4,23 @@ export default function HomePage() {
   return (
     <main className="shell">
       <section className="hero">
-        <div className="eyebrow">SABI</div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            marginBottom: 10
+          }}
+        >
+          <div className="eyebrow" style={{ marginBottom: 0 }}>
+            SABI
+          </div>
+          <a href="/vendors" className="backLink">
+            + Add vendor
+          </a>
+        </div>
+
         <h1>What do you need?</h1>
         <p className="lede">
           Tell SABI the outcome. It can turn your request into a mission, find
