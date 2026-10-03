@@ -15,7 +15,7 @@ const inputSchema = z.object({
   missionId: z.string().trim().min(1)
 });
 
-function normalizeRelativeDeadline(
+export function normalizeRelativeDeadline(
   deadline: string | undefined,
   createdAt: string
 ): string | undefined {
