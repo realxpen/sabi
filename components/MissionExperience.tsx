@@ -88,6 +88,13 @@ function progressTitle(status: MissionSnapshot["mission"]["status"]): string {
   }
 }
 
+function activityState(index: number, flowIndex: number, terminal: boolean) {
+  if (flowIndex < 0) return "pending";
+  if (index < flowIndex || terminal) return "done";
+  if (index === flowIndex) return "active";
+  return "pending";
+}
+
 export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
   const { mission } = snapshot;
   const flowIndex = activeFlowIndex(mission.status);
@@ -106,6 +113,58 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
 
   const progressPercent =
     flowIndex < 0 ? 100 : Math.round(((flowIndex + (terminal ? 1 : 0.5)) / FLOW.length) * 100);
+
+  const completedContacts = snapshot.communications.filter((communication) =>
+    ["COMPLETED", "NO_ANSWER", "FAILED", "UNAVAILABLE"].includes(communication.status)
+  ).length;
+  const activeContacts = snapshot.communications.filter((communication) =>
+    ["INITIATED", "IN_PROGRESS"].includes(communication.status)
+  ).length;
+
+  const activityItems = [
+    {
+      label: "Request understood",
+      detail: "Your outcome and current constraints are captured in this mission."
+    },
+    {
+      label:
+        snapshot.providers.length > 0
+          ? `${snapshot.providers.length} provider${snapshot.providers.length === 1 ? "" : "s"} found`
+          : "Finding suitable providers",
+      detail:
+        snapshot.providers.length > 0
+          ? "Potential matches are ready for the next step."
+          : "SABI is checking the provider directory against your request."
+    },
+    {
+      label:
+        activeContacts > 0
+          ? `Talking to ${activeContacts} provider${activeContacts === 1 ? "" : "s"}`
+          : completedContacts > 0
+            ? `${completedContacts} provider contact${completedContacts === 1 ? "" : "s"} completed`
+            : "Preparing provider outreach",
+      detail:
+        snapshot.communications.length > 0
+          ? "SABI is using real communication results, not assumed availability."
+          : "No provider response is being claimed before contact happens."
+    },
+    {
+      label:
+        snapshot.quotes.length > 0
+          ? `${snapshot.quotes.length} verified response${snapshot.quotes.length === 1 ? "" : "s"}`
+          : "Verifying provider responses",
+      detail:
+        snapshot.quotes.length > 0
+          ? "Confirmed facts are structured into comparable options."
+          : "Price, quantity, delivery and availability are checked before recommendation."
+    },
+    {
+      label: snapshot.recommendation ? "Best option ready" : "Comparing against your limits",
+      detail: snapshot.recommendation
+        ? "A verified option satisfies the represented mission constraints."
+        : "Verified options are checked against budget, quantity and deadline."
+    }
+  ];
 
   return (
     <section className={styles.experience}>
@@ -172,6 +231,38 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
           })}
         </div>
       </div>
+
+      {flowIndex >= 0 ? (
+        <div className={styles.activityCard} aria-live="polite">
+          <div className={styles.activityHeader}>
+            <div>
+              <span>Live activity</span>
+              <strong>What SABI is doing</strong>
+            </div>
+            {!terminal ? <span className={styles.activityWorking}>Live</span> : null}
+          </div>
+
+          <div className={styles.activityList}>
+            {activityItems.map((item, index) => {
+              const state = activityState(index, flowIndex, terminal);
+              return (
+                <div
+                  key={item.label}
+                  className={`${styles.activityItem} ${styles[state]}`}
+                >
+                  <span className={styles.activityDot} aria-hidden="true">
+                    {state === "done" ? "✓" : ""}
+                  </span>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <p>{item.detail}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {selectedProvider && selectedQuote ? (
         <div className={styles.resultCard}>
