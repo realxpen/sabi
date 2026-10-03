@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getMissionSnapshot } from "../neon/mission-snapshot-repository";
+import { getRegisteredProviderPhone } from "../neon/provider-registry";
 import { createConfiguredCommunicationAdapter } from "../communication/live-runtime";
 import { recordCommunicationInMission } from "../../mission/persisted-integration";
 
@@ -12,6 +13,20 @@ export const refreshCommunicationToolInputSchema = z.object({
   missionId: z.string().trim().min(1),
   communicationId: z.string().trim().min(1)
 });
+
+function communicationAdapterForRegisteredPhone(
+  providerId: string,
+  phone: string | undefined
+) {
+  if (!phone) return createConfiguredCommunicationAdapter();
+
+  return createConfiguredCommunicationAdapter({
+    ...process.env,
+    SABI_CONSENTED_PROVIDER_PHONES_JSON: JSON.stringify({
+      [providerId]: phone
+    })
+  });
+}
 
 /**
  * Initiate exactly one consent-gated provider call through the configured live
@@ -48,7 +63,11 @@ export async function callProviderForAgent(
     };
   }
 
-  const adapter = createConfiguredCommunicationAdapter();
+  const registeredPhone = await getRegisteredProviderPhone(parsed.providerId);
+  const adapter = communicationAdapterForRegisteredPhone(
+    parsed.providerId,
+    registeredPhone
+  );
   if (adapter.name === "mock" || adapter.name === "invalid-communication-mode") {
     throw new Error("LIVE_COMMUNICATION_ADAPTER_REQUIRED");
   }
@@ -92,7 +111,13 @@ export async function refreshCommunicationForAgent(
     throw new Error("COMMUNICATION_MISSION_MISMATCH");
   }
 
-  const adapter = createConfiguredCommunicationAdapter();
+  const registeredPhone = await getRegisteredProviderPhone(
+    communication.providerId
+  );
+  const adapter = communicationAdapterForRegisteredPhone(
+    communication.providerId,
+    registeredPhone
+  );
   if (!adapter.refreshCommunication) {
     throw new Error("COMMUNICATION_REFRESH_NOT_SUPPORTED");
   }
