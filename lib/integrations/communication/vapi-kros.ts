@@ -21,7 +21,10 @@ const vapiPhoneNumberSchema = z.object({
 const vapiPhoneNumberListSchema = z.array(vapiPhoneNumberSchema);
 const vapiCallResponseSchema = z.object({
   id: z.string().trim().min(1),
-  status: z.string().trim().min(1).optional()
+  status: z.string().trim().min(1).optional(),
+  endedReason: z.string().trim().min(1).optional(),
+  assistantId: z.string().trim().min(1).optional(),
+  updatedAt: z.string().trim().min(1).optional()
 }).passthrough();
 const vapiVariableValuesSchema = z.object({
   missionId: z.string().trim().min(1),
@@ -174,6 +177,26 @@ function statusForVapiEvent(
   }
 }
 
+function summaryForPolledCall(
+  status: CommunicationStatus,
+  vapiStatus: string | undefined,
+  endedReason: string | undefined
+): string {
+  if (status === "NO_ANSWER") {
+    return `Vapi reports that the provider call ended without an answer (${endedReason ?? "no-answer"}). No Quote evidence was produced.`;
+  }
+  if (status === "FAILED") {
+    return `Vapi reports that the provider call failed (${endedReason ?? "provider/runtime failure"}). No Quote evidence was produced.`;
+  }
+  if (status === "COMPLETED") {
+    return "Vapi reports that the provider call ended. Completion alone does not prove any Quote facts; retrieve verified communication evidence before recording a provider response.";
+  }
+  if (status === "IN_PROGRESS") {
+    return "Vapi reports that the provider call is in progress. No provider facts have been inferred from call status.";
+  }
+  return `Vapi reports call status ${vapiStatus ?? "pending"}. The call has been initiated but no provider facts have been verified.`;
+}
+
 export function extractVapiEventCorrelation(payload: unknown): {
   missionId: string;
   providerId: string;
@@ -260,6 +283,60 @@ export class VapiKrosCommunicationAdapter implements CommunicationAdapter {
       summary:
         "Live call initiation was accepted by Vapi using the configured Kros BYO SIP transport. Completion and any factual Quote evidence are pending verified call events.",
       occurredAt: new Date().toISOString()
+    });
+  }
+
+  async refreshCommunication(
+    communication: CommunicationResult
+  ): Promise<CommunicationResult> {
+    if (communication.channel !== "CALL") {
+      throw new Error("VAPI_REFRESH_REQUIRES_CALL_COMMUNICATION");
+    }
+    if (!communication.externalId) {
+      throw new Error("COMMUNICATION_EXTERNAL_ID_REQUIRED");
+    }
+
+    const configuration = readVapiKrosConfiguration(this.environment);
+    const response = await this.fetchImpl(
+      `${configuration.apiBaseUrl}/call/${encodeURIComponent(communication.externalId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${configuration.apiKey}`,
+          Accept: "application/json"
+        },
+        cache: "no-store"
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Vapi call refresh failed with HTTP ${response.status}`);
+    }
+
+    const call = vapiCallResponseSchema.parse(await response.json());
+    if (call.id !== communication.externalId) {
+      throw new Error("VAPI_CALL_ID_MISMATCH");
+    }
+    if (call.assistantId && call.assistantId !== configuration.assistantId) {
+      throw new Error("VAPI_ASSISTANT_ID_MISMATCH");
+    }
+
+    const status = statusForVapiEvent(
+      "status-update",
+      call.status,
+      call.endedReason
+    );
+
+    return communicationResultSchema.parse({
+      ...communication,
+      status,
+      summary: summaryForPolledCall(status, call.status, call.endedReason),
+      errorCode:
+        status === "FAILED"
+          ? call.endedReason ?? "VAPI_CALL_FAILED"
+          : status === "NO_ANSWER"
+            ? call.endedReason ?? "VAPI_NO_ANSWER"
+            : undefined,
+      occurredAt: eventOccurredAt(call.updatedAt)
     });
   }
 
