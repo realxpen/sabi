@@ -1,0 +1,75 @@
+.card {
+  border: 1px solid rgba(96, 67, 196, 0.16);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 255, 0.96));
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 18px 55px rgba(37, 28, 73, 0.08);
+}
+
+.eyebrow {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6f52ca;
+}
+
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.card p {
+  margin: 0;
+  color: #5e596a;
+  line-height: 1.65;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: #17151d;
+  color: white;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.actions span {
+  max-width: 430px;
+  color: #777181;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.safety {
+  display: inline-flex;
+  margin-top: 16px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(72, 166, 106, 0.1);
+  color: #2f7d4a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message {
+  margin-top: 14px !important;
+  font-size: 13px;
+  color: #393441 !important;
+}
