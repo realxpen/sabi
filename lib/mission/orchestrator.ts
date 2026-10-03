@@ -16,6 +16,7 @@ import {
   getMissionSnapshot,
   saveMissionSnapshot
 } from "../integrations/neon/mission-snapshot-repository";
+import { discoverRegisteredProvidersForMission } from "../integrations/neon/provider-registry";
 import { discoverLiveTestProvidersForMission } from "../integrations/providers/live-test-directory";
 import type { CommunicationAdapter } from "../integrations/communication/types";
 import { quoteFromCommunicationEvidence } from "./quote-evidence";
@@ -123,6 +124,14 @@ function replaceQuote(quotes: Quote[], next: Quote): Quote[] {
   return quotes.map((quote, candidateIndex) =>
     candidateIndex === index ? next : quote
   );
+}
+
+function mergeProviders(...groups: Provider[][]): Provider[] {
+  const byId = new Map<string, Provider>();
+  for (const group of groups) {
+    for (const provider of group) byId.set(provider.id, provider);
+  }
+  return [...byId.values()];
 }
 
 function contactedProviderIds(snapshot: MissionSnapshot): Set<string> {
@@ -265,7 +274,10 @@ export async function advanceMissionOrchestration(
     case "PLANNING": {
       const configuredLiveProviders =
         dependencies.mode === "LIVE" && snapshot.providers.length === 0
-          ? discoverLiveTestProvidersForMission(snapshot.mission) ?? []
+          ? mergeProviders(
+              await discoverRegisteredProvidersForMission(snapshot.mission),
+              discoverLiveTestProvidersForMission(snapshot.mission) ?? []
+            )
           : snapshot.providers;
 
       const providers =
@@ -281,7 +293,7 @@ export async function advanceMissionOrchestration(
           ? "Simulation provider fixtures loaded; no live directory was queried."
           : providers.length
             ? "Eligible provider metadata matched the Mission and is ready for adaptive contact."
-            : "Waiting for configured provider metadata before contact.",
+            : "No matching provider is currently available in the configured live provider network.",
         { providers }
       );
 
