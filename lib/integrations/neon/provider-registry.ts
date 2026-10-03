@@ -34,6 +34,10 @@ type ProviderRegistryRow = {
   consented: boolean;
 };
 
+function hasDatabaseConfiguration() {
+  return Boolean(process.env.DATABASE_URL?.trim());
+}
+
 function getSql() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL_NOT_CONFIGURED");
@@ -138,6 +142,8 @@ export async function createRegisteredProvider(
 export async function listRegisteredProviders(
   filters: RegisteredProviderFilters = {}
 ): Promise<Provider[]> {
+  if (!hasDatabaseConfiguration()) return [];
+
   const sql = await ensureProviderRegistryTable();
   const rows = (await sql`
     select id, provider, phone, consented
@@ -155,6 +161,8 @@ export async function listRegisteredProviders(
 export async function getRegisteredProvider(
   providerId: string
 ): Promise<Provider | undefined> {
+  if (!hasDatabaseConfiguration()) return undefined;
+
   const sql = await ensureProviderRegistryTable();
   const rows = (await sql`
     select id, provider, phone, consented
@@ -170,6 +178,8 @@ export async function getRegisteredProvider(
 export async function getRegisteredProviderPhone(
   providerId: string
 ): Promise<string | undefined> {
+  if (!hasDatabaseConfiguration()) return undefined;
+
   const sql = await ensureProviderRegistryTable();
   const rows = (await sql`
     select id, provider, phone, consented
