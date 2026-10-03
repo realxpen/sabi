@@ -24,7 +24,7 @@ export function MissionLiveRefresh({
   missionId,
   status,
   demoMode,
-  intervalMs = 1400
+  intervalMs = 1800
 }: MissionLiveRefreshProps) {
   const router = useRouter();
 
@@ -39,14 +39,19 @@ export function MissionLiveRefresh({
       inFlight = true;
 
       try {
-        if (demoMode) {
-          await fetch(`/api/missions/${encodeURIComponent(missionId)}/orchestrate`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ mode: "SIMULATION" })
-          });
-        }
+        const endpoint = demoMode
+          ? `/api/missions/${encodeURIComponent(missionId)}/orchestrate`
+          : `/api/missions/${encodeURIComponent(missionId)}/progress`;
 
+        await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: demoMode ? JSON.stringify({ mode: "SIMULATION" }) : undefined,
+          cache: "no-store"
+        });
+
+        if (!cancelled) router.refresh();
+      } catch {
         if (!cancelled) router.refresh();
       } finally {
         inFlight = false;
