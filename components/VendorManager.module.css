@@ -165,63 +165,6 @@
   accent-color: #6d4cc7;
 }
 
-.tokenBox {
-  display: grid;
-  gap: 8px;
-  padding: 13px 14px;
-  border: 1px dashed rgba(109, 76, 199, 0.2);
-  border-radius: 16px;
-  background: #fbf9ff;
-}
-
-.tokenBox span {
-  color: #7b708d;
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
-
-.operatorReady {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 13px 14px;
-  border: 1px solid rgba(46, 139, 87, 0.14);
-  border-radius: 16px;
-  background: #f0f8f3;
-}
-
-.operatorReady > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.operatorReady strong,
-.operatorReady small {
-  display: block;
-}
-
-.operatorReady strong {
-  color: #2c6640;
-  font-size: 0.79rem;
-}
-
-.operatorReady small {
-  margin-top: 2px;
-  color: #6f8b78;
-  font-size: 0.72rem;
-}
-
-.readyDot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #2e8b57;
-  box-shadow: 0 0 0 5px rgba(46, 139, 87, 0.1);
-}
-
-.operatorReady button,
 .secondaryAction {
   border: 0;
   background: transparent;
@@ -443,8 +386,7 @@
     border-radius: 21px;
   }
 
-  .cardHeading,
-  .operatorReady {
+  .cardHeading {
     align-items: flex-start;
     flex-direction: column;
   }

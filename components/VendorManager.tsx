@@ -24,9 +24,6 @@ const EMPTY_FORM: FormState = {
 
 export function VendorManager() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [token, setToken] = useState("");
-  const [operatorReady, setOperatorReady] = useState(false);
-  const [editingOperatorAccess, setEditingOperatorAccess] = useState(true);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -36,13 +33,6 @@ export function VendorManager() {
   >(null);
 
   useEffect(() => {
-    const saved = window.sessionStorage.getItem("sabi-operator-token");
-    if (saved) {
-      setToken(saved);
-      setOperatorReady(true);
-      setEditingOperatorAccess(false);
-    }
-
     void refreshProviders();
   }, []);
 
@@ -72,16 +62,6 @@ export function VendorManager() {
     event.preventDefault();
     if (submitting) return;
 
-    if (!token.trim()) {
-      setOperatorReady(false);
-      setEditingOperatorAccess(true);
-      setMessage({
-        type: "error",
-        text: "Unlock operator access once for this browser session."
-      });
-      return;
-    }
-
     setSubmitting(true);
     setMessage(null);
     setLastAddedName(null);
@@ -90,8 +70,7 @@ export function VendorManager() {
       const response = await fetch("/api/providers", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${token.trim()}`
+          "content-type": "application/json"
         },
         body: JSON.stringify({
           name: form.name,
@@ -105,12 +84,6 @@ export function VendorManager() {
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.data?.id) {
-        if (response.status === 401) {
-          window.sessionStorage.removeItem("sabi-operator-token");
-          setOperatorReady(false);
-          setEditingOperatorAccess(true);
-          throw new Error("That operator access token was not accepted.");
-        }
         throw new Error(
           result?.error === "INVALID_PROVIDER_INPUT"
             ? "Check the vendor details, phone number and consent confirmation."
@@ -118,9 +91,6 @@ export function VendorManager() {
         );
       }
 
-      window.sessionStorage.setItem("sabi-operator-token", token.trim());
-      setOperatorReady(true);
-      setEditingOperatorAccess(false);
       setForm(EMPTY_FORM);
       setLastAddedName(result.data.name);
       setMessage({
@@ -159,7 +129,7 @@ export function VendorManager() {
         </div>
 
         <p className={styles.cardIntro}>
-          Add someone who has agreed to receive SABI calls. Once saved, SABI can
+          Anyone can join. Add your business or a provider who has agreed to receive SABI calls. Once saved, SABI can
           discover and contact them when a matching live mission runs.
         </p>
 
@@ -251,50 +221,10 @@ export function VendorManager() {
               required
             />
             <span>
-              I confirm this person has agreed that SABI may call this number
+              I confirm I own this number or have the owner’s permission for SABI to call it
               during matching live missions.
             </span>
           </label>
-
-          {operatorReady && !editingOperatorAccess ? (
-            <div className={styles.operatorReady}>
-              <div>
-                <span className={styles.readyDot} aria-hidden="true" />
-                <div>
-                  <strong>Operator access ready</strong>
-                  <small>Live onboarding is unlocked for this browser session.</small>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingOperatorAccess(true)}
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            <div className={styles.tokenBox}>
-              <div className={styles.field}>
-                <label htmlFor="operator-token">Operator access</label>
-                <input
-                  id="operator-token"
-                  type="password"
-                  value={token}
-                  onChange={(event) => {
-                    setToken(event.target.value);
-                    setMessage(null);
-                  }}
-                  placeholder="Unlock once for this session"
-                  autoComplete="off"
-                  required
-                />
-              </div>
-              <span>
-                This protects live vendor onboarding. The token stays in this
-                browser session, and vendor phone numbers remain private on the server.
-              </span>
-            </div>
-          )}
 
           <button
             type="submit"
@@ -306,8 +236,7 @@ export function VendorManager() {
               !form.location.trim() ||
               !form.phone.trim() ||
               languages.length === 0 ||
-              !form.consentedToLiveContact ||
-              !token.trim()
+              !form.consentedToLiveContact
             }
           >
             {submitting ? <span className={styles.spinner} /> : null}

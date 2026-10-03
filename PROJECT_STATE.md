@@ -3,6 +3,12 @@
 Status: ACTIVE
 Last updated: 2026-10-01
 
+## Latest update — 2026-10-03
+
+Public provider registration implemented at Xpen’s request: removed the operator-token field, browser token storage and bearer header from vendor onboarding; removed operator authentication only from provider creation. Explicit consent, validation and private phone storage remain. Deployment of this update is pending.
+
+The historical status below predates the main-branch integration release; production was verified on `e5fbe6ed0d8f0186e6df8c3316d7a5c6ecc7f6f2` before this update.
+
 ## Current phase
 
 **Phase 1 — Integrated Golden Path / External Live Verification**

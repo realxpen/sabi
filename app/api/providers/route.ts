@@ -4,7 +4,6 @@ import {
   createRegisteredProviderInputSchema,
   listRegisteredProviders
 } from "../../../lib/integrations/neon/provider-registry";
-import { authorizeOperatorRequest } from "../../../lib/operator/operator-auth";
 
 export const runtime = "nodejs";
 
@@ -22,9 +21,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authFailure = authorizeOperatorRequest(request);
-  if (authFailure) return authFailure;
-
   const body = await request.json().catch(() => ({}));
 
   try {

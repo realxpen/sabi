@@ -235,3 +235,9 @@ When replacing a decision:
 3. state why it changed
 4. point to the superseding decision
 5. add the new ACTIVE decision
+
+## D-028 — Public provider registration
+
+Decision: Provider registration at `/vendors` and `POST /api/providers` is open to everyone, per Xpen on 2026-10-03. No operator credential or sign-in is required for registration. Retain input validation, explicit live-contact consent and server-side phone storage. Operator authentication remains required on internal operator endpoints.
+
+Status: ACTIVE
