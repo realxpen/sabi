@@ -574,3 +574,16 @@
     text-align: left;
   }
 }
+.startupIssue {
+  padding: 18px 20px;
+  border: 1px solid #e8c991;
+  border-radius: 18px;
+  background: #fff8eb;
+  color: #684817;
+}
+
+.startupIssue p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+  font-size: 0.88rem;
+}

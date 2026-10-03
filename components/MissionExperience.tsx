@@ -1,4 +1,5 @@
 import type { MissionSnapshot } from "../lib/mission/snapshot";
+import type { MissionStartupIssue } from "../lib/mission/startup-status";
 import styles from "./MissionExperience.module.css";
 
 const FLOW = [
@@ -95,7 +96,10 @@ function activityState(index: number, flowIndex: number, terminal: boolean) {
   return "pending";
 }
 
-export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
+export function MissionExperience({ snapshot, startupIssue }: {
+  snapshot: MissionSnapshot;
+  startupIssue?: MissionStartupIssue | null;
+}) {
   const { mission } = snapshot;
   const flowIndex = activeFlowIndex(mission.status);
   const terminal = ["APPROVED", "COMPLETED", "FAILED", "CANCELLED", "ESCALATED"].includes(
@@ -177,8 +181,8 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
               <span>Your sourcing agent</span>
             </div>
           </div>
-          <span className={`${styles.liveState} ${terminal ? styles.done : ""}`}>
-            {terminal ? "Updated" : "Working"}
+          <span className={`${styles.liveState} ${terminal || startupIssue ? styles.done : ""}`}>
+            {startupIssue ? "Needs attention" : terminal ? "Updated" : "Working"}
           </span>
         </div>
 
@@ -193,8 +197,8 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
           <div className={`${styles.messageRow} ${styles.assistant}`}>
             <div className={styles.messageBubble}>
               <span className={styles.messageLabel}>SABI</span>
-              {statusMessage(snapshot)}
-              {!terminal ? (
+              {startupIssue?.message ?? statusMessage(snapshot)}
+              {!terminal && !startupIssue ? (
                 <span className={styles.typing} aria-label="SABI is working">
                   <i />
                   <i />
@@ -206,11 +210,18 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
         </div>
       </div>
 
+      {startupIssue ? (
+        <div className={styles.startupIssue} role="status">
+          <strong>{startupIssue.title}</strong>
+          <p>{startupIssue.message}</p>
+        </div>
+      ) : null}
+
       <div className={styles.progressCard}>
         <div className={styles.progressHeader}>
           <div>
             <span>Mission progress</span>
-            <strong>{progressTitle(mission.status)}</strong>
+            <strong>{startupIssue ? "Waiting for the agent connection" : progressTitle(mission.status)}</strong>
           </div>
           <div className={styles.progressPercent}>{Math.min(progressPercent, 100)}%</div>
         </div>
@@ -218,7 +229,7 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
         <div className={styles.progressTrack}>
           {FLOW.map((step, index) => {
             const complete = flowIndex > index || (terminal && flowIndex === index);
-            const active = flowIndex === index && !terminal;
+            const active = flowIndex === index && !terminal && !startupIssue;
             return (
               <div
                 key={step.label}
@@ -239,12 +250,12 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
               <span>Live activity</span>
               <strong>What SABI is doing</strong>
             </div>
-            {!terminal ? <span className={styles.activityWorking}>Live</span> : null}
+            {!terminal && !startupIssue ? <span className={styles.activityWorking}>Live</span> : null}
           </div>
 
           <div className={styles.activityList}>
             {activityItems.map((item, index) => {
-              const state = activityState(index, flowIndex, terminal);
+              const state = startupIssue ? "pending" : activityState(index, flowIndex, terminal);
               return (
                 <div
                   key={item.label}
@@ -317,7 +328,7 @@ export function MissionExperience({ snapshot }: { snapshot: MissionSnapshot }) {
             ) : null}
           </div>
         </div>
-      ) : !terminal ? (
+      ) : !terminal && !startupIssue ? (
         <div className={styles.pendingCard}>
           <strong>No decision needed from you yet.</strong>
           <p>SABI will surface the best verified option here when it is ready for your approval.</p>

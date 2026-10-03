@@ -2,8 +2,10 @@ import { waitUntil } from "@vercel/functions";
 import { ZodError, z } from "zod";
 import {
   isBimpeMissionOrchestrationConfigured,
-  startBimpeMissionOrchestration
+  missingBimpeMissionConfiguration
 } from "../../../lib/integrations/bimpe/conversation-orchestrator";
+import { saveMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
+import { buildBimpeHandoffStep, dispatchBimpeMissionStart } from "../../../lib/mission/bimpe-handoff";
 import {
   createPersistedMission,
   missionExecutionModeSchema,
@@ -14,6 +16,9 @@ const createMissionRequestSchema = z.object({
   request: z.string().trim().min(1),
   mode: missionExecutionModeSchema.optional()
 });
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -40,19 +45,28 @@ export async function POST(request: Request) {
     );
   }
 
+  const bimpeConfigured = mode === "LIVE" && isBimpeMissionOrchestrationConfigured();
+  if (mode === "LIVE" && !bimpeConfigured) {
+    console.warn("SABI live mission creation blocked: agent is not configured", {
+      missingConfiguration: missingBimpeMissionConfiguration()
+    });
+    return Response.json({
+      error: "LIVE_AGENT_NOT_CONFIGURED",
+      message: "SABI’s live agent connection needs setup before a mission can start. Please contact the SABI team. No mission was created."
+    }, { status: 503 });
+  }
+
   try {
-    const persisted = await createPersistedMission(parsed.data.request, mode);
-    const bimpeConfigured =
-      mode === "LIVE" && isBimpeMissionOrchestrationConfigured();
+    let persisted = await createPersistedMission(parsed.data.request, mode);
 
     if (bimpeConfigured) {
+      persisted = await saveMissionSnapshot({
+        ...persisted, steps: [...persisted.steps, buildBimpeHandoffStep(persisted.mission.id)]
+      });
       waitUntil(
-        startBimpeMissionOrchestration({
-          missionId: persisted.mission.id,
-          request: persisted.mission.rawRequest
-        }).catch((error) => {
+        dispatchBimpeMissionStart(persisted).catch((error) => {
           console.error(
-            `Bimpe live mission handoff failed for ${persisted.mission.id}`,
+            `Bimpe handoff status could not be saved for ${persisted.mission.id}`,
             error
           );
         })

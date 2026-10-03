@@ -28,9 +28,9 @@ export function parseDemoMissionRequest(
 
   const budgetMatch =
     normalized.match(
-      /(?:budget(?:\s+is)?|maximum|max|under|below|less than)\s*[:=]?\s*[₦N]?\s*([\d,.]+\s*k?)/i
+      /(?:\bbudget(?:\s*,?\s*including\s+delivery\s*,?)?(?:\s+is)?|\bmaximum|\bmax|\bunder|\bbelow|\bless than)\s*[:=]?\s*(?:₦|NGN\s*|N)?\s*(\d[\d,]*(?:\.\d+)?\s*k?)/i
     ) ??
-    normalized.match(/[₦N]\s*([\d,.]+\s*k?)/i);
+    normalized.match(/(?:₦|\bNGN\s*|\bN)\s*(\d[\d,]*(?:\.\d+)?\s*k?)/i);
 
   const locationMatch =
     normalized.match(

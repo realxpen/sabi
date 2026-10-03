@@ -2,6 +2,8 @@ import { MissionControl } from "../../../components/MissionControl";
 import { MissionLiveRefresh } from "../../../components/MissionLiveRefresh";
 import { getMissionSnapshot } from "../../../lib/integrations/neon/mission-snapshot-repository";
 import type { MissionSnapshot } from "../../../lib/mission/snapshot";
+import { isBimpeMissionOrchestrationConfigured } from "../../../lib/integrations/bimpe/conversation-orchestrator";
+import { getMissionStartupIssue } from "../../../lib/mission/startup-status";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,10 @@ export default async function MissionPage({ params }: MissionPageProps) {
             status={snapshot.mission.status}
             demoMode={snapshot.demoMode}
           />
-          <MissionControl snapshot={snapshot} />
+          <MissionControl
+            snapshot={snapshot}
+            startupIssue={getMissionStartupIssue(snapshot, isBimpeMissionOrchestrationConfigured())}
+          />
         </>
       ) : (
         <section className="panel">

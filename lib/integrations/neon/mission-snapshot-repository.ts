@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { missionStepSchema, type MissionStep } from "../../schemas";
 import {
   missionSnapshotSchema,
   type MissionSnapshot
@@ -52,4 +53,22 @@ export async function getMissionSnapshot(
   if (!row) return null;
 
   return missionSnapshotSchema.parse(row.snapshot);
+}
+
+/** Atomically patch one existing step without overwriting concurrent tool results. */
+export async function updateMissionStep(step: MissionStep): Promise<void> {
+  const validated = missionStepSchema.parse(step);
+  const sql = getSql();
+  await sql`
+    update mission_snapshots
+    set snapshot = jsonb_set(snapshot, '{steps}', (
+      select coalesce(jsonb_agg(
+        case when entry->>'id' = ${validated.id}
+          then ${JSON.stringify(validated)}::jsonb else entry end
+        order by ordinal
+      ), '[]'::jsonb)
+      from jsonb_array_elements(snapshot->'steps') with ordinality as s(entry, ordinal)
+    )), updated_at = now()
+    where id = ${validated.missionId}
+  `;
 }

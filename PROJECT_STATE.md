@@ -5,9 +5,15 @@ Last updated: 2026-10-01
 
 ## Latest update — 2026-10-03
 
-Public provider registration implemented at Xpen’s request: removed the operator-token field, browser token storage and bearer header from vendor onboarding; removed operator authentication only from provider creation. Explicit consent, validation and private phone storage remain. Deployment of this update is pending.
+Production `d9b66dacc718313f5db8d725218cee1e865e7237` has public provider registration. Xpen Catering was verified saved with category Catering and location Yaba, Lagos.
 
-The historical status below predates the main-branch integration release; production was verified on `e5fbe6ed0d8f0186e6df8c3316d7a5c6ecc7f6f2` before this update.
+A live request on 2026-10-03 remained CREATED with zero workflow steps, providers, communications or quotes. The saved request lost the explicit ₦45,000 budget because the parser treated the comma in “budget, including delivery” as an amount. Catering did not match jollof rice with chicken.
+
+Corrections prepared: digit-first money parsing; meal/catering category matching; reject unconfigured live starts before creating a mission; persist bounded Bimpe handoff results as existing MissionStep records; show configuration/failure/stall notices instead of endless working animations. The mission GET exposes missing configuration names only (no credentials) for read-only diagnosis. Existing stuck missions are not automatically retried or rewritten.
+
+Production Bimpe configuration/handoff still requires runtime verification after deployment. The old stalled mission has no persisted calls and should remain unchanged while configuration is checked.
+
+The historical status below predates the main-branch integration release.
 
 ## Current phase
 

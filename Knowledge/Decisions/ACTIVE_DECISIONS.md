@@ -241,3 +241,9 @@ When replacing a decision:
 Decision: Provider registration at `/vendors` and `POST /api/providers` is open to everyone, per Xpen on 2026-10-03. No operator credential or sign-in is required for registration. Retain input validation, explicit live-contact consent and server-side phone storage. Operator authentication remains required on internal operator endpoints.
 
 Status: ACTIVE
+
+## D-029 — Truthful live mission startup
+
+Decision: Reject new live mission creation when Bimpe orchestration credentials are missing. Record handoff acceptance/failure using existing MissionStep fields and a bounded request timeout. Acceptance is not workflow completion. Display stalled or failed startup explicitly on the consumer page; never replay a potentially accepted request automatically. Patch only the handoff step when its result arrives so concurrent provider/quote state is retained.
+
+Status: ACTIVE

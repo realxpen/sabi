@@ -38,6 +38,14 @@ export class BimpeConversationRequestError extends Error {
   }
 }
 
+export function missingBimpeMissionConfiguration(
+  environment: BimpeConversationEnvironment = process.env
+): string[] {
+  return ["BIMPEAI_API_KEY", "BIMPEAI_AGENT_ID"].filter(
+    (key) => !environment[key]?.trim()
+  );
+}
+
 function readConfiguration(environment: BimpeConversationEnvironment) {
   const apiKey = environment.BIMPEAI_API_KEY?.trim();
   const agentId = environment.BIMPEAI_AGENT_ID?.trim();
@@ -65,10 +73,7 @@ function readConfiguration(environment: BimpeConversationEnvironment) {
 export function isBimpeMissionOrchestrationConfigured(
   environment: BimpeConversationEnvironment = process.env
 ): boolean {
-  return Boolean(
-    environment.BIMPEAI_API_KEY?.trim() &&
-      environment.BIMPEAI_AGENT_ID?.trim()
-  );
+  return missingBimpeMissionConfiguration(environment).length === 0;
 }
 
 /**
@@ -123,7 +128,8 @@ export async function sendBimpeMissionMessage(
           channel_username: `SABI ${input.missionId}`,
           is_test_channel: configuration.isTestChannel
         }),
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(45_000)
       }
     );
   } catch {

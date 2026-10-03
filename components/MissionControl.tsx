@@ -1,12 +1,14 @@
 import type { MissionSnapshot } from "../lib/mission/snapshot";
+import type { MissionStartupIssue } from "../lib/mission/startup-status";
 import { ApprovalCard } from "./ApprovalCard";
 import { MissionExperience } from "./MissionExperience";
 
 type MissionControlProps = {
   snapshot: MissionSnapshot;
+  startupIssue?: MissionStartupIssue | null;
 };
 
-export function MissionControl({ snapshot }: MissionControlProps) {
+export function MissionControl({ snapshot, startupIssue }: MissionControlProps) {
   const selectedQuote = snapshot.recommendation
     ? snapshot.quotes.find(
         (quote) => quote.id === snapshot.recommendation?.quoteId
@@ -28,7 +30,7 @@ export function MissionControl({ snapshot }: MissionControlProps) {
 
   return (
     <div className="missionLayout">
-      <MissionExperience snapshot={snapshot} />
+      <MissionExperience snapshot={snapshot} startupIssue={startupIssue} />
 
       {approvalVisible ? (
         <ApprovalCard

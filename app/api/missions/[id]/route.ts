@@ -1,4 +1,6 @@
 import { getMissionSnapshot } from "../../../../lib/integrations/neon/mission-snapshot-repository";
+import { isBimpeMissionOrchestrationConfigured, missingBimpeMissionConfiguration } from "../../../../lib/integrations/bimpe/conversation-orchestrator";
+import { getMissionStartupIssue } from "../../../../lib/mission/startup-status";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,8 @@ export async function GET(
 
     return Response.json({
       ...snapshot,
+      startupIssue: getMissionStartupIssue(snapshot, isBimpeMissionOrchestrationConfigured()),
+      agentConfiguration: { missing: snapshot.demoMode ? [] : missingBimpeMissionConfiguration() },
       persisted: true
     });
   } catch (error) {

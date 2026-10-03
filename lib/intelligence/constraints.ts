@@ -54,6 +54,9 @@ const aliases: Record<string, string[]> = {
 
 const norm = (value: string) => value.trim().toLowerCase();
 
+const foodProviderCategories = new Set(["food", "catering", "caterer", "restaurant"]);
+const foodRequestPattern = /\b(?:caterer|catering|food|lunch|meal|breakfast|dinner|jollof|rice|chicken)\b/i;
+
 function normalizeUnit(value: string): string {
   const normalized = norm(value).replace(/\./g, "");
   return normalized.endsWith("s") && normalized.length > 1
@@ -67,6 +70,7 @@ export function providerMatchesMissionItem(mission: Mission, provider: Provider)
   return (
     item.includes(category) ||
     category.includes(item) ||
+    (foodProviderCategories.has(category) && foodRequestPattern.test(item)) ||
     (aliases[category] ?? []).some((alias) => item.includes(alias))
   );
 }
