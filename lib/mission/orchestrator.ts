@@ -125,6 +125,15 @@ function replaceQuote(quotes: Quote[], next: Quote): Quote[] {
   );
 }
 
+function contactedProviderIds(snapshot: MissionSnapshot): Set<string> {
+  return new Set(snapshot.communications.map((communication) => communication.providerId));
+}
+
+function hasUncontactedProvider(snapshot: MissionSnapshot): boolean {
+  const contacted = contactedProviderIds(snapshot);
+  return snapshot.providers.some((provider) => !contacted.has(provider.id));
+}
+
 /**
  * Reconcile only explicit structured non-mock CommunicationResult observations
  * into canonical Quotes. Simulation already owns clearly labelled fixture
@@ -179,7 +188,7 @@ function hasCompletedEvidencePending(snapshot: MissionSnapshot): boolean {
   });
 }
 
-async function contactLiveProviders(
+async function contactNextLiveProvider(
   snapshot: MissionSnapshot,
   adapter: CommunicationAdapter | undefined
 ): Promise<CommunicationResult[]> {
@@ -187,29 +196,28 @@ async function contactLiveProviders(
     throw new Error("LIVE_COMMUNICATION_ADAPTER_REQUIRED");
   }
 
+  const contacted = contactedProviderIds(snapshot);
+  const provider = snapshot.providers.find((candidate) => !contacted.has(candidate.id));
+  if (!provider) return [];
+
   const objective = `Confirm whether the provider can fulfil the full requested quantity/capacity, whether it is available, the factual item/service price, delivery fee, explicit total if given, and delivery/fulfilment timing for: ${snapshot.mission.rawRequest}`;
-  const results: CommunicationResult[] = [];
+  const result = await adapter.initiateContact({
+    missionId: snapshot.mission.id,
+    providerId: provider.id,
+    objective
+  });
 
-  for (const provider of snapshot.providers) {
-    const result = await adapter.initiateContact({
-      missionId: snapshot.mission.id,
-      providerId: provider.id,
-      objective
-    });
-    results.push(communicationResultSchema.parse(result));
-  }
-
-  return results;
+  return [communicationResultSchema.parse(result)];
 }
 
 /**
  * Advance exactly one safe orchestration stage.
  *
- * SIMULATION is explicitly labelled and may use fixture providers/Quotes.
- * LIVE never imports simulation providers or Quotes. It may discover only the
- * separately configured SABI_LIVE_TEST_PROVIDERS_JSON metadata directory and
- * stops when provider discovery, provider responses or validated Quotes are
- * missing.
+ * LIVE sourcing is adaptive: SABI contacts one eligible provider at a time.
+ * When a provider cannot satisfy the represented hard constraints, orchestration
+ * may loop back to CONTACTING for another untried provider. Historical evidence
+ * is retained. No budget is relaxed and no booking/payment is performed without
+ * explicit human confirmation.
  */
 export async function advanceMissionOrchestration(
   missionId: string,
@@ -272,8 +280,8 @@ export async function advanceMissionOrchestration(
         dependencies.mode === "SIMULATION"
           ? "Simulation provider fixtures loaded; no live directory was queried."
           : providers.length
-            ? "Configured live test-provider metadata matched the Mission and is ready for bounded contact."
-            : "Waiting for configured live test-provider metadata before contact.",
+            ? "Eligible provider metadata matched the Mission and is ready for adaptive contact."
+            : "Waiting for configured provider metadata before contact.",
         { providers }
       );
 
@@ -301,7 +309,7 @@ export async function advanceMissionOrchestration(
         "CONTACT_PROVIDERS",
         dependencies.mode === "SIMULATION"
           ? "Simulation contact stage started; no real provider will be contacted."
-          : "Validated provider contact stage started."
+          : "Adaptive provider contact started with the next untried eligible provider."
       );
       return { snapshot: next, outcome: "ADVANCED", reason: "Contact stage started." };
     }
@@ -310,7 +318,15 @@ export async function advanceMissionOrchestration(
       const communications =
         dependencies.mode === "SIMULATION"
           ? buildSimulationCommunications(snapshot, snapshot.providers)
-          : await contactLiveProviders(snapshot, dependencies.communicationAdapter);
+          : await contactNextLiveProvider(snapshot, dependencies.communicationAdapter);
+
+      if (dependencies.mode === "LIVE" && communications.length === 0) {
+        return {
+          snapshot,
+          outcome: "WAITING",
+          reason: "PROVIDER_POOL_EXHAUSTED"
+        };
+      }
 
       const quotes =
         dependencies.mode === "SIMULATION"
@@ -323,8 +339,14 @@ export async function advanceMissionOrchestration(
         "COLLECT_QUOTES",
         dependencies.mode === "SIMULATION"
           ? "Simulation responses captured as explicitly mocked evidence and fixture Quotes."
-          : "Provider contact initiated. Waiting for factual responses and validated Quotes.",
-        { communications, quotes }
+          : "One provider contact was initiated. Waiting for factual response evidence before deciding whether another provider is needed.",
+        {
+          communications:
+            dependencies.mode === "SIMULATION"
+              ? communications
+              : [...snapshot.communications, ...communications],
+          quotes
+        }
       );
 
       return {
@@ -357,10 +379,24 @@ export async function advanceMissionOrchestration(
       }
 
       if (reconciled.quotes.length === 0) {
+        if (dependencies.mode === "LIVE" && hasUncontactedProvider(reconciled)) {
+          const next = await persistTransition(
+            reconciled,
+            "CONTACTING",
+            "CONTINUE_SOURCING",
+            "No usable quote was obtained from the previous provider, so SABI is trying the next untried eligible provider."
+          );
+          return {
+            snapshot: next,
+            outcome: "ADVANCED",
+            reason: "TRYING_NEXT_PROVIDER"
+          };
+        }
+
         return {
           snapshot: reconciled,
           outcome: "WAITING",
-          reason: "WAITING_FOR_VALIDATED_QUOTES"
+          reason: "PROVIDER_POOL_EXHAUSTED_WITHOUT_VALIDATED_QUOTES"
         };
       }
 
@@ -381,10 +417,24 @@ export async function advanceMissionOrchestration(
       );
 
       if (!intelligence.selected) {
+        if (dependencies.mode === "LIVE" && hasUncontactedProvider(snapshot)) {
+          const next = await persistTransition(
+            snapshot,
+            "CONTACTING",
+            "CONTINUE_SOURCING",
+            "No current provider satisfies every hard constraint. SABI is continuing automatically with the next untried eligible provider instead of relaxing the user's constraints."
+          );
+          return {
+            snapshot: next,
+            outcome: "ADVANCED",
+            reason: "TRYING_NEXT_PROVIDER"
+          };
+        }
+
         return {
           snapshot,
           outcome: "WAITING",
-          reason: "NO_QUALIFYING_QUOTE"
+          reason: "PROVIDER_POOL_EXHAUSTED_NO_QUALIFYING_QUOTE"
         };
       }
 
