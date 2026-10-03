@@ -12,7 +12,13 @@ function getSql() {
     throw new Error("DATABASE_URL_NOT_CONFIGURED");
   }
 
-  return neon(databaseUrl);
+  // Next.js 14 extends server-side fetch with persistent Data Cache semantics.
+  // The Neon HTTP driver supports passing native fetch options, so explicitly
+  // opt out of caching to guarantee fresh read-after-write mission state across
+  // independent serverless invocations and routes.
+  return neon(databaseUrl, {
+    fetchOptions: { cache: "no-store" }
+  });
 }
 
 export async function saveMissionSnapshot(
