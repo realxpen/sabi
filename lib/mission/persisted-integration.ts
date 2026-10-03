@@ -82,10 +82,21 @@ export async function recordCommunicationInMission({
     throw new Error("MISSION_STEP_MISMATCH");
   }
 
+  const communicationsBeforePersist =
+    !snapshot.demoMode && validatedCommunication.channel !== "MOCK"
+      ? snapshot.communications.filter(
+          (existing) =>
+            !(
+              existing.providerId === validatedCommunication.providerId &&
+              existing.channel === "MOCK"
+            )
+        )
+      : snapshot.communications;
+
   const updated: MissionSnapshot = {
     ...snapshot,
     communications: replaceById(
-      snapshot.communications,
+      communicationsBeforePersist,
       validatedCommunication
     ),
     steps: validatedStep
