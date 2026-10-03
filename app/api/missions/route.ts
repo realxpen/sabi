@@ -73,8 +73,8 @@ export async function POST(request: Request) {
           mode === "SIMULATION"
             ? "Mission created in simulation mode. Provider evidence will be clearly mocked."
             : bimpeConfigured
-              ? "Live mission created and handed to BimpeAI. Provider contact remains consent-gated and every consequential action stops for human approval."
-              : "Live mission created, but BimpeAI orchestration is not configured. No provider contact was initiated."
+              ? "Live mission created and handed to BimpeAI. External provider action occurs only through the consent-gated live tools, and every consequential action stops for human approval."
+              : "Live mission created. No external action occurs because BimpeAI orchestration is not configured; no provider contact was initiated."
       },
       { status: 201 }
     );
