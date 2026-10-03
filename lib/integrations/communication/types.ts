@@ -4,6 +4,8 @@ export type ContactProviderInput = {
   missionId: string;
   providerId: string;
   objective: string;
+  /** Server-side only. Supplied only for providers whose live-contact consent is persisted. */
+  destinationPhone?: string;
 };
 
 export interface CommunicationAdapter {
