@@ -27,20 +27,20 @@ export default async function MissionPage({ params }: MissionPageProps) {
       <header className="missionHeader">
         <div>
           <div className="eyebrow">SABI</div>
-          <h1>Mission Control</h1>
+          <h1>Your mission</h1>
         </div>
         <a href="/" className="backLink">
-          New mission
+          + New mission
         </a>
       </header>
 
       {persistenceError ? (
         <section className="panel">
-          <div className="eyebrow">Mission state unavailable</div>
-          <h2>SABI could not load the persisted mission.</h2>
+          <div className="eyebrow">Mission unavailable</div>
+          <h2>SABI could not load this mission.</h2>
           <p className="lede">
-            The mission database is not ready for this deployment yet. No live
-            provider action was performed.
+            Your mission state could not be loaded right now. No new provider
+            action was performed.
           </p>
         </section>
       ) : snapshot ? (
@@ -50,17 +50,13 @@ export default async function MissionPage({ params }: MissionPageProps) {
             status={snapshot.mission.status}
             demoMode={snapshot.demoMode}
           />
-          <p className="missionRequest">{snapshot.mission.rawRequest}</p>
           <MissionControl snapshot={snapshot} />
         </>
       ) : (
         <section className="panel">
           <div className="eyebrow">Mission not found</div>
-          <h2>This mission does not exist in persisted state.</h2>
-          <p className="lede">
-            Create a new mission so SABI can store it before opening Mission
-            Control.
-          </p>
+          <h2>This mission could not be found.</h2>
+          <p className="lede">Start a new mission and SABI will take it from there.</p>
         </section>
       )}
     </main>
