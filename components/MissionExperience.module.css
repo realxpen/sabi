@@ -1,0 +1,432 @@
+.experience {
+  display: grid;
+  gap: 18px;
+}
+
+.conversationCard,
+.progressCard,
+.resultCard {
+  border: 1px solid rgba(24, 24, 27, 0.08);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 22px 70px rgba(36, 29, 48, 0.07);
+  backdrop-filter: blur(18px);
+}
+
+.conversationCard {
+  display: grid;
+  gap: 20px;
+  padding: clamp(20px, 4vw, 34px);
+}
+
+.conversationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agentIdentity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.agentMark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #18181b, #7352d2 72%, #a794eb);
+  color: white;
+  box-shadow: 0 10px 24px rgba(91, 62, 172, 0.24);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.agentIdentity strong,
+.agentIdentity span {
+  display: block;
+}
+
+.agentIdentity strong {
+  font-size: 0.94rem;
+}
+
+.agentIdentity span {
+  margin-top: 2px;
+  color: #8b8790;
+  font-size: 0.76rem;
+}
+
+.liveState {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #62596f;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.liveState::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7252d1;
+  box-shadow: 0 0 0 5px rgba(114, 82, 209, 0.11);
+  animation: statePulse 1.7s ease-in-out infinite;
+}
+
+.liveState.done::before {
+  background: #2e8b57;
+  box-shadow: 0 0 0 5px rgba(46, 139, 87, 0.11);
+  animation: none;
+}
+
+.messages {
+  display: grid;
+  gap: 14px;
+}
+
+.messageRow {
+  display: flex;
+}
+
+.messageRow.user {
+  justify-content: flex-end;
+}
+
+.messageBubble {
+  max-width: min(82%, 690px);
+  padding: 15px 17px;
+  border-radius: 20px;
+  line-height: 1.58;
+}
+
+.user .messageBubble {
+  border-bottom-right-radius: 7px;
+  background: #18181b;
+  color: white;
+  box-shadow: 0 12px 28px rgba(24, 24, 27, 0.12);
+}
+
+.assistant .messageBubble {
+  border-bottom-left-radius: 7px;
+  background: #f1edf8;
+  color: #37323f;
+}
+
+.messageLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: inherit;
+  opacity: 0.62;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.typing {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.typing i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #7058a8;
+  animation: typingDot 1.2s ease-in-out infinite;
+}
+
+.typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.progressCard {
+  padding: clamp(20px, 3vw, 28px);
+}
+
+.progressHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.progressHeader span {
+  color: #8b8790;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.progressHeader strong {
+  display: block;
+  margin-top: 4px;
+  font-size: clamp(1.3rem, 3vw, 1.8rem);
+}
+
+.progressPercent {
+  color: #6d4cc7;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.progressTrack {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.progressTrack::before {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: 7%;
+  right: 7%;
+  height: 2px;
+  background: #e8e3ed;
+  z-index: 0;
+}
+
+.progressStep {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.stepDot {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: #e8e3ed;
+  color: #8b8790;
+  box-shadow: 0 0 0 1px rgba(24, 24, 27, 0.06);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.progressStep.complete .stepDot {
+  background: #dcefe3;
+  color: #276b41;
+}
+
+.progressStep.active .stepDot {
+  background: #6d4cc7;
+  color: white;
+  box-shadow: 0 0 0 6px rgba(109, 76, 199, 0.11);
+  animation: activeStep 1.8s ease-in-out infinite;
+}
+
+.progressStep span:last-child {
+  color: #8b8790;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.progressStep.complete span:last-child,
+.progressStep.active span:last-child {
+  color: #4d4658;
+}
+
+.resultCard {
+  overflow: hidden;
+  padding: clamp(22px, 4vw, 34px);
+  background:
+    radial-gradient(circle at 90% 10%, rgba(118, 83, 218, 0.16), transparent 34%),
+    rgba(255, 255, 255, 0.95);
+}
+
+.resultEyebrow {
+  color: #7057a8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.resultHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 7px;
+}
+
+.resultHeader h2 {
+  font-size: clamp(1.55rem, 4vw, 2.25rem);
+}
+
+.resultTotal {
+  text-align: right;
+}
+
+.resultTotal strong,
+.resultTotal span {
+  display: block;
+}
+
+.resultTotal strong {
+  font-size: clamp(1.45rem, 4vw, 2rem);
+}
+
+.resultTotal span {
+  margin-top: 3px;
+  color: #8b8790;
+  font-size: 0.76rem;
+}
+
+.factGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.fact {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(246, 243, 249, 0.88);
+}
+
+.fact span,
+.fact strong {
+  display: block;
+}
+
+.fact span {
+  color: #89838f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.fact strong {
+  margin-top: 6px;
+  color: #343038;
+  font-size: 0.93rem;
+}
+
+.evidenceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.evidenceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #edf7f0;
+  color: #2d6842;
+  font-size: 0.77rem;
+  font-weight: 800;
+}
+
+.evidenceBadge::before {
+  content: "✓";
+  font-weight: 950;
+}
+
+.pendingCard {
+  padding: 18px 20px;
+  border: 1px solid rgba(109, 76, 199, 0.12);
+  border-radius: 20px;
+  background: #f8f5ff;
+  color: #4d3d73;
+}
+
+.pendingCard strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pendingCard p {
+  margin: 0;
+  color: #756892;
+  line-height: 1.5;
+  font-size: 0.86rem;
+}
+
+@keyframes statePulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.65; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes typingDot {
+  0%, 70%, 100% { transform: translateY(0); opacity: 0.4; }
+  35% { transform: translateY(-3px); opacity: 1; }
+}
+
+@keyframes activeStep {
+  0%, 100% { box-shadow: 0 0 0 5px rgba(109, 76, 199, 0.08); }
+  50% { box-shadow: 0 0 0 9px rgba(109, 76, 199, 0.14); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveState::before,
+  .typing i,
+  .progressStep.active .stepDot {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .conversationCard,
+  .progressCard,
+  .resultCard {
+    border-radius: 21px;
+  }
+
+  .messageBubble {
+    max-width: 92%;
+  }
+
+  .progressTrack {
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: 20px;
+  }
+
+  .progressTrack::before {
+    display: none;
+  }
+
+  .factGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .conversationHeader,
+  .resultHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .resultTotal {
+    text-align: left;
+  }
+}
