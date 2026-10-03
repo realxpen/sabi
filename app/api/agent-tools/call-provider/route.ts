@@ -12,6 +12,8 @@ const inputSchema = z.object({
   objective: z.string().trim().min(1)
 });
 
+const FOLLOW_UP_APPROVAL_MARKER = "FOLLOW_UP_APPROVED_BY_USER:";
+
 function authorized(request: Request): boolean {
   const expected = process.env.SABI_AGENT_TOOL_TOKEN?.trim();
   const presented = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
@@ -19,6 +21,10 @@ function authorized(request: Request): boolean {
   const a = Buffer.from(expected);
   const b = Buffer.from(presented);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function isExplicitApprovedFollowUpObjective(objective: string): boolean {
+  return objective.trim().toUpperCase().startsWith(FOLLOW_UP_APPROVAL_MARKER);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -45,23 +51,47 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ error: "MISSION_NOT_FOUND" }, { status: 404 });
     }
 
-    if (snapshot.mission.status !== "CONTACTING") {
+    const providerInMission = snapshot.providers.some(
+      (provider) => provider.id === parsed.data.providerId
+    );
+    if (!providerInMission) {
       return Response.json(
         {
-          error: "MISSION_NOT_READY_FOR_PROVIDER_CONTACT",
-          missionStatus: snapshot.mission.status,
-          message:
-            "Provider contact is allowed only after the persisted mission reaches CONTACTING through bounded orchestration. No provider was contacted."
+          error: "PROVIDER_NOT_IN_MISSION",
+          message: "The requested provider is not attached to this persisted mission. No provider was contacted."
         },
         { status: 409 }
       );
     }
 
-    if (!snapshot.providers.some((provider) => provider.id === parsed.data.providerId)) {
+    const comparingFollowUp = snapshot.mission.status === "COMPARING";
+    const completedLiveCommunication = snapshot.communications.some(
+      (communication) =>
+        communication.providerId === parsed.data.providerId &&
+        communication.channel !== "MOCK" &&
+        communication.status === "COMPLETED"
+    );
+    const incompleteMonetaryQuote = snapshot.quotes.some(
+      (quote) =>
+        quote.providerId === parsed.data.providerId &&
+        quote.total === undefined
+    );
+    const approvedEvidenceFollowUp =
+      comparingFollowUp &&
+      snapshot.recommendation === undefined &&
+      completedLiveCommunication &&
+      incompleteMonetaryQuote &&
+      isExplicitApprovedFollowUpObjective(parsed.data.objective);
+
+    if (snapshot.mission.status !== "CONTACTING" && !approvedEvidenceFollowUp) {
       return Response.json(
         {
-          error: "PROVIDER_NOT_IN_MISSION",
-          message: "The requested provider is not attached to this persisted mission. No provider was contacted."
+          error: "MISSION_NOT_READY_FOR_PROVIDER_CONTACT",
+          missionStatus: snapshot.mission.status,
+          message:
+            snapshot.mission.status === "COMPARING"
+              ? "A comparison-stage provider follow-up is allowed only to complete missing monetary evidence after explicit user approval, with an existing completed live communication and no recommendation. No provider was contacted."
+              : "Provider contact is allowed only after the persisted mission reaches CONTACTING through bounded orchestration. No provider was contacted."
         },
         { status: 409 }
       );
@@ -116,7 +146,8 @@ export async function POST(request: Request): Promise<Response> {
     console.info("SABI provider call starting", {
       missionId: parsed.data.missionId,
       providerId: parsed.data.providerId,
-      missionStatus: snapshot.mission.status
+      missionStatus: snapshot.mission.status,
+      approvedEvidenceFollowUp
     });
 
     const adapter = createConfiguredCommunicationAdapter();
@@ -134,7 +165,8 @@ export async function POST(request: Request): Promise<Response> {
       communicationId: communication.id,
       externalId: communication.externalId,
       status: communication.status,
-      channel: communication.channel
+      channel: communication.channel,
+      approvedEvidenceFollowUp
     });
 
     return Response.json({
@@ -143,6 +175,7 @@ export async function POST(request: Request): Promise<Response> {
       meta: {
         liveCommunication: true,
         initiationOnly: communication.status === "INITIATED",
+        approvedEvidenceFollowUp,
         replacedStaleMockCommunication: Boolean(staleMockCommunication),
         retryAfterTerminalCommunication: snapshot.communications.some(
           (existing) =>
