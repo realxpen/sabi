@@ -47,6 +47,82 @@ function numericAmount(value: string): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+const SMALL_NUMBER_WORDS: Record<string, number> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90
+};
+
+function parseSpokenNumber(value: string): number | undefined {
+  const tokens = value
+    .toLowerCase()
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .filter((token) => token && token !== "and");
+
+  let total = 0;
+  let current = 0;
+  let sawNumber = false;
+
+  for (const token of tokens) {
+    const small = SMALL_NUMBER_WORDS[token];
+    if (small !== undefined) {
+      current += small;
+      sawNumber = true;
+      continue;
+    }
+
+    if (token === "hundred") {
+      current = Math.max(current, 1) * 100;
+      sawNumber = true;
+      continue;
+    }
+
+    if (token === "thousand") {
+      total += Math.max(current, 1) * 1_000;
+      current = 0;
+      sawNumber = true;
+      continue;
+    }
+
+    if (token === "million") {
+      total += Math.max(current, 1) * 1_000_000;
+      current = 0;
+      sawNumber = true;
+      continue;
+    }
+
+    return undefined;
+  }
+
+  return sawNumber ? total + current : undefined;
+}
+
 function extractMoney(text: string): number | undefined {
   const currencyBefore = text.match(/(?:₦|NGN\s*)\s*([0-9][0-9,]*(?:\.\d+)?)/i);
   if (currencyBefore) return numericAmount(currencyBefore[1]);
@@ -54,12 +130,23 @@ function extractMoney(text: string): number | undefined {
   const currencyAfter = text.match(/([0-9][0-9,]*(?:\.\d+)?)\s*(?:naira|NGN)\b/i);
   if (currencyAfter) return numericAmount(currencyAfter[1]);
 
+  const compactThousands = text.match(/\b([0-9]+(?:\.\d+)?)\s*[kK]\s*(?:naira|NGN)?\b/);
+  if (compactThousands) {
+    const base = Number(compactThousands[1]);
+    if (Number.isFinite(base)) return base * 1_000;
+  }
+
   const scaled = text.match(/\b([0-9]+(?:\.\d+)?)\s*(thousand|million)\s*(?:naira|NGN)?\b/i);
   if (scaled) {
     const base = Number(scaled[1]);
     if (!Number.isFinite(base)) return undefined;
     return base * (scaled[2].toLowerCase() === "million" ? 1_000_000 : 1_000);
   }
+
+  const spokenCurrency = text.match(
+    /\b((?:(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|and)[ -]*)+)\s*(?:naira|NGN)\b/i
+  );
+  if (spokenCurrency) return parseSpokenNumber(spokenCurrency[1]);
 
   return undefined;
 }
@@ -143,7 +230,7 @@ export function extractProviderFactsFromTranscript(
       }
 
       if (
-        /\b(?:total|all[- ]?in|including delivery|how much|cost|final amount|exact amount)\b/i.test(context) ||
+        /\b(?:total|all[- ]?in|including delivery|how much|cost|final amount|exact amount|price)\b/i.test(context) ||
         /\b(?:total|all[- ]?in)\b/i.test(providerText)
       ) {
         facts.total = amount;
