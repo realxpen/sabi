@@ -25,16 +25,23 @@ const EMPTY_FORM: FormState = {
 export function VendorManager() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [token, setToken] = useState("");
+  const [operatorReady, setOperatorReady] = useState(false);
+  const [editingOperatorAccess, setEditingOperatorAccess] = useState(true);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [lastAddedName, setLastAddedName] = useState<string | null>(null);
   const [message, setMessage] = useState<
     { type: "success" | "error"; text: string } | null
   >(null);
 
   useEffect(() => {
     const saved = window.sessionStorage.getItem("sabi-operator-token");
-    if (saved) setToken(saved);
+    if (saved) {
+      setToken(saved);
+      setOperatorReady(true);
+      setEditingOperatorAccess(false);
+    }
 
     void refreshProviders();
   }, []);
@@ -66,15 +73,18 @@ export function VendorManager() {
     if (submitting) return;
 
     if (!token.trim()) {
+      setOperatorReady(false);
+      setEditingOperatorAccess(true);
       setMessage({
         type: "error",
-        text: "Enter the operator token once for this browser session."
+        text: "Unlock operator access once for this browser session."
       });
       return;
     }
 
     setSubmitting(true);
     setMessage(null);
+    setLastAddedName(null);
 
     try {
       const response = await fetch("/api/providers", {
@@ -96,7 +106,10 @@ export function VendorManager() {
 
       if (!response.ok || !result?.data?.id) {
         if (response.status === 401) {
-          throw new Error("That operator token was not accepted.");
+          window.sessionStorage.removeItem("sabi-operator-token");
+          setOperatorReady(false);
+          setEditingOperatorAccess(true);
+          throw new Error("That operator access token was not accepted.");
         }
         throw new Error(
           result?.error === "INVALID_PROVIDER_INPUT"
@@ -106,10 +119,13 @@ export function VendorManager() {
       }
 
       window.sessionStorage.setItem("sabi-operator-token", token.trim());
+      setOperatorReady(true);
+      setEditingOperatorAccess(false);
       setForm(EMPTY_FORM);
+      setLastAddedName(result.data.name);
       setMessage({
         type: "success",
-        text: `${result.data.name} is now available to SABI for live provider discovery.`
+        text: `${result.data.name} is live-ready. SABI can now discover and call this provider in matching live missions.`
       });
       await refreshProviders();
     } catch (error) {
@@ -128,16 +144,41 @@ export function VendorManager() {
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setMessage(null);
+    setLastAddedName(null);
   }
 
   return (
     <div className={styles.layout}>
       <section className={styles.card}>
-        <h2>Add a vendor</h2>
+        <div className={styles.cardHeading}>
+          <div>
+            <span className={styles.kicker}>LIVE PROVIDER ONBOARDING</span>
+            <h2>Add a real provider</h2>
+          </div>
+          <span className={styles.livePill}>Real calls enabled</span>
+        </div>
+
         <p className={styles.cardIntro}>
-          Add a consenting provider once. SABI can then discover the vendor in
-          live missions without editing deployment environment JSON.
+          Add someone who has agreed to receive SABI calls. Once saved, SABI can
+          discover and contact them when a matching live mission runs.
         </p>
+
+        <div className={styles.liveFlow} aria-label="Live vendor demo flow">
+          <div className={styles.flowStep}>
+            <span>1</span>
+            <strong>Add provider</strong>
+          </div>
+          <div className={styles.flowLine} aria-hidden="true" />
+          <div className={styles.flowStep}>
+            <span>2</span>
+            <strong>Start mission</strong>
+          </div>
+          <div className={styles.flowLine} aria-hidden="true" />
+          <div className={styles.flowStep}>
+            <span>3</span>
+            <strong>SABI calls</strong>
+          </div>
+        </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
           <div className={styles.grid}>
@@ -147,7 +188,7 @@ export function VendorManager() {
                 id="vendor-name"
                 value={form.name}
                 onChange={(event) => updateField("name", event.target.value)}
-                placeholder="e.g. Ayo Perfumes"
+                placeholder="e.g. Scent by Lara"
                 required
               />
             </div>
@@ -210,32 +251,50 @@ export function VendorManager() {
               required
             />
             <span>
-              I confirm this vendor has explicitly consented to be contacted by
-              SABI during this live test. Adding them does not trigger a call.
+              I confirm this person has agreed that SABI may call this number
+              during matching live missions.
             </span>
           </label>
 
-          <div className={styles.tokenBox}>
-            <div className={styles.field}>
-              <label htmlFor="operator-token">Operator token</label>
-              <input
-                id="operator-token"
-                type="password"
-                value={token}
-                onChange={(event) => {
-                  setToken(event.target.value);
-                  setMessage(null);
-                }}
-                placeholder="Paste once for this session"
-                autoComplete="off"
-                required
-              />
+          {operatorReady && !editingOperatorAccess ? (
+            <div className={styles.operatorReady}>
+              <div>
+                <span className={styles.readyDot} aria-hidden="true" />
+                <div>
+                  <strong>Operator access ready</strong>
+                  <small>Live onboarding is unlocked for this browser session.</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingOperatorAccess(true)}
+              >
+                Change
+              </button>
             </div>
-            <span>
-              Stored only in this browser tab/session and sent only when you add
-              a vendor. Vendor phone numbers are never returned in directory responses.
-            </span>
-          </div>
+          ) : (
+            <div className={styles.tokenBox}>
+              <div className={styles.field}>
+                <label htmlFor="operator-token">Operator access</label>
+                <input
+                  id="operator-token"
+                  type="password"
+                  value={token}
+                  onChange={(event) => {
+                    setToken(event.target.value);
+                    setMessage(null);
+                  }}
+                  placeholder="Unlock once for this session"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              <span>
+                This protects live vendor onboarding. The token stays in this
+                browser session, and vendor phone numbers remain private on the server.
+              </span>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -247,41 +306,61 @@ export function VendorManager() {
               !form.location.trim() ||
               !form.phone.trim() ||
               languages.length === 0 ||
-              !form.consentedToLiveContact
+              !form.consentedToLiveContact ||
+              !token.trim()
             }
           >
             {submitting ? <span className={styles.spinner} /> : null}
-            {submitting ? "Adding vendor…" : "Add vendor"}
+            {submitting ? "Adding to live network…" : "Add to live network"}
           </button>
 
           {message ? (
-            <p
-              className={`${styles.message} ${
-                message.type === "success" ? styles.success : styles.error
-              }`}
-            >
-              {message.text}
-            </p>
+            message.type === "success" ? (
+              <div className={`${styles.message} ${styles.success} ${styles.successPanel}`}>
+                <div>
+                  <strong>{lastAddedName ?? "Vendor"} is live-ready</strong>
+                  <span>{message.text}</span>
+                </div>
+                <div className={styles.successActions}>
+                  <a href="/" className={styles.primaryAction}>
+                    Start a live mission
+                  </a>
+                  <button
+                    type="button"
+                    className={styles.secondaryAction}
+                    onClick={() => {
+                      setMessage(null);
+                      setLastAddedName(null);
+                    }}
+                  >
+                    Add another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className={`${styles.message} ${styles.error}`}>{message.text}</p>
+            )
           ) : null}
         </form>
       </section>
 
       <aside className={styles.directory}>
         <div className={styles.directoryHeader}>
-          <h2>Live directory</h2>
+          <span className={styles.kicker}>REAL PROVIDERS</span>
+          <h2>Live provider network</h2>
           <p>
-            Persisted vendors SABI can discover. Phone numbers stay private on
-            the server.
+            Consenting providers SABI can discover and contact in live missions.
+            Phone numbers stay private on the server.
           </p>
         </div>
 
         <div className={styles.vendorList}>
           {loadingProviders ? (
-            <div className={styles.empty}>Loading vendors…</div>
+            <div className={styles.empty}>Loading live providers…</div>
           ) : providers.length === 0 ? (
             <div className={styles.empty}>
-              No persisted vendors yet. Your configured test providers still
-              continue to work separately.
+              No live vendors yet. Add someone on the left and they will become
+              available to SABI for matching missions.
             </div>
           ) : (
             providers.map((provider) => (
@@ -289,13 +368,14 @@ export function VendorManager() {
                 <div className={styles.avatar} aria-hidden="true">
                   {provider.name.slice(0, 1).toUpperCase()}
                 </div>
-                <div>
+                <div className={styles.vendorMeta}>
                   <strong>{provider.name}</strong>
                   <span>
                     {provider.category} · {provider.location}
                   </span>
+                  <small>{provider.languages.join(" · ")}</small>
                 </div>
-                <span className={styles.activeBadge}>Active</span>
+                <span className={styles.activeBadge}>Live-ready</span>
               </div>
             ))
           )}
