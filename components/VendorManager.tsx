@@ -8,6 +8,7 @@ type FormState = {
   name: string;
   category: string;
   location: string;
+  currentPhone: string;
   phone: string;
   languages: string;
   consentedToLiveContact: boolean;
@@ -17,6 +18,7 @@ const EMPTY_FORM: FormState = {
   name: "",
   category: "",
   location: "Lagos",
+  currentPhone: "",
   phone: "",
   languages: "English",
   consentedToLiveContact: false
@@ -25,6 +27,7 @@ const EMPTY_FORM: FormState = {
 export function VendorManager() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [lastAddedName, setLastAddedName] = useState<string | null>(null);
@@ -58,6 +61,29 @@ export function VendorManager() {
     [form.languages]
   );
 
+  function resetForm() {
+    setForm(EMPTY_FORM);
+    setEditingProviderId(null);
+    setMessage(null);
+    setLastAddedName(null);
+  }
+
+  function startEditing(provider: Provider) {
+    setEditingProviderId(provider.id);
+    setForm({
+      name: provider.name,
+      category: provider.category,
+      location: provider.location,
+      currentPhone: "",
+      phone: "",
+      languages: provider.languages.join(", "),
+      consentedToLiveContact: false
+    });
+    setMessage(null);
+    setLastAddedName(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
@@ -66,36 +92,61 @@ export function VendorManager() {
     setMessage(null);
     setLastAddedName(null);
 
+    const editing = Boolean(editingProviderId);
+
     try {
       const response = await fetch("/api/providers", {
-        method: "POST",
+        method: editing ? "PATCH" : "POST",
         headers: {
           "content-type": "application/json"
         },
-        body: JSON.stringify({
-          name: form.name,
-          category: form.category,
-          location: form.location,
-          phone: form.phone,
-          languages,
-          consentedToLiveContact: form.consentedToLiveContact
-        })
+        body: JSON.stringify(
+          editing
+            ? {
+                id: editingProviderId,
+                currentPhone: form.currentPhone,
+                name: form.name,
+                category: form.category,
+                location: form.location,
+                ...(form.phone.trim() ? { phone: form.phone } : {}),
+                languages,
+                consentedToLiveContact: form.consentedToLiveContact
+              }
+            : {
+                name: form.name,
+                category: form.category,
+                location: form.location,
+                phone: form.phone,
+                languages,
+                consentedToLiveContact: form.consentedToLiveContact
+              }
+        )
       });
       const result = await response.json().catch(() => null);
 
       if (!response.ok || !result?.data?.id) {
+        if (result?.error === "PROVIDER_EDIT_PHONE_MISMATCH") {
+          throw new Error(
+            "The current phone number did not match this vendor. Use the vendor’s existing phone number to confirm the edit."
+          );
+        }
         throw new Error(
           result?.error === "INVALID_PROVIDER_INPUT"
             ? "Check the vendor details, phone number and consent confirmation."
-            : "SABI could not add this vendor right now."
+            : editing
+              ? "SABI could not update this vendor right now."
+              : "SABI could not add this vendor right now."
         );
       }
 
       setForm(EMPTY_FORM);
+      setEditingProviderId(null);
       setLastAddedName(result.data.name);
       setMessage({
         type: "success",
-        text: `${result.data.name} is live-ready. SABI can now discover and call this provider in matching live missions.`
+        text: editing
+          ? `${result.data.name} was updated. SABI will use the latest saved details and phone number for future live calls.`
+          : `${result.data.name} is live-ready. SABI can now discover and call this provider in matching live missions.`
       });
       await refreshProviders();
     } catch (error) {
@@ -104,7 +155,9 @@ export function VendorManager() {
         text:
           error instanceof Error
             ? error.message
-            : "SABI could not add this vendor right now."
+            : editing
+              ? "SABI could not update this vendor right now."
+              : "SABI could not add this vendor right now."
       });
     } finally {
       setSubmitting(false);
@@ -117,26 +170,39 @@ export function VendorManager() {
     setLastAddedName(null);
   }
 
+  const editing = Boolean(editingProviderId);
+  const submitDisabled =
+    submitting ||
+    !form.name.trim() ||
+    !form.category.trim() ||
+    !form.location.trim() ||
+    (editing ? !form.currentPhone.trim() : !form.phone.trim()) ||
+    languages.length === 0 ||
+    !form.consentedToLiveContact;
+
   return (
     <div className={styles.layout}>
       <section className={styles.card}>
         <div className={styles.cardHeading}>
           <div>
-            <span className={styles.kicker}>LIVE PROVIDER ONBOARDING</span>
-            <h2>Add a real provider</h2>
+            <span className={styles.kicker}>
+              {editing ? "EDIT LIVE PROVIDER" : "LIVE PROVIDER ONBOARDING"}
+            </span>
+            <h2>{editing ? "Edit vendor details" : "Add a real provider"}</h2>
           </div>
           <span className={styles.livePill}>Real calls enabled</span>
         </div>
 
         <p className={styles.cardIntro}>
-          Anyone can join. Add your business or a provider who has agreed to receive SABI calls. Once saved, SABI can
-          discover and contact them when a matching live mission runs.
+          {editing
+            ? "Update the vendor profile or replace the private call number. The current phone is required only to confirm you are editing the correct vendor and is never shown in the directory."
+            : "Anyone can join. Add your business or a provider who has agreed to receive SABI calls. Once saved, SABI can discover and contact them when a matching live mission runs."}
         </p>
 
         <div className={styles.liveFlow} aria-label="Live vendor demo flow">
           <div className={styles.flowStep}>
             <span>1</span>
-            <strong>Add provider</strong>
+            <strong>{editing ? "Edit provider" : "Add provider"}</strong>
           </div>
           <div className={styles.flowLine} aria-hidden="true" />
           <div className={styles.flowStep}>
@@ -187,18 +253,46 @@ export function VendorManager() {
               />
             </div>
 
+            {editing ? (
+              <div className={styles.field}>
+                <label htmlFor="vendor-current-phone">Current phone number</label>
+                <input
+                  id="vendor-current-phone"
+                  value={form.currentPhone}
+                  onChange={(event) => updateField("currentPhone", event.target.value)}
+                  placeholder="Enter current vendor number"
+                  inputMode="tel"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+            ) : (
+              <div className={styles.field}>
+                <label htmlFor="vendor-phone">Phone number</label>
+                <input
+                  id="vendor-phone"
+                  value={form.phone}
+                  onChange={(event) => updateField("phone", event.target.value)}
+                  placeholder="08012345678 or +234…"
+                  inputMode="tel"
+                  required
+                />
+              </div>
+            )}
+          </div>
+
+          {editing ? (
             <div className={styles.field}>
-              <label htmlFor="vendor-phone">Phone number</label>
+              <label htmlFor="vendor-new-phone">New phone number (optional)</label>
               <input
-                id="vendor-phone"
+                id="vendor-new-phone"
                 value={form.phone}
                 onChange={(event) => updateField("phone", event.target.value)}
-                placeholder="08012345678 or +234…"
+                placeholder="Leave blank to keep the current number"
                 inputMode="tel"
-                required
               />
             </div>
-          </div>
+          ) : null}
 
           <div className={styles.field}>
             <label htmlFor="vendor-languages">Languages</label>
@@ -226,22 +320,31 @@ export function VendorManager() {
             </span>
           </label>
 
-          <button
-            type="submit"
-            className={styles.submit}
-            disabled={
-              submitting ||
-              !form.name.trim() ||
-              !form.category.trim() ||
-              !form.location.trim() ||
-              !form.phone.trim() ||
-              languages.length === 0 ||
-              !form.consentedToLiveContact
-            }
-          >
-            {submitting ? <span className={styles.spinner} /> : null}
-            {submitting ? "Adding to live network…" : "Add to live network"}
-          </button>
+          <div className={styles.formActions}>
+            <button
+              type="submit"
+              className={styles.submit}
+              disabled={submitDisabled}
+            >
+              {submitting ? <span className={styles.spinner} /> : null}
+              {submitting
+                ? editing
+                  ? "Saving changes…"
+                  : "Adding to live network…"
+                : editing
+                  ? "Save vendor changes"
+                  : "Add to live network"}
+            </button>
+            {editing ? (
+              <button
+                type="button"
+                className={styles.secondaryAction}
+                onClick={resetForm}
+              >
+                Cancel edit
+              </button>
+            ) : null}
+          </div>
 
           {message ? (
             message.type === "success" ? (
@@ -257,10 +360,7 @@ export function VendorManager() {
                   <button
                     type="button"
                     className={styles.secondaryAction}
-                    onClick={() => {
-                      setMessage(null);
-                      setLastAddedName(null);
-                    }}
+                    onClick={resetForm}
                   >
                     Add another
                   </button>
@@ -304,7 +404,16 @@ export function VendorManager() {
                   </span>
                   <small>{provider.languages.join(" · ")}</small>
                 </div>
-                <span className={styles.activeBadge}>Live-ready</span>
+                <div className={styles.vendorActions}>
+                  <span className={styles.activeBadge}>Live-ready</span>
+                  <button
+                    type="button"
+                    className={styles.editButton}
+                    onClick={() => startEditing(provider)}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             ))
           )}
