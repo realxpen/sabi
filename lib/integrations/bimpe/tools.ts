@@ -142,44 +142,31 @@ export async function recordQuoteForAgent(
   return saveMissionSnapshot({ ...snapshot, quotes });
 }
 
-function normalizeBimpeBoolean(value: unknown) {
+const bimpeBooleanSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
   const normalized = value.trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
   return value;
-}
+}, z.boolean());
 
-function normalizeOptionalBimpeNumber(value: unknown) {
-  if (value === undefined || value === null) return undefined;
+const bimpeNumberSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
-
   const normalized = value.trim();
-  if (normalized === "") return undefined;
-
+  if (!normalized) return value;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : value;
-}
-
-const bimpeBooleanSchema = z.preprocess(normalizeBimpeBoolean, z.boolean());
-const optionalPositiveBimpeNumberSchema = z.preprocess(
-  normalizeOptionalBimpeNumber,
-  z.number().positive().optional()
-);
-const optionalNonnegativeBimpeNumberSchema = z.preprocess(
-  normalizeOptionalBimpeNumber,
-  z.number().nonnegative().optional()
-);
+}, z.number());
 
 export const recordProviderResponseToolInputSchema = z.object({
   missionId: z.string().trim().min(1),
   communicationId: z.string().trim().min(1),
   available: bimpeBooleanSchema,
-  quantity: optionalPositiveBimpeNumberSchema,
+  quantity: bimpeNumberSchema.pipe(z.number().positive()).optional(),
   unit: z.string().trim().min(1).optional(),
-  price: optionalNonnegativeBimpeNumberSchema,
-  deliveryFee: optionalNonnegativeBimpeNumberSchema,
-  total: optionalNonnegativeBimpeNumberSchema,
+  price: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
+  deliveryFee: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
+  total: bimpeNumberSchema.pipe(z.number().nonnegative()).optional(),
   deliveryDate: z.string().trim().min(1).optional(),
   notes: z.string().trim().min(1).optional()
 });
@@ -273,8 +260,29 @@ export async function recordProviderResponseForAgent(
       : candidate
   );
 
+  const advancedFromContacting = snapshot.mission.status === "CONTACTING";
+  const mission = advancedFromContacting
+    ? transitionMission(snapshot.mission, "COLLECTING_QUOTES")
+    : snapshot.mission;
+  const steps = advancedFromContacting
+    ? [
+        ...snapshot.steps,
+        missionStepSchema.parse({
+          id: `step-${randomUUID()}`,
+          missionId: snapshot.mission.id,
+          type: "COLLECT_QUOTES",
+          status: "COMPLETED",
+          message:
+            "Verified provider response recorded. Mission advanced to quote collection without additional provider contact.",
+          createdAt: new Date().toISOString()
+        })
+      ]
+    : snapshot.steps;
+
   const persisted = await saveMissionSnapshot({
     ...snapshot,
+    mission,
+    steps,
     communications,
     quotes
   });
