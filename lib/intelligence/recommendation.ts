@@ -68,6 +68,32 @@ function quoteEvidenceSourceLabel(source: Quote["source"]): string {
   }
 }
 
+function latestQuotePerProvider(quotes: Quote[]): Quote[] {
+  const latest = new Map<string, Quote>();
+
+  for (const quote of quotes) {
+    const current = latest.get(quote.providerId);
+    if (!current) {
+      latest.set(quote.providerId, quote);
+      continue;
+    }
+
+    const currentTime = Date.parse(current.createdAt);
+    const candidateTime = Date.parse(quote.createdAt);
+    const candidateIsLater =
+      Number.isFinite(candidateTime) &&
+      (!Number.isFinite(currentTime) || candidateTime > currentTime);
+    const sameTimestampButLaterId =
+      candidateTime === currentTime && quote.id.localeCompare(current.id) > 0;
+
+    if (candidateIsLater || sameTimestampButLaterId) {
+      latest.set(quote.providerId, quote);
+    }
+  }
+
+  return [...latest.values()];
+}
+
 export function recommend(
   mission: Mission,
   providers: Provider[],
@@ -78,7 +104,12 @@ export function recommend(
     deadline: normalizeRelativeDeadline(mission.deadline, mission.createdAt)
   };
 
-  const evaluations = evaluateCandidates(normalizedMission, providers, quotes);
+  // Preserve all historical Quotes in mission storage for auditability, but only
+  // evaluate the latest evidence-backed Quote from each provider. Follow-up calls
+  // may supersede earlier incomplete evidence and must not leave stale UNKNOWN
+  // candidates blocking a deterministic decision.
+  const currentQuotes = latestQuotePerProvider(quotes);
+  const evaluations = evaluateCandidates(normalizedMission, providers, currentQuotes);
   const ranked = rankQualifyingCandidates(evaluations);
   const pendingEvidence = rankEvidencePendingCandidates(evaluations);
   const selected = ranked[0];
