@@ -4,6 +4,7 @@ import {
   type ExclusionReason,
   type UncertaintyReason
 } from "./constraints";
+import { normalizeRelativeDeadline } from "./deadline-normalization";
 import {
   rankEvidencePendingCandidates,
   rankQualifyingCandidates,
@@ -72,7 +73,12 @@ export function recommend(
   providers: Provider[],
   quotes: Quote[]
 ): RecommendationResult {
-  const evaluations = evaluateCandidates(mission, providers, quotes);
+  const normalizedMission: Mission = {
+    ...mission,
+    deadline: normalizeRelativeDeadline(mission.deadline, mission.createdAt)
+  };
+
+  const evaluations = evaluateCandidates(normalizedMission, providers, quotes);
   const ranked = rankQualifyingCandidates(evaluations);
   const pendingEvidence = rankEvidencePendingCandidates(evaluations);
   const selected = ranked[0];
