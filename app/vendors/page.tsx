@@ -8,10 +8,10 @@ export default function VendorsPage() {
       <header className="missionHeader">
         <div>
           <div className="eyebrow">SABI</div>
-          <h1>Vendors</h1>
+          <h1>Live provider network</h1>
           <p className="lede">
-            Add a consenting provider once, then let SABI discover them in live
-            missions without editing deployment configuration.
+            Add real consenting providers to SABI. Once they are live-ready,
+            matching missions can discover and contact them for real.
           </p>
         </div>
         <a href="/" className="backLink">
