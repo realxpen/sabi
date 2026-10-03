@@ -49,7 +49,7 @@ function statusMessage(snapshot: MissionSnapshot): string {
     case "CANCELLED":
       return "This mission was cancelled. No further action will be taken.";
     case "FAILED":
-      return "I couldn’t complete this mission safely. The technical details below explain what blocked it.";
+      return "I couldn’t complete this mission safely, so I stopped without committing anything.";
     case "ESCALATED":
       return "This mission needs human attention before SABI can continue.";
     default:
